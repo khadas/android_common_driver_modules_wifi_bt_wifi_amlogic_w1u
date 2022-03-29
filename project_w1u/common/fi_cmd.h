@@ -36,6 +36,7 @@
 #define vsdb_set_cmd 0x22
 #define Beacon_Enable_Cmd 0x24
 #define ADDBA_OK_CMD 0x2a
+#define TXPWR_CFFC_CFG_CMD 0x2e
 #define RegStaID_CMD 0x30
 #define UnRegStaID_CMD 0x31
 #define UnRegAllStaID_CMD 0x32
@@ -85,6 +86,16 @@
 #define ALL_MULTIKEY_RST 0xdddd
 
 #pragma pack(1)
+
+struct tx_trb_info
+{
+    /* The number of pages needed for a single transfer */
+    unsigned int trb_num;
+    /* Total length of transmission */
+    unsigned int total_len;
+    /* Actual size used for each page */
+    unsigned short buffer_size[128];
+};
 
 //Set Page_Len Cmd
 typedef struct PagelenCmd
@@ -460,7 +471,7 @@ enum {
     CHANNEL_CONNECT_FLAG = BIT(1),
     CHANNEL_NO_EVENT_FLAG = BIT(2),
     CHANNEL_RSSI_FLAG = BIT(3),
-    CHANNEL_RSSI_PWR_FLAG = BIT(4)
+    CHANNEL_RSSI_PWR_FLAG = BIT(4),
 };
 
 typedef struct Channel_Switch
@@ -507,20 +518,56 @@ typedef struct tx_error_event
     unsigned int frame_type;
 } tx_error_event;
 
+typedef struct dpd_calibration_event
+{
+    struct fw_event_basic_info basic_info;
+    unsigned int dpd_state;
+} dpd_calibration_event;
+
+enum {
+    dpd_calibration_start,
+    dpd_calibration_end,
+};
+
+
 #define TSSI_5G_CAL_NUM 4
+
+typedef struct txtssi_ratio_limit_param
+{
+    unsigned char enable;
+    unsigned char wf2g_ratio_limit;
+    unsigned char wf5g_ratio_limit;
+    unsigned char reserved;
+} txtssi_ratio_limit_param;
+
+typedef struct digital_gain_limit_param
+{
+    unsigned char enable;
+    unsigned char min_2g;
+    unsigned char max_2g;
+    unsigned char min_5g;
+    unsigned char max_5g;
+    unsigned char resv[3];
+} digital_gain_limit_param;
+
 typedef struct Cali_Param
 {
     unsigned char Cmd;
-    unsigned char version;
+    unsigned int version;
     unsigned short cali_config;
     unsigned char freq_offset;
     unsigned char htemp_freq_offset;
+    unsigned char cca_ed_det;
     unsigned char tssi_2g_offset;
-    unsigned char tssi_5g_offset[TSSI_5G_CAL_NUM];
     unsigned char wf2g_spur_rmen;
-    unsigned short spur_freq;
     unsigned char rf_num;
+    unsigned char tssi_5g_offset[6];
     unsigned char wftx_pwrtbl_en;
+    unsigned char resv;
+    txtssi_ratio_limit_param txtssi_ratio_limit;
+    digital_gain_limit_param digital_gain_limit;
+    unsigned short spur_freq;
+    unsigned short platform_versionid;
 } Cali_Param;
 
 typedef struct WF2G_Txpwr_Param
@@ -537,6 +584,14 @@ typedef struct WF5G_Txpwr_Param
     unsigned char wf5g_pwr_tbl[3][16];
 } WF5G_Txpwr_Param;
 
+typedef struct Txpwr_Cffc_Cfg_Param
+{
+    unsigned char Cmd;
+    unsigned char coefficient[57];
+    unsigned char reserve[2];
+    unsigned char band[4];
+} Txpwr_Cffc_Cfg_Param;
+
 typedef struct Phy_U_Interface_Param
 {
     unsigned char Cmd;
@@ -544,7 +599,6 @@ typedef struct Phy_U_Interface_Param
     unsigned char interface_enable;
     unsigned char reserve[5];
 } Phy_U_Interface_Param;
-
 
 typedef struct Phy_Interface_Param
 {
@@ -607,6 +661,7 @@ typedef union FI_CMDFIFO_PARAM
     struct WF2G_Txpwr_Param wf2g_txpwr_cmd;
     struct WF5G_Txpwr_Param wf5g_txpwr_cmd;
     struct PagelenCmd page_len_cmd;
+    struct Txpwr_Cffc_Cfg_Param txpwr_cffc_cfg_cmd;
     struct New_Cmd new_cmd;
 } FI_CMDFIFO_PARAM;
 

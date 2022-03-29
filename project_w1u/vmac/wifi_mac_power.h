@@ -224,8 +224,8 @@ int wifi_mac_buffer_txq_enqueue (struct sk_buff_head *pstxqueue, struct sk_buff 
 int wifi_mac_forward_txq_enqueue (struct sk_buff_head *fwdtxqueue, struct sk_buff *skb);
 int wifi_mac_pwrsave_is_wnet_vif_sleeping (struct wlan_net_vif *wnet_vif);
 void wifi_mac_pwrsave_sta_trigger (struct wlan_net_vif *wnet_vif);
-int wifi_mac_buffer_txq_send_pre (struct wlan_net_vif *wnet_vif);
-int wifi_mac_retransmit_send(struct wifi_mac *wifimac);
+int wifi_mac_buffer_txq_send(struct sk_buff_head *txqueue);
+int wifi_mac_buffer_txq_send_pre(struct wlan_net_vif *wnet_vif);
 int wifi_mac_pwrsave_is_wnet_vif_fullsleep (struct wlan_net_vif *wnet_vif);
 int wifi_mac_pwrsave_if_ap_can_opps (struct wlan_net_vif *wnet_vif);
 int wifi_mac_pwrsave_sta_uapsd_trigger (void *arg);

@@ -180,7 +180,7 @@ void wifi_mac_trigger_sae(struct wifi_station *sta)
 {
     struct cfg80211_external_auth_params params = {0};
 
-    printk("%s\n", __func__);
+    AML_OUTPUT("\n");
     params.key_mgmt_suite = 0x00;
     params.key_mgmt_suite |= 0x0F << 8;
     params.key_mgmt_suite |= 0xAC << 16;

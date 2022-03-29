@@ -25,85 +25,32 @@ struct sk_buff g_skbuffer[MAX_SKB_NUM];
 #include "fi_sdio.h"
 #include "wifi_rate_ctrl.h"
 #include "wifi_pkt_desc.h"
-
-static struct ieee80211_channel aml_2ghz_channels[] = {
-	CHAN2G(1, 2412, 0),
-	CHAN2G(2, 2417, 0),
-	CHAN2G(3, 2422, 0),
-	CHAN2G(4, 2427, 0),
-	CHAN2G(5, 2432, 0),
-	CHAN2G(6, 2437, 0),
-	CHAN2G(7, 2442, 0),
-	CHAN2G(8, 2447, 0),
-	CHAN2G(9, 2452, 0),
-	CHAN2G(10, 2457, 0),
-	CHAN2G(11, 2462, 0),
-	CHAN2G(12, 2467, 0),
-	CHAN2G(13, 2472, 0),
-	CHAN2G(14, 2484, 0),
-};
-
-static struct ieee80211_rate aml_legacy_rates[] = {
-	RATETAB_ENT(10, 0x1, 0),
-	RATETAB_ENT(20, 0x2, 0),
-	RATETAB_ENT(55, 0x4, 0),
-	RATETAB_ENT(110, 0x8, 0),
-	RATETAB_ENT(60, 0x10, 0),
-	RATETAB_ENT(90, 0x20, 0),
-	RATETAB_ENT(120, 0x40, 0),
-	RATETAB_ENT(180, 0x80, 0),
-	RATETAB_ENT(240, 0x100, 0),
-	RATETAB_ENT(360, 0x200, 0),
-	RATETAB_ENT(480, 0x400, 0),
-	RATETAB_ENT(540, 0x800, 0),
-};
-
-static struct ieee80211_channel aml_5ghz_channels[] = {
-	CHAN5G(34, 0), CHAN5G(36, 0),
-	CHAN5G(38, 0), CHAN5G(40, 0),
-	CHAN5G(42, 0), CHAN5G(44, 0),
-	CHAN5G(46, 0), CHAN5G(48, 0),
-	CHAN5G(52, 0), CHAN5G(56, 0),
-	CHAN5G(60, 0), CHAN5G(64, 0),
-	CHAN5G(100, 0), CHAN5G(104, 0),
-	CHAN5G(108, 0), CHAN5G(112, 0),
-	CHAN5G(116, 0), CHAN5G(120, 0),
-	CHAN5G(124, 0), CHAN5G(128, 0),
-	CHAN5G(132, 0), CHAN5G(136, 0),
-	CHAN5G(140, 0), CHAN5G(149, 0),
-	CHAN5G(153, 0), CHAN5G(157, 0),
-	CHAN5G(161, 0), CHAN5G(165, 0),
-	CHAN5G(184, 0), CHAN5G(188, 0),
-	CHAN5G(192, 0), CHAN5G(196, 0),
-	CHAN5G(200, 0), CHAN5G(204, 0),
-	CHAN5G(208, 0), CHAN5G(212, 0),
-	CHAN5G(216, 0),
-};
+#include "wifi_cfg80211.h"
 
 static struct ieee80211_supported_band aml_band_24ghz = {
-	.n_channels = ARRAY_SIZE(aml_2ghz_channels),
+	.n_channels = AML_2G_CHANNELS_NUM,
 	.channels = aml_2ghz_channels,
 	.band = IEEE80211_BAND_2GHZ,
-	.n_bitrates = aml_legacy_rates_size,
-	.bitrates = aml_legacy_rates,
+	.n_bitrates = AML_G_RATES_NUM,
+	.bitrates = aml_g_rates,
 	.ht_cap.cap = 0,/*Need to be initialized later*/
 	.ht_cap.ht_supported = true,
 };
 
 static struct ieee80211_supported_band aml_band_5ghz = {
-	.n_channels = ARRAY_SIZE(aml_5ghz_channels),
+	.n_channels = AML_5G_CHANNELS_NUM,
 	.channels = aml_5ghz_channels,
 	.band = IEEE80211_BAND_5GHZ,
-	.n_bitrates = aml_legacy_rates_size - 4 ,/*Eliminate 11b rate*/
-	.bitrates = aml_legacy_rates + 4,/*Eliminate 11b rate*/
+	.n_bitrates = AML_A_RATES_NUM,/*Eliminate 11b rate*/
+	.bitrates = aml_a_rates,/*Eliminate 11b rate*/
 	.ht_cap.cap = 0,  /*Need to be initialized later*/
 	.ht_cap.ht_supported = true,
 };
 
 short rssi_threshold[3][10] = {
-	{555, -70, -75, -76, -77, -82, -85, -89, -94},
+	{555, -60, -65, -68, -73, -76, -83, -85, -87},
 	{-66, -67, -72, -73, -74, -79, -82, -86, -88},
-	{-62, -64, -68, -69, -71, -76, -79, -82, -85},
+	{-61, -62, -72, -76, -77, -81, -84, -88, -94},
 };
 
 short snr_threshold[3][10] = {
@@ -242,7 +189,7 @@ void aml_minstrel_detach(void)
 {
     struct minstrel_rate_control_ops *p_rate_control_ops = NULL;
 
-    printk("%s\n", __func__);
+    AML_OUTPUT("\n");
     g_aml_rate_adaptation_dev.ht_cap_info = 0;
     p_rate_control_ops = get_rate_control_ops();
     p_rate_control_ops->free(g_minstel_pri);
@@ -350,12 +297,12 @@ void aml_rate_adaptation_dev_init(struct wifi_station *sta, int rate_mode, unsig
         int i = 0;
         g_aml_rate_adaptation_dev.sband = &aml_band_24ghz;
 
-        printk("support rate start\n");
+        AML_OUTPUT("support rate start\n");
         for (i = 0; i < sta->sta_rates.dot11_rate_num; i++)
         {
-            printk("%02x  ",sta->sta_rates.dot11_rate[i]);
+            AML_OUTPUT("%02x  \n",sta->sta_rates.dot11_rate[i]);
         }
-        printk("\n");
+        AML_OUTPUT("\n");
     } else {
         g_aml_rate_adaptation_dev.sband = &aml_band_5ghz;
         g_aml_rate_adaptation_dev.sband->vht_cap = aml_create_vht_cap(&g_aml_rate_adaptation_dev, rate_mode);
@@ -387,7 +334,7 @@ unsigned char get_fitable_mcs_rate(struct wifi_station *sta, unsigned char bw) {
     unsigned char max_rate_rssi = 0;
     unsigned char max_rate_snr = 0;
     unsigned char max_rate = 0;
-    char rssi_offset = 6;
+    char rssi_offset = 20;
     char snr_offset = 0;
 
     if (sta->sta_wnet_vif->vm_opmode == WIFINET_M_HOSTAP)
@@ -398,6 +345,8 @@ unsigned char get_fitable_mcs_rate(struct wifi_station *sta, unsigned char bw) {
     if((aml_wifi_get_platform_verid() == 1) || (aml_wifi_get_platform_verid() == 2)) {
         /*this is for gva only*/
         rssi_offset = 10;
+    } else if (sta->sta_avg_bcn_rssi >= sta->sta_avg_data_rssi) {
+        rssi_offset = sta->sta_avg_bcn_rssi - sta->sta_avg_data_rssi;
     }
 
     if (avg_rssi >= rssi_threshold[bw][0] + rssi_offset) {
@@ -576,17 +525,17 @@ void aml_minstrel_deinit(void *p_sta)
     struct wifi_station *sta = (struct wifi_station *)p_sta;
     struct minstrel_rate_control_ops* p_rate_control_ops = NULL;
     struct minstrel_rate_control_ops *p_rate_control_ops_ht = NULL;
-    printk("%s:%04x ", __func__, sta->sta_flags);
+    AML_OUTPUT("%04x \n", sta->sta_flags);
 
     if ((sta->sta_flags & WIFINET_NODE_VHT) || (sta->sta_flags & WIFINET_NODE_HT)) {
         p_rate_control_ops_ht = get_rate_control_ops_ht();
-        printk("ht free:%p\n", sta->sta_minstrel_ht_priv);
+        AML_OUTPUT("ht free:%p\n", sta->sta_minstrel_ht_priv);
         p_rate_control_ops_ht->free_sta(sta->sta_minstrel_ht_priv);
         sta->sta_minstrel_ht_priv = NULL;
 
     } else {
         p_rate_control_ops = get_rate_control_ops();
-        printk("free:%p\n", sta->sta_minstrel_info);
+        AML_OUTPUT("free:%p\n", sta->sta_minstrel_info);
         p_rate_control_ops->free_sta(sta->sta_minstrel_info);
         sta->sta_minstrel_info = NULL;
     }
@@ -651,7 +600,13 @@ int check_is_rate_fitable(struct wifi_station *sta, struct ieee80211_tx_info *in
         return -1;
 
     fitable_bw = get_fitable_bw(sta);
-    if (bw < fitable_bw) {
+
+    if (mi->sample_clear_flag) {
+        minstrel_clear_unfitable_prob_ewma(mi);
+        mi->sample_clear_flag = 0;
+    }
+
+    if ((!mi->sample_all_bw) && (bw < fitable_bw)) {
         AML_PRINT(AML_DBG_MODULES_RATE_CTR, "bandwidth too low, no need to sample. bw:%d, fitable_bw:%d\n", bw, fitable_bw);
         return -1;
     }
@@ -951,7 +906,7 @@ void minstrel_tx_complete(
         priv_sta = p_minstrel_sta_info;
     }
 
-    p_rate_control_ops->tx_status(g_minstel_pri, g_aml_rate_adaptation_dev.sband,  priv_sta, &info);
+    p_rate_control_ops->tx_status(g_minstel_pri, g_aml_rate_adaptation_dev.sband,  priv_sta, &info,p_sta);
 }
 
 void  minstrel_set_sta_bandwidth( int bw )

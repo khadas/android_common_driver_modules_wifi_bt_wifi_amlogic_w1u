@@ -83,10 +83,16 @@ endif
 
 ifneq ($(KERNELRELEASE),)
 
-obj-m += w1u_sdio.o
-w1u_sdio-objs += w1_sdio/w1_sdio.o
-obj-m += w1u_usb.o
-w1u_usb-objs += usb_interface/usb_common.o
+obj-m += aml_com.o
+aml_com-objs:=\
+	aml_bus/aml_phy.o\
+	w1_sdio/w1_sdio.o\
+	usb_interface/usb_common.o
+#obj-m += w1u_sdio.o
+#w1u_sdio-objs += w1_sdio/w1_sdio.o
+#obj-m += w1u_usb.o
+#w1u_usb-objs += usb_interface/usb_common.o
+
 
 obj-m += $(TARGET).o
 DISCARD :=
@@ -170,6 +176,7 @@ clean:
 	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions *.order *.symvers
 	rm -rf ./rf_t9026/*.o ./rf_t9026/.*.cmd ./w1_sdio/*.o ./w1_sdio/.*.cmd ./w1_sdio/.*.o.d
 	rm -rf ./usb_interface/*.o ./usb_interface/.*.cmd ./usb_interface/.*.o.d
+	rm -rf ./aml_bus/*.o ./aml_bus/.*.cmd ./aml_bus/.*.o.d
 	rm -rf ./crypto/*.o ./crypto/.*.cmd
 	rm -rf ./print_version.c
 

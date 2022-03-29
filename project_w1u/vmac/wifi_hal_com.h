@@ -351,7 +351,6 @@ struct  hal_work_task
     SYS_TYPE param5;
 } ;
 
-
 /****************************** aml fwdownload**************************************************/
 #ifdef PROJECT_T9026
 
@@ -369,17 +368,16 @@ struct  hal_work_task
 #define ICCM_CHECK
 
 #elif defined(PROJECT_W1)
+#define ICCM_ROM_LEN    (128 * 1024)
+#define ICCM_RAM_LEN    (64 * 1024)
+#define DCCM_LEN        (48 * 1024)
+#define SRAM_LEN        (32 * 1024)
+#define ICCM_ALL_LEN    (ICCM_ROM_LEN + ICCM_RAM_LEN)
 
 // for check
-#define ICCM_BUFFER_RD_LEN (160*1024)
-#define ICCM_CHECK_LEN (96*1024)
-#define DCCM_CHECK_LEN (48*1024)
-
-#define ICCM_ALL_LEN (160*1024)
-#define ICCM_ROM_LEN (96*1024)
-#define ICCM_RAM_LEN (64*1024)
-#define DCCM_LEN (48*1024)
-#define SRAM_LEN (8*1024)
+#define ICCM_BUFFER_RD_LEN  (ICCM_RAM_LEN)
+#define ICCM_CHECK_LEN      (ICCM_RAM_LEN)
+#define DCCM_CHECK_LEN      (DCCM_LEN)
 
 #ifdef HAL_FPGA_VER
 #define ICCM_CHECK
@@ -436,11 +434,13 @@ struct  hal_work_task
 /* tx+rx page <= 448 pagenum, the other pages 512-(tx+rx)
     (at least 32KB) are for captuer or dpd traning */
 #define DEFAULT_TXPAGENUM 224
+#define USB_DEFAULT_TXPAGENUM 220 //4k for dpd
 
 #ifdef SRAM_FULL_TEST
 #define DEFAULT_RXPAGENUM 20
 #else
 #define DEFAULT_RXPAGENUM 224
+#define USB_DEFAULT_RXPAGENUM 220 //4k for dpd
 #endif
 #define PT_MODE 1
 #define DEFAULT_BCN_NUM             4
@@ -456,7 +456,7 @@ struct  hal_work_task
 
 #if defined (HAL_FPGA_VER)
 #define RX_FIFO_SIZE  ( 4*DEFAULT_RXPAGENUM*(PAGE_LEN))
-#define USB_RX_FIFO_SIZE (DEFAULT_RXPAGENUM*2048)
+#define USB_RX_FIFO_SIZE (USB_DEFAULT_RXPAGENUM*2048)
 #define MAX_SEM_CNT 2
 #endif
 
@@ -503,6 +503,8 @@ struct  hal_work_task
     unsigned int Tx_Send_num;
     unsigned int Tx_Done_num;
     unsigned int Tx_Free_num;    //num of tx frames have been freed after tx completed
+    unsigned int tx_ok_num;
+    unsigned int tx_fail_num;
     unsigned int Rx_Rcv_num;
     unsigned int PushDownEvent_Err_num;
     unsigned int PushDownCmd_Err_num;
@@ -522,8 +524,6 @@ struct  hal_work_task
     struct hi_tx_desc *pTxDPape;
     struct sk_buff *ampduskb;
     unsigned char txqueueid;
-    unsigned char staid;
-    unsigned short SN;
 } ;
 
  struct fw_rx_desc
@@ -606,15 +606,6 @@ struct common_static_param
 {
     char *bus_type;
     unsigned int tx_page_len;
-/*for firmware download use*/
-    unsigned int all_len;
-    unsigned int iccm_rom_len;
-    unsigned int iccm_ram_len;
-    unsigned int dccm_len;
-    unsigned int sram_len;
-    unsigned int iccm_buf_rd_len;
-    unsigned int iccm_check_len;
-    unsigned int dccm_check_len;
 };
 
 struct  hw_interface
@@ -648,7 +639,6 @@ struct  hw_interface
     unsigned long callback;
     unsigned char valid;
     unsigned char txqueueid;
-    unsigned short SN;
 } ;
 
 #define MAX_PN_LEN      16
@@ -659,10 +649,6 @@ struct  hw_interface
 #define MAX_TX_QUEUE    1   //tx PN of all tids are merged into one ac, we can keep the increase
 #define TX_UNICAST_REPCNT_ID 0
 
-#define DP_AC_BK          3  /* Background                          */
-#define DP_AC_BE          2  /* Best effort                         */
-#define DP_AC_VI          1  /* Video                                   */
-#define DP_AC_VO          0  /* Voice                                   */
 
     unsigned char txPN[MAX_TX_QUEUE/*macx ac queue num*/][MAX_PN_LEN]; //see HW_TxOption PN
     unsigned char rxPN[MAX_RX_QUEUE/*macx ac queue num*/][MAX_PN_LEN]; //see HW_RxDescripter_bit PN
@@ -765,7 +751,9 @@ struct  hw_interface
 
 // last 1024 word memory of sram for dpd trainning
 #define DPD_MEMORY_ADDR (0x00b00000 + (512 * PAGE_LEN) - (8 * PAGE_LEN))
-//#define USB_DPD_MEMORY_ADDR (0x00b00000 + (512 * PAGE_LEN * 4) - (8 * PAGE_LEN *4))
+//#define USB_DPD_MEMORY_ADDR (0x00900000 + (PAGE_LEN * DEFAULT_TXPAGENUM * 2) - (8 * PAGE_LEN))
+#define USB_DPD_MEMORY_ADDR (0x00b00000)
+
 #define DPD_MEMORY_LEN (1024 * 4)
 
 //(0x00b00000 + (512 * PAGE_LEN) - (64 * PAGE_LEN))
@@ -964,7 +952,7 @@ struct hal_layer_ops
     unsigned char hal_suspend_mode;
     atomic_t sdio_suspend_cnt;
     atomic_t drv_suspend_cnt;
-
+    atomic_t usb_isr_done;
     struct _CO_SHARED_FIFO txds_trista_fifo[HAL_NUM_TX_QUEUES];
     struct fw_txdesc_fifo  txds_trista_fifo_buf[HI_AGG_TXD_NUM_ALL_QUEUE];
 
@@ -1006,7 +994,6 @@ struct hal_layer_ops
     unsigned char HalTxFrameDoneCounter;  //old counter of frames have been tx completed
     unsigned int HalRxFrameDoneCounter;  //old counter of frames have been rxed from firmware
     unsigned short HalTxPageDoneCounter;   //old counter of pages have been tx completed
-    unsigned int st_frame_done_counter;
 
     unsigned char use_irq;
     int tx_queueid_downloadok; //the id of queue which has been downloaded ok, init as 0
@@ -1032,6 +1019,10 @@ struct hal_layer_ops
     unsigned int sts_en_bcn[2];
     unsigned int sts_dis_bcn[2];
 #endif
+    unsigned char dpd_suspend;
+    unsigned char dpd_delay_cail;
+    unsigned char dpd_wait_pkt_clear;
+
 };
 
 /*** aml platform***/

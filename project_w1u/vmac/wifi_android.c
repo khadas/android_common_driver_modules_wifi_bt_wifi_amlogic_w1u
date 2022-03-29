@@ -57,6 +57,7 @@ const char *android_wifi_cmd_str[ANDROID_WIFI_CMD_MAX] =
     "WFD-SET-TCPPORT",
     "WFD-SET-MAXTPUT",
     "WFD-SET-DEVTYPE",
+    "RESET",
 
 };
 static int aml_android_get_rssi(struct wlan_net_vif *wnet_vif, char *command, int total_len)
@@ -71,7 +72,7 @@ static int aml_android_get_rssi(struct wlan_net_vif *wnet_vif, char *command, in
             bytes_written += snprintf(&command[bytes_written], total_len, "%s rssi %d\n",
                 wnet_vif->vm_mainsta->sta_essid, rssi);
 
-            printk("sta_avg_rssi:%d, sta_avg_bcn_rssi:%d\n",
+            AML_OUTPUT("sta_avg_rssi:%d, sta_avg_bcn_rssi:%d\n",
                 (wnet_vif->vm_mainsta->sta_avg_rssi - 255), wnet_vif->vm_mainsta->sta_avg_bcn_rssi);
         }
     }
@@ -152,7 +153,7 @@ static int wl_android_wifi_on(struct net_device *dev)
 {
     int ret = 0;
 
-    printk("%s in\n", __FUNCTION__);
+    AML_OUTPUT("in\n");
     if (!dev)
     {
         ERROR_DEBUG_OUT("dev is null\n");
@@ -167,7 +168,7 @@ static int wl_android_wifi_off(struct net_device *dev)
 {
     int ret = 0;
 
-    printk("%s in\n", __FUNCTION__);
+    AML_OUTPUT("in\n");
     if (!dev)
     {
         ERROR_DEBUG_OUT("dev is null\n");
@@ -425,6 +426,25 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
             break;
         }
 #endif
+
+        case ANDROID_WIFI_CMD_FW_REPAIR:
+        {
+#if 0
+            struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+
+            WIFINET_FW_STAT_LOCK(wifimac);
+            if (wifimac->recovery_stat != WIFINET_RECOVERY_END) {
+                WIFINET_FW_STAT_UNLOCK(wifimac);
+                break;
+            }
+            wifimac->recovery_stat = WIFINET_RECOVERY_START;
+            WIFINET_FW_STAT_UNLOCK(wifimac);
+
+            wifimac->drv_priv->drv_ops.fw_repair(wifimac->drv_priv);
+            wifimac->recovery_stat = WIFINET_RECOVERY_END;
+#endif
+            break;
+        }
 
         default:
             DPRINTF(AML_DEBUG_ANDROID,"Unknown PRIVATE command %s - ignored\n", command);

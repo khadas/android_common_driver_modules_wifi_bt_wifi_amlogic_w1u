@@ -309,7 +309,7 @@ typedef union RG_TOP_A11_FIELD
 
 #define RG_TOP_A12                                (RF_D_TOP_REG_BASE + 0x4c)
 // Bit 4   :0      rg_wf_dac_rc_adj_q             U     RW        default = 'h8
-// Bit 12  :5      rg_wf_dac_rsv                  U     RW        default = 'h77
+// Bit 12  :5      rg_wf5g_dac_rsv                U     RW        default = 'h77
 // Bit 15  :13     rg_wf_dac_vimc_i               U     RW        default = 'h0
 // Bit 18  :16     rg_wf_dac_vimc_q               U     RW        default = 'h0
 // Bit 20  :19     rg_wf_dac_pole_sel             U     RW        default = 'h0
@@ -325,7 +325,7 @@ typedef union RG_TOP_A12_FIELD
   struct
   {
     unsigned int rg_wf_dac_rc_adj_q : 5;
-    unsigned int rg_wf_dac_rsv : 8;
+    unsigned int rg_wf5g_dac_rsv : 8;
     unsigned int rg_wf_dac_vimc_i : 3;
     unsigned int rg_wf_dac_vimc_q : 3;
     unsigned int rg_wf_dac_pole_sel : 2;

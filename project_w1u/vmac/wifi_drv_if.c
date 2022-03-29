@@ -37,7 +37,7 @@ int drv_hal_detach(void)
 
     hal_priv->hal_ops.hal_exit();
     drv_hal_workitem_free();
-    printk("<running> %s %d \n",__func__,__LINE__);
+    AML_OUTPUT("<running>\n");
     return 0;
 }
 
@@ -391,7 +391,7 @@ int drv_hal_add_workitem(WorkHandler task, WorkHandler taskcallback, SYS_TYPE pa
         task_repeat++;
 
         if ((task_repeat % 10) == 0) {
-            printk("task is %p\n", task);
+            AML_OUTPUT("task is %p\n", task);
             task_repeat = 0;
         }
 
@@ -400,22 +400,24 @@ int drv_hal_add_workitem(WorkHandler task, WorkHandler taskcallback, SYS_TYPE pa
     }
 
     pWorkTask = ( struct hal_work_task *)EltPtr;
-    pWorkTask->param1 = param1;
-    pWorkTask->param2 = param2;
-    pWorkTask->param3 = param3;
-    pWorkTask->param4 = param4;
-    pWorkTask->param5 = param5;
-    pWorkTask->taskcallback = taskcallback;
-    pWorkTask->task = task;
-    task_p = (void *)task;
+    if (pWorkTask) {
+        pWorkTask->param1 = param1;
+        pWorkTask->param2 = param2;
+        pWorkTask->param3 = param3;
+        pWorkTask->param4 = param4;
+        pWorkTask->param5 = param5;
+        pWorkTask->taskcallback = taskcallback;
+        pWorkTask->task = task;
+        task_p = (void *)task;
 
-    STATUS = CO_SharedFifoPut(pWorkFifo, CO_WORK_GET, 1);
-    if (STATUS != CO_STATUS_OK) {
-        ERROR_DEBUG_OUT("work fifo overflow\n");
-        CO_SharedFifo_Dump(pWorkFifo, CO_WORK_GET);
-        CO_SharedFifo_Dump(pWorkFifo, CO_WORK_FREE);
+        STATUS = CO_SharedFifoPut(pWorkFifo, CO_WORK_GET, 1);
+        if (STATUS != CO_STATUS_OK) {
+            ERROR_DEBUG_OUT("work fifo overflow\n");
+            CO_SharedFifo_Dump(pWorkFifo, CO_WORK_GET);
+            CO_SharedFifo_Dump(pWorkFifo, CO_WORK_FREE);
+        }
+        hal_priv->hal_ops.hal_call_task(hal_priv->WorkFifo_task_id,(SYS_TYPE)NULL);
     }
-    hal_priv->hal_ops.hal_call_task(hal_priv->WorkFifo_task_id,(SYS_TYPE)NULL);
     return 0;
 }
 
@@ -430,12 +432,12 @@ int drv_hal_workitem_inital(void)
     CO_SharedFifoInit(&hal_priv->WorkFifo, (SYS_TYPE)hal_priv->WorkFifoBuf, (void *)hal_priv->WorkFifoBuf,
         WORK_ITEM_NUM, sizeof(struct  hal_work_task), CO_SF_WORK_NBR);
 
-    printk("%s hal_priv->WorkFifo:%p\n", __func__, &hal_priv->WorkFifo);
+    AML_OUTPUT("hal_priv->WorkFifo:%p\n", &hal_priv->WorkFifo);
     res = (SYS_TYPE)hal_priv->hal_ops.hal_reg_task(drv_hal_workitem_task);
 
     if (res < 0) {
         ASSERT(0);
-        printk("WorkFifo_task_id error !\n");
+        AML_OUTPUT("WorkFifo_task_id error !\n");
     } else {
         hal_priv->WorkFifo_task_id = res;
     }

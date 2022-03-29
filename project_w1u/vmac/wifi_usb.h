@@ -50,6 +50,9 @@ enum wifi_cmd {
     CMD_WRITE_PACKET,
     CMD_WRITE_SRAM,
     CMD_READ_SRAM,
+    CMD_DOWNLOAD_BT,
+    CMD_OTHER_CMD,
+    CMD_USB_IRQ,
 };
 
 enum usb_endpoint_num{
@@ -66,6 +69,8 @@ struct crg_msc_cbw {
     uint8_t lun;
     uint8_t len;
     uint32_t cdb[4];
+    uint8_t reseverd; /* make sure 32 bype alined */
+    uint8_t buf[480]; /* reserved */
 //uint8_t resv;
 }__attribute__ ((packed));
 
@@ -93,5 +98,6 @@ int hal_tx_page_build(struct hi_tx_desc * pTxDPage);
 int aml_usb_port_suspend(struct usb_device *udev);
 int aml_usb_port_resume(struct usb_device *udev);
 int aml_usb_send_packet(struct amlw_hif_scatter_req * scat_req);
+void usb_stor_control_msg(unsigned long data );
 
 #endif

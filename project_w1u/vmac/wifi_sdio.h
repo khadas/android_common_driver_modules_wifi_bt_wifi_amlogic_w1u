@@ -121,6 +121,9 @@ void set_reg_fragment(unsigned int addr, unsigned int bit_end,
 int aml_sdio_init(void);
 void  aml_sdio_exit(void);
 int sdio_call_task( void );
+void aml_enable_wifi(void);
+void aml_disable_wifi(void);
+
 
 void aml_aon_write_reg(unsigned int addr,unsigned int data);
 unsigned int aml_aon_read_reg(unsigned int addr);
@@ -174,6 +177,8 @@ extern void sdio_read_write(int idx, int addr, svBitPackedArrRef buff, int len, 
     extern unsigned char (*host_wake_w1_req)(void);
     extern int (*host_suspend_req)(struct device* device);
     extern int (*host_resume_req)(struct device* device);
+    extern void aml_wifi_sdio_power_lock(void);
+    extern void aml_wifi_sdio_power_unlock(void);
     #define AML_W1_WIFI_POWER_ON 1
     #define AML_W1_WIFI_POWER_OFF 0
 

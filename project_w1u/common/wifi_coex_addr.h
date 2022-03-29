@@ -22,7 +22,6 @@
 #define  RG_COEX_RF_STABLE_CTRL  (WIFI_COEX + 0x20)
 #define  RG_COEX_BT_OWNER_CTRL   (WIFI_COEX + 0x24)
 #define  RG_COEX_WF_OWNER_CTRL       (WIFI_COEX + 0x28)
-
 #define  RG_COEX_BT_LOGIC_INFO    (WIFI_COEX + 0x200)
 #define  COEX_EN_ESCO                (0x00000010)
 #define  RG_COEX_CFG1                (WIFI_COEX + 0x19c)

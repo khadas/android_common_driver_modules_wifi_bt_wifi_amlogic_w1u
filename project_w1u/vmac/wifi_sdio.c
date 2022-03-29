@@ -107,7 +107,7 @@ static int _aml_sdio_request_byte(unsigned char   func_num,
 #if defined(DBG_PRINT_COST_TIME)
     getnstimeofday(&now);
 
-    printk("[sdio byte]: len=1 cost=%lds %luus\n",
+    AML_OUTPUT("[sdio byte]: len=1 cost=%lds %luus\n",
         now.tv_sec-before.tv_sec, now.tv_nsec/1000 - before.tv_nsec/1000);
 #endif /* End of DBG_PRINT_COST_TIME */
 
@@ -170,7 +170,7 @@ static int _aml_sdio_request_buffer(unsigned char func_num,
 #if defined(DBG_PRINT_COST_TIME)
     getnstimeofday(&now);
 
-    printk("[sdio buffer]: len=%d cost=%lds %luus\n",
+    AML_OUTPUT("[sdio buffer]: len=%d cost=%lds %luus\n",
         nbytes, now.tv_sec-before.tv_sec, now.tv_nsec/1000 - before.tv_nsec/1000);
 #endif /* End of DBG_PRINT_COST_TIME */
 
@@ -562,7 +562,7 @@ int aml_sdio_scat_rw(struct scatterlist *sg_list, unsigned int sg_num, unsigned 
     sdio_release_host(func);
 
     if (mmc_cmd.error || mmc_dat.error) {
-	    printk("ERROR CMD53 %s cmd_error = %d data_error=%d\n",
+        AML_OUTPUT("ERROR CMD53 %s cmd_error = %d data_error=%d\n",
 		write ? "write" : "read", mmc_cmd.error, mmc_dat.error);
 	    ret  = mmc_cmd.error;
     }
@@ -575,7 +575,7 @@ void aml_sdio_cleanup_scatter(void)
     struct hw_interface * hif = hif_get_hw_interface();
     struct amlw_hwif_sdio *hif_sdio = aml_sdio_priv();
 
-    printk("[sdio sg cleanup]: enter\n");
+    AML_OUTPUT("[sdio sg cleanup]: enter\n");
 
     ASSERT(hif != NULL);
     ASSERT(hif_sdio != NULL);
@@ -588,7 +588,7 @@ void aml_sdio_cleanup_scatter(void)
     /* empty the free list */
     FREE(hif_sdio->scat_req, "sdio_alloc_prep_scat_req");
 
-    printk("[sdio sg cleanup]: exit\n");
+    AML_OUTPUT("[sdio sg cleanup]: exit\n");
 
     return;
 }
@@ -754,7 +754,7 @@ int aml_sdio_bottom_write(unsigned char  func_num,int addr, void *buf, size_t le
         return SDIOH_API_RC_FAIL;
     }
     memcpy(kmalloc_buf, buf, len);
-    //printk("%s, buf:%p\n", __func__, kmalloc_buf);
+    //AML_OUTPUT("%s, buf:%p\n", kmalloc_buf);
 
     result = _aml_sdio_request_buffer(func_num, incr_addr, SDIO_WRITE, addr, kmalloc_buf, len);
 
@@ -932,8 +932,8 @@ int aml_sdio_scat_req_rw(struct amlw_hif_scatter_req *scat_req)
             sg_data_size = ALIGN(packet_len, blk_size);
             if (sg_data_size > (max_req_size - ttl_len))
             {
-                printk(" setup scat-data: (%s): %d: sg_data_size %d, remain %d \n",
-                    __func__, __LINE__, sg_data_size, max_req_size - ttl_len);
+                AML_OUTPUT(" setup scat-data: sg_data_size %d, remain %d \n",
+                    sg_data_size, max_req_size - ttl_len);
                 break;
             }
 #else
@@ -966,15 +966,14 @@ int aml_sdio_scat_req_rw(struct amlw_hif_scatter_req *scat_req)
             }
 #endif
             /*
-            printk("setup scat-data: offset: %d: ttl: %d, datalen:%d\n",
+            AML_OUTPUT("setup scat-data: offset: %d: ttl: %d, datalen:%d\n",
                 pkt_offset, ttl_len, sg_data_size);
             */
         }
 
         if ((ttl_len == 0) || (ttl_len % blk_size != 0))
         {
-            printk(" setup scat-data: (%s): %d: ttl_len %d \n",
-                __func__, __LINE__, ttl_len);
+            AML_OUTPUT(" setup scat-data: ttl_len %d \n", ttl_len);
             return result;
         }
 
@@ -1010,7 +1009,7 @@ int aml_sdio_scat_req_rw(struct amlw_hif_scatter_req *scat_req)
         sdio_release_host(func);
 
         /*
-        printk("setup scat-data: (%s) ====addr: 0x%X, (blksz: %d, blocks: %d) , (ttl:%d,sg:%d,scat_count:%d,ttl_page:%d)====\n",
+        AML_OUTPUT("setup scat-data: (%s) ====addr: 0x%X, (blksz: %d, blocks: %d) , (ttl:%d,sg:%d,scat_count:%d,ttl_page:%d)====\n",
             (scat_req->req & HIF_WRITE) ? "wr" : "rd", scat_req->addr,
             mmc_dat.blksz, mmc_dat.blocks, ttl_len,
             sg_count, scat_req->scat_count, ttl_page_num);
@@ -1059,7 +1058,7 @@ void aml_sdio_reset()
     unsigned char reg = 1;
     struct hw_interface* hif = hif_get_hw_interface();
 
-    printk("aml_sdio_reset \n");
+    AML_OUTPUT("aml_sdio_reset \n");
     ASSERT(hif != NULL && hif->hif_ops.hi_bottom_write8 != NULL);
 
     hif->hif_ops.hi_bottom_write8(SDIO_FUNC0, SDIO_CCCR_IOABORT, reg);
@@ -1071,18 +1070,18 @@ void aml_sdio_irq_path(unsigned char b_gpio)
     unsigned int ck_reg = 0;
     struct hw_interface* hif = hif_get_hw_interface();
 
-    printk("%s: b_gpio=%d \n",__FUNCTION__, b_gpio);
+    AML_OUTPUT("b_gpio=%d \n", b_gpio);
 
     if(b_gpio)
     {
         if(!aml_bus_type) {
             regdata= hif->hif_ops.hi_read8_func0(SDIO_CCCR_IEN);
 
-            printk(" SDIO_CCCR_IEN=0x%x \n", regdata);
+            AML_OUTPUT(" SDIO_CCCR_IEN=0x%x \n", regdata);
                 regdata &= ~0x3;
 
             hif->hif_ops.hi_write8_func0(SDIO_CCCR_IEN,regdata);
-            printk(" SDIO CCCR IEN=0x%x \n", regdata);
+            AML_OUTPUT(" SDIO CCCR IEN=0x%x \n", regdata);
         }
 
         regdata = hif->hif_ops.hi_read_word(RG_WIFI_IF_FW2HST_CLR);
@@ -1091,16 +1090,16 @@ void aml_sdio_irq_path(unsigned char b_gpio)
         hif->hif_ops.hi_write_word(RG_WIFI_IF_FW2HST_CLR, regdata);
 
         ck_reg = hif->hif_ops.hi_read_word(RG_WIFI_IF_FW2HST_CLR);
-        printk("%s(%d) ck_reg 0x%x\n", __FUNCTION__, __LINE__, ck_reg);
+        AML_OUTPUT("ck_reg 0x%x\n", ck_reg);
     }
     else
     {
         regdata= hif->hif_ops.hi_read8_func0(SDIO_CCCR_IEN);
-        printk(" SDIO_CCCR_IEN=0x%x \n", regdata);
+        AML_OUTPUT(" SDIO_CCCR_IEN=0x%x \n", regdata);
         regdata |= 0x3;
 
         hif->hif_ops.hi_write8_func0(SDIO_CCCR_IEN,regdata);
-        printk(" SDIO_CCCR_IEN=0x%x \n", regdata);
+        AML_OUTPUT(" SDIO_CCCR_IEN=0x%x \n", regdata);
 
         regdata = hif->hif_ops.hi_read_word(RG_WIFI_IF_FW2HST_CLR);
         regdata &= ~SDIO_FW2HOST_GPIO_EN;
@@ -1133,7 +1132,7 @@ int amlhal_gpio_open(struct hal_private * hal_priv)
 
         reg5c = hif->hif_ops.hi_read_word(RG_WIFI_IF_FW2HST_CLR);
 
-        printk("%s(%d): -----------0x5C register=0x%x\n", __FUNCTION__, __LINE__, reg5c);
+        AML_OUTPUT("-----------0x5C register=0x%x\n", reg5c);
         reg5c |= BIT(31);
 
         hif->hif_ops.hi_write_word(RG_WIFI_IF_FW2HST_CLR, reg5c);
@@ -1159,7 +1158,7 @@ int amlhal_gpio_open(struct hal_private * hal_priv)
 
         //reg = hw_if->hif_ops.hi_read_word(RG_WIFI_IF_GPIO_IRQ_CNF);
         
-        printk("SDIO GPIO IRQ CONFIG REG=0x%x\n",reg);
+        AML_OUTPUT("SDIO GPIO IRQ CONFIG REG=0x%x\n",reg);
 
         aml_sdio_irq_path(1); //  1: GPIO LINE PATH. 0: SDIO DATA LINE PATH
     }
@@ -1245,10 +1244,10 @@ void aml_sdio_calibration(void)
                     if (err) {
                         //msleep(3000);
                         hif->hif_ops.hi_bottom_write8(SDIO_FUNC0, SDIO_CCCR_IOABORT, 0x1);
-                        printk("%s error: i:%d, j:%d, k:%d, l:%d\n", __func__, i, j, k, l);
+                        AML_OUTPUT("error: i:%d, j:%d, k:%d, l:%d\n", i, j, k, l);
 
                     } else {
-                        printk("%s right, use this config: i:%d, j:%d, k:%d, l:%d\n", __func__, i, j, k, l);
+                        AML_OUTPUT("right, use this config: i:%d, j:%d, k:%d, l:%d\n", i, j, k, l);
                         return;
                     }
                 }
@@ -1310,12 +1309,12 @@ static void aml_customer_gpio_wlan_ctrl(int onoff)
     switch (onoff)
     {
         case WLAN_POWER_OFF:
-            printk("%s: call customer specific GPIO to turn off WL_REG_ON\n", __FUNCTION__);
+            AML_OUTPUT("call customer specific GPIO to turn off WL_REG_ON\n");
             break;
 
         case WLAN_POWER_ON:
             platform_wifi_reset();
-            printk("=========== WLAN placed in POWER ON ========\n");
+            AML_OUTPUT("=========== WLAN placed in POWER ON ========\n");
             break;
     }
 }
@@ -1340,7 +1339,7 @@ static void config_pmu_reg(bool is_power_on)
     struct hw_interface * hif = hif_get_hw_interface();
 
     wifi_pmu_status = halpriv->hal_ops.hal_get_fw_ps_status();
-    printk("%s wifi_pmu_status:0x%x\n", __func__, wifi_pmu_status);
+    AML_OUTPUT("wifi_pmu_status:0x%x\n", wifi_pmu_status);
 
     if (is_power_on) {
         host_req_status = 0;
@@ -1357,8 +1356,8 @@ static void config_pmu_reg(bool is_power_on)
         value_pmu_A20 = hif->hif_ops.hi_read_word(RG_PMU_A20);
         value_pmu_A22 = hif->hif_ops.hi_read_word(RG_PMU_A22);
 
-        printk("%s power on: before write A12=0x%x, A13=0x%x, A14=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
-            __func__, value_pmu_A12, value_pmu_A13, value_pmu_A14, value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
+        AML_OUTPUT("power on: before write A12=0x%x, A13=0x%x, A14=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
+            value_pmu_A12, value_pmu_A13, value_pmu_A14, value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
 
         hif->hif_ops.hi_write_word(RG_PMU_A12, 0x2a2c);
         hif->hif_ops.hi_write_word(RG_PMU_A14, 0x1);
@@ -1375,10 +1374,10 @@ static void config_pmu_reg(bool is_power_on)
         msleep(20);
 
         wifi_pmu_status = halpriv->hal_ops.hal_get_fw_ps_status();
-        printk("%s wifi_pmu_status:0x%x\n", __func__, wifi_pmu_status);
+        AML_OUTPUT("wifi_pmu_status:0x%x\n", wifi_pmu_status);
 
         while ((wifi_pmu_status & 0xF) != PMU_ACT_MODE) {
-            printk("%s wifi_pmu_status:0x%x\n", __func__, wifi_pmu_status);
+            AML_OUTPUT("wifi_pmu_status:0x%x\n", wifi_pmu_status);
             wifi_pmu_status = halpriv->hal_ops.hal_get_fw_ps_status();
         }
 
@@ -1387,8 +1386,8 @@ static void config_pmu_reg(bool is_power_on)
         value_pmu_A18 = hif->hif_ops.hi_read_word(RG_PMU_A18);
         value_pmu_A20 = hif->hif_ops.hi_read_word(RG_PMU_A20);
         value_pmu_A22 = hif->hif_ops.hi_read_word(RG_PMU_A22);
-        printk("%s power on: after write A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
-            __func__, value_pmu_A15, value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
+        AML_OUTPUT("power on: after write A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
+            value_pmu_A15, value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
 
     } else {
         value_pmu_A12 = hif->hif_ops.hi_read_word(RG_PMU_A12);
@@ -1397,10 +1396,10 @@ static void config_pmu_reg(bool is_power_on)
         value_pmu_A18 = hif->hif_ops.hi_read_word(RG_PMU_A18);
         value_pmu_A20 = hif->hif_ops.hi_read_word(RG_PMU_A20);
         value_pmu_A22 = hif->hif_ops.hi_read_word(RG_PMU_A22);
-        printk("%s power off: before write A12=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
-            __func__, value_pmu_A12,value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
+        AML_OUTPUT("power off: before write A12=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
+            value_pmu_A12,value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
 
-        hif->hif_ops.hi_write_word(RG_PMU_A12, 0x8ea2e);
+        hif->hif_ops.hi_write_word(RG_PMU_A12, 0x9ea2e); //add set dpll_val(bit16) for sdio resp_timeout
         hif->hif_ops.hi_write_word(RG_PMU_A14, 0x1);
         hif->hif_ops.hi_write_word(RG_PMU_A16, 0x0);
         hif->hif_ops.hi_write_word(RG_PMU_A17, 0x700);
@@ -1414,8 +1413,8 @@ static void config_pmu_reg(bool is_power_on)
         value_pmu_A18 = hif->hif_ops.hi_read_word(RG_PMU_A18);
         value_pmu_A20 = hif->hif_ops.hi_read_word(RG_PMU_A20);
         value_pmu_A22 = hif->hif_ops.hi_read_word(RG_PMU_A22);
-        printk("%s power off: before write A12=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
-            __func__, value_pmu_A12,value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
+        AML_OUTPUT("power off: before write A12=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
+            value_pmu_A12,value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
 
 	 //force wifi pmu fsm to sleep mode
         host_req_status = (PMU_SLEEP_MODE << 1)| BIT(0);
@@ -1426,6 +1425,7 @@ static void config_pmu_reg(bool is_power_on)
 extern unsigned char set_wifi_bt_sdio_driver_bit(bool is_register, int shift);
 extern unsigned char w1_sdio_driver_insmoded;
 extern unsigned char w1_sdio_after_porbe;
+extern unsigned char wifi_sdio_access;
 extern int  aml_w1_sdio_init(void);
 extern void  aml_w1_sdio_exit(void);
 
@@ -1436,11 +1436,11 @@ int aml_sdio_init(void)
     struct hal_private * hal_priv = hal_get_priv();
     struct sdio_func *func;
 
-    printk("SDIO_BUILD_IN %s\n", __func__);
+    AML_OUTPUT("SDIO_BUILD_IN \n");
     aml_customer_gpio_wlan_ctrl(WLAN_POWER_ON);
 
     if (!w1_sdio_after_porbe) {
-          printk("sdio not probe, need set power \n");
+          AML_OUTPUT("sdio not probe, need set power \n");
           set_usb_wifi_power(0);
           msleep(100);
           set_usb_wifi_power(1);
@@ -1484,7 +1484,7 @@ int aml_sdio_init(void)
     if ((hal_priv->hal_call_back != NULL)
         &&(hal_priv->hal_call_back->dev_probe != NULL))
     {
-        printk("hal_priv->hal_call_back->dev_probe\n");
+        AML_OUTPUT("hal_priv->hal_call_back->dev_probe\n");
         /*call driver probe to create vmac0 and vmac1 eventually*/
         ret = hal_priv->hal_call_back->dev_probe();
         if (ret < 0)
@@ -1494,11 +1494,11 @@ int aml_sdio_init(void)
     }
     hal_priv->powersave_init_flag = 0;
 
-    printk("%s(%d): sg ops init\n", __func__, __LINE__);
+    AML_OUTPUT("sg ops init\n");
     hif->hif_ops.hi_enable_scat();
 
     aml_sdio_enable_irq(SDIO_FUNC4);
-    printk("aml_sdio_probe-- ret %d\n", ret);
+    AML_OUTPUT("aml_sdio_probe-- ret %d\n", ret);
 
     if (aml_wifi_is_enable_rf_test()) {
         mib_init();
@@ -1511,6 +1511,38 @@ create_thread_error:
     hal_kill_thread();
     return ret;
 }
+
+
+void aml_disable_wifi(void)
+{
+    wifi_sdio_access = 0;
+    AML_OUTPUT("aml_disable_wifi start sdio access %d\n", wifi_sdio_access);
+    config_pmu_reg(AML_W1_WIFI_POWER_OFF);
+    msleep(50);
+}
+
+
+void aml_enable_wifi(void)
+{
+    struct hal_private * hal_priv = hal_get_priv();
+
+    AML_OUTPUT("aml_enable_wifi start\n");
+    aml_customer_gpio_wlan_ctrl(WLAN_POWER_ON);
+
+    hal_recovery_init_priv();
+    config_pmu_reg(AML_W1_WIFI_POWER_ON);
+    wifi_sdio_access = 1;
+    AML_OUTPUT("aml_enable_wifi start sdio access %d\n", wifi_sdio_access);
+    hal_fw_repair();
+
+    hal_priv->txcompletestatus->txdoneframecounter = 0;
+    hal_priv->HalTxFrameDoneCounter = 0;
+    hal_priv->txcompletestatus->txpagecounter = 0;
+    hal_priv->HalTxPageDoneCounter = 0;
+
+    AML_OUTPUT("aml_enable_wifi end\n");
+}
+
 
 void aml_sdio_exit(void) {
     struct hal_private *hal_priv = hal_get_priv();
@@ -1527,7 +1559,6 @@ void aml_sdio_exit(void) {
     set_wifi_bt_sdio_driver_bit(AML_W1_WIFI_POWER_OFF, WIFI_POWER_CHANGE_SHIFT);
 
     set_usb_wifi_power(0);
-
     if (aml_wifi_is_enable_rf_test())
         b2b_tx_thread_remove();
 
@@ -1556,7 +1587,7 @@ int aml_sdio_pm_suspend(struct device *device)
     }
 
     atomic_inc(&hal_priv->sdio_suspend_cnt);
-    //printk("%s:%d,wifi suspend %d, suspend cnt 0x%x, func num %d \n", __func__, __LINE__,
+    //AML_OUTPUT("wifi suspend %d, suspend cnt 0x%x, func num %d \n",
     //    hal_priv->hal_suspend_mode, atomic_read(&hal_priv->suspend_cnt) , func->num);
 
     /* we shall suspend all card for sdio. */
@@ -1605,7 +1636,7 @@ int aml_sdio_pm_resume(struct device *device)
 //        return -1;
 
     atomic_dec(&hal_priv->sdio_suspend_cnt);
-    //printk("%s:%d, func num %d, no resume 0x%x \n", __func__, __LINE__,
+    //AML_OUTPUT("func num %d, no resume 0x%x \n",
     //        func->num, atomic_read(&hal_priv->suspend_cnt));
 
     return 0;
@@ -1635,7 +1666,7 @@ int aml_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
     else
         sdio_set_block_size(func, BLKSIZE);
 
-    printk("%s(%d): func->num %d sdio block size=%d, \n", __func__, __LINE__,
+    AML_OUTPUT("func->num %d sdio block size=%d, \n",
         func->num,  func->cur_blksize);
 
     if (func->num == 1)
@@ -1645,14 +1676,14 @@ int aml_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
         hwif_sdio->sdio_func_if[0] = &sdio_func_0;
     }
     hwif_sdio->sdio_func_if[func->num] = func;
-    printk("%s(%d): func->num %d sdio_func=%p, \n", __func__, __LINE__,
+    AML_OUTPUT("func->num %d sdio_func=%p, \n",
         func->num,  func);
 
     sdio_release_host(func);
     sdio_set_drvdata(func, hwif_sdio);
     if (func->num != FUNCNUM_SDIO_LAST)
     {
-        printk("%s(%d):func_num=%d, lastfuncnum=%d\n", __func__, __LINE__,
+        AML_OUTPUT("func_num=%d, lastfuncnum=%d\n",
             func->num, FUNCNUM_SDIO_LAST);
         return 0;
     }
@@ -1676,7 +1707,7 @@ int aml_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
     if ((hal_priv->hal_call_back != NULL)
         &&(hal_priv->hal_call_back->dev_probe != NULL))
     {
-        printk("hal_priv->hal_call_back->dev_probe\n");
+        AML_OUTPUT("hal_priv->hal_call_back->dev_probe\n");
         /*call driver probe to create vmac0 and vmac1 eventually*/
         ret = hal_priv->hal_call_back->dev_probe();
         if (ret < 0)
@@ -1686,11 +1717,12 @@ int aml_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
     }
     hal_priv->powersave_init_flag = 0;
 
-    printk("%s(%d): sg ops init\n", __func__, __LINE__);
+    AML_OUTPUT("sg ops init\n");
     hif->hif_ops.hi_enable_scat();
 
     aml_sdio_enable_irq(SDIO_FUNC4);
-    printk("aml_sdio_probe-- ret %d\n", ret);
+    AML_OUTPUT("aml_sdio_probe-- ret %d\n", ret);
+
 
     if (aml_wifi_is_enable_rf_test()) {
         mib_init();
@@ -1719,16 +1751,15 @@ static void  aml_sdio_remove(struct sdio_func *func)
         return ;
     }
 
-    printk("\n==========================================\n");
-    printk("aml_sdio_remove++ func->num =%d \n",func->num);
-    printk("==========================================\n");
+    AML_OUTPUT("\n==========================================\n");
+    AML_OUTPUT("aml_sdio_remove++ func->num =%d \n",func->num);
+    AML_OUTPUT("==========================================\n");
     aml_sdio_disable_irq(SDIO_FUNC2);
     hal_priv->powersave_init_flag = 1;
     hal_free();
     if (func->num == FUNCNUM_SDIO_LAST)
     {
         hal_kill_thread();
-
         if (aml_wifi_is_enable_rf_test())
             b2b_tx_thread_remove();
 

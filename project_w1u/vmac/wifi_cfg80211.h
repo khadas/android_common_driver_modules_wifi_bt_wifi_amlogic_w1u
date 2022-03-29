@@ -32,8 +32,13 @@
 #define CFG_CH_MAX_2G_CHANNEL 14
 #define AML_MAX_NUM_BANDS 2
 
-#define AML_2G_CHANNELS_NUM ((sizeof(aml_2ghz_channels) / sizeof(struct ieee80211_channel)))
-#define AML_5G_CHANNELS_NUM ((sizeof(aml_5ghz_a_channels) / sizeof(struct ieee80211_channel)))
+#define AML_2G_CHANNELS_NUM 14
+#define AML_5G_CHANNELS_NUM 25
+
+
+extern struct ieee80211_channel aml_2ghz_channels[AML_2G_CHANNELS_NUM];
+extern struct ieee80211_channel aml_5ghz_channels[AML_5G_CHANNELS_NUM];
+extern struct ieee80211_rate aml_rates[AML_G_RATES_NUM];
 
 #define aml_a_rates (aml_rates + 4)
 #define aml_g_rates (aml_rates + 0)
@@ -240,7 +245,7 @@ union vendor_if
                  .max_power     = 30,               \
  }
 
-#define CFG80211_CONNECT_TIMER_OUT (8*1000)
+#define CFG80211_CONNECT_TIMER_OUT (20*1000)
 struct vm_wdev_priv
 {
     struct wireless_dev *vm_wdev;

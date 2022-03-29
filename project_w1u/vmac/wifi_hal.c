@@ -23,23 +23,24 @@ namespace FW_NAME
 #include <linux/mmc/host.h>
 #include <linux/kthread.h>
 #include "rf_d_top_reg.h"
-//#include "dpd_memory_packet.h"
+#include "dpd_memory_packet.h"
 #elif defined (HAL_SIM_VER)
 #include "aml_product_test_i2c.h"
 unsigned int rxframenum =0;
 #endif
 #include "wifi_common.h"
 #include "chip_intf_reg.h"
-
+#include <linux/inetdevice.h>
 #define CHIP_ID_F "CHIP_ID=%04x%08x\n"
 #define CHIP_ID_EFUASE_L 0x8
 #define CHIP_ID_EFUASE_H 0x9
+unsigned char  host_wake_w1_fail_cnt = 0;
+
 
 extern struct aml_hal_call_backs * get_hal_call_back_table(void);
 extern unsigned char *g_rx_fifo;
 static int hal_dev_unreg(void);
 static int hal_dev_reg(void * drv_priv);
-extern unsigned char wifi_in_insmod;
 struct hal_private g_hal_priv;
 struct hal_private *  hal_get_priv(void)
 {
@@ -460,7 +461,7 @@ unsigned char hal_wake_fw_req(void)
     if (atomic_read(&halpriv->drv_suspend_cnt) != 0)
     {
         POWER_END_LOCK();
-        printk("%s:%d, suspending, desn't wake, fw st %d\n", __func__, __LINE__,
+        AML_OUTPUT("suspending, desn't wake, fw st %d\n",
             halpriv->hal_fw_ps_status);
         return 0;
     }
@@ -468,7 +469,6 @@ unsigned char hal_wake_fw_req(void)
     // check fw power save status
     while (halpriv->hal_fw_ps_status != HAL_FW_IN_ACTIVE)
     {
-        POWER_END_LOCK();
         if(aml_bus_type) {
             if (halpriv->hal_fw_usb_status == 1) {
                 aml_usb_port_resume(hif->udev);
@@ -485,7 +485,7 @@ unsigned char hal_wake_fw_req(void)
             host_req_status = hif->hif_ops.hi_bottom_read8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ);
             host_sleep_req = ((host_req_status & HOST_SLEEP_REQ) != 0) ? 1 : 0;
 
-            //printk("fw ps st 0x%x, fw_sleep 0x%x, host_sleep_req 0x%x\n", fw_ps_st, fw_sleep, host_sleep_req);
+            //AML_OUTPUT("fw ps st 0x%x, fw_sleep 0x%x, host_sleep_req 0x%x\n", fw_ps_st, fw_sleep, host_sleep_req);
             // fw/pmu st
             fw_ps_st = fw_ps_st & 0xF;
             if (fw_ps_st != PMU_ACT_MODE)
@@ -496,17 +496,16 @@ unsigned char hal_wake_fw_req(void)
                 //delay 10ms for pmu deep sleep
                     OS_MDELAY(10);
 
-                    POWER_BEGIN_LOCK();
-                    continue;
-                }
-                else if ((fw_ps_st == PMU_SLEEP_MODE) && (wake_flag == 1))
-                {
-                    wake_flag = 2;
-                    hal_clear_fw_wake();
-                    hal_set_fw_wake();
-                    OS_UDELAY(20);
-                }
+                continue;
             }
+            else if ((fw_ps_st == PMU_SLEEP_MODE) && (wake_flag == 1))
+            {
+                wake_flag = 2;
+                hal_clear_fw_wake();
+                hal_set_fw_wake();
+                OS_UDELAY(20);
+            }
+        }
 
             if (host_sleep_req == 1)
             {
@@ -520,7 +519,6 @@ unsigned char hal_wake_fw_req(void)
             {
                 hal_clear_fw_wake();
             }
-            POWER_BEGIN_LOCK();
             if (halpriv->hal_fw_ps_status == HAL_FW_IN_SLEEP)
                 halpriv->hal_fw_ps_status = HAL_FW_IN_AWAKE;
             POWER_END_LOCK();
@@ -534,10 +532,11 @@ unsigned char hal_wake_fw_req(void)
         }
         else
         {
-            printk("fw ps st 0x%x, fw_sleep 0x%x, host_sleep_req 0x%x\n", fw_ps_st, fw_sleep, host_sleep_req);
+            POWER_END_LOCK();
+            host_wake_w1_fail_cnt++;
+            AML_OUTPUT("fw ps st 0x%x, fw_sleep 0x%x, host_sleep_req 0x%x\n", fw_ps_st, fw_sleep, host_sleep_req);
             return 0;
         }
-        POWER_BEGIN_LOCK();
     }
     POWER_END_LOCK();
     return 1;
@@ -578,7 +577,7 @@ unsigned char hal_check_fw_wake(void)
 #endif
             )
         {
-            //printk("%s:%d, fw is not active mode, st = 0x%x\n", __func__, __LINE__, fw_ps_st);
+            //AML_OUTPUT("fw is not active mode, st = 0x%x\n", fw_ps_st);
         }
         else
         {
@@ -1089,7 +1088,7 @@ int hal_free_tx_id(struct hal_private * hal_priv, struct txdonestatus *txstatus,
     }
     else
     {
-        printk("free id:%d, %lx, %lx\n", id, hal_priv->tx_frames_map[0], hal_priv->tx_frames_map[1]);
+        AML_OUTPUT("free id:%d, %lx, %lx\n", id, hal_priv->tx_frames_map[0], hal_priv->tx_frames_map[1]);
         ret = -1;
     }
     COMMON_UNLOCK();
@@ -1112,7 +1111,6 @@ static int hal_alloc_tx_id(struct hal_private * hal_priv,struct fw_txdesc_fifo *
     }
 
     set_bit(id, hal_priv->tx_frames_map);
-    hal_priv->tx_frames[id].SN = pTxDescFiFo->SN;
     hal_priv->tx_frames[id].txqueueid= pTxDescFiFo->txqueueid;
     hal_priv->tx_frames[id].callback= pTxDescFiFo->callback;
     hal_priv->tx_frames[id].skb = NULL;
@@ -1123,7 +1121,7 @@ __alloc_fail:
     COMMON_UNLOCK();
 
     //if (id == TXID_INVALID)
-        //printk("%s alloc fail\n", __func__);
+        //AML_OUTPUT("alloc fail\n");
     return id;
 }
 
@@ -1165,6 +1163,10 @@ void hal_txframe_pre(void)
             //if the queue has mpdus to tx, do once
             if (CO_SharedFifoEmpty(pTxShareFifo, CO_TX_BUFFER_MAKE))
             {
+                if ((txqueueid == HAL_WME_NOQOS)
+                    && (hif->HiStatus.Tx_Done_num - hif->HiStatus.Tx_Free_num > 32)) {
+                    return;
+                }
                 EltPtr = CO_SharedFifoPick(pTxShareFifo, CO_TX_BUFFER_MAKE);
                 pTxDescFiFo = (struct fw_txdesc_fifo *)EltPtr;
 
@@ -1174,7 +1176,6 @@ void hal_txframe_pre(void)
                     return ;
                 }
                 pTxDescFiFo->pTxDPape->TxPriv.hostcallbackid= (unsigned char)id;
-                pTxDescFiFo->pTxDPape->TxPriv.SN= pTxDescFiFo->SN;
 
                 STATUS = CO_SharedFifoGet(pTxShareFifo, CO_TX_BUFFER_MAKE, 1, &EltPtr);
                 STATUS = CO_SharedFifoPut(pTxShareFifo, CO_TX_BUFFER_MAKE, 1);
@@ -1197,7 +1198,6 @@ void hal_txframe_pre(void)
                 return ;
             }
             pTxDescFiFo->pTxDPape->TxPriv.hostcallbackid = id;
-            pTxDescFiFo->pTxDPape->TxPriv.SN= pTxDescFiFo->SN;
             STATUS = CO_SharedFifoGet(pTxShareFifo, CO_TX_BUFFER_MAKE, 1, &EltPtr);
             ASSERT(STATUS == CO_STATUS_OK);
             STATUS = CO_SharedFifoPut(pTxShareFifo, CO_TX_BUFFER_MAKE, 1);
@@ -1213,6 +1213,16 @@ void hal_tx_complete(struct sk_buff * skb_buf)
     }
 }
 
+int hal_calc_block_in_mpdu_ex(int mpdulen)
+{
+    int page_len = 0;
+    int page_num = 0;
+    struct hw_interface *hif = hif_get_hw_interface();
+    page_len = hif->CommStaticParam.tx_page_len - 12;
+    page_num = mpdulen / page_len + (mpdulen % page_len ? 1 : 0);
+    return page_num;
+}
+
 void  hal_tx_frame(void)
 {
     unsigned short STATUS;
@@ -1222,7 +1232,8 @@ void  hal_tx_frame(void)
     struct _CO_SHARED_FIFO *pTxShareFifo = NULL;
     struct fw_txdesc_fifo *pTxDescFiFo = NULL;
     static unsigned char print_cnt = 0;
-
+    unsigned char max_mpdu_num = 0;
+    unsigned int page_num = 0;
     int txqueueid = 0;
     struct hi_tx_desc *pTxDPape = NULL;
     unsigned char AggrNum = 0;
@@ -1231,8 +1242,11 @@ void  hal_tx_frame(void)
     unsigned int len = 0;
     if (hal_priv->bhaltxdrop || hal_priv->bhalPowerSave) {
         if (print_cnt++ == 200) {
-            printk("%s bhaltxdrop:%d, bhalPowerSave:%d\n", __func__, hal_priv->bhaltxdrop, hal_priv->bhalPowerSave);
+            AML_OUTPUT("bhaltxdrop:%d, bhalPowerSave:%d\n", hal_priv->bhaltxdrop, hal_priv->bhalPowerSave);
         }
+        return;
+    }
+    if ((aml_bus_type) && (hal_priv->dpd_suspend)) {
         return;
     }
     AML_TXLOCK_UNLOCK();
@@ -1243,7 +1257,7 @@ void  hal_tx_frame(void)
         POWER_END_LOCK();
         AML_TXLOCK_LOCK();
         if (print_cnt++ == 200) {
-            printk("%s %d hal_drv_ps_status:%02x\n", __func__, __LINE__, hal_priv->hal_drv_ps_status);
+            AML_OUTPUT("hal_drv_ps_status:%02x\n", hal_priv->hal_drv_ps_status);
         }
         return;
     }
@@ -1258,11 +1272,21 @@ void  hal_tx_frame(void)
         AML_TXLOCK_LOCK();
 
         if (print_cnt++ == 200) {
-            printk("%s %d hal_drv_ps_status:%02x\n", __func__, __LINE__, hal_priv->hal_drv_ps_status);
+            AML_OUTPUT("hal_drv_ps_status:%02x\n", hal_priv->hal_drv_ps_status);
         }
         return;
     }
     POWER_END_LOCK();
+
+    //when bus type is usb, will set max_mpdu_num to 7
+    if (aml_bus_type)
+    {
+        max_mpdu_num = MAX_MPDU_NUM/2 -1;
+    }
+    else
+    {
+        max_mpdu_num = MAX_MPDU_NUM;
+    }
 
     AML_TXLOCK_LOCK();
     hal_txframe_pre();
@@ -1308,7 +1332,7 @@ void  hal_tx_frame(void)
 #if defined (HAL_FPGA_VER)
             if ((pTxDPape->TxPriv.aggr_page_num <= hal_priv->txPageFreeNum)
                     && (pTxDPape->TxPriv.AggrNum <= q_fifo_set_cnt)
-                    && ((AggrNum + mpdu_num) < MAX_MPDU_NUM)
+                    && ((AggrNum + mpdu_num) < max_mpdu_num)
                     && ((aggr_page_num + pTxDPape->TxPriv.aggr_page_num <= SG_PAGE_MAX) || (aggr_page_num == 0)))
 #elif defined (HAL_SIM_VER)
                     if ((pTxDPape->TxPriv.aggr_page_num <= hal_priv->txPageFreeNum)
@@ -1326,7 +1350,7 @@ void  hal_tx_frame(void)
                 AML_PRINT(AML_DBG_MODULES_TX, "TxPriv.aggr_page_num:%d <= txPageFreeNum:%d, TxPriv.AggrNum:%d <= q_fifo_set_cnt:%d, "\
                     "AggrNum:%d + mpdu_num:%d, aggr_page_num:%d, len:%d, sn:%d(0x%04x)\n",
                     pTxDPape->TxPriv.aggr_page_num, hal_priv->txPageFreeNum, pTxDPape->TxPriv.AggrNum, q_fifo_set_cnt,
-                    AggrNum, mpdu_num, aggr_page_num, pTxDPape->TxPriv.AggrLen, pTxDescFiFo->SN, pTxDescFiFo->SN);
+                    AggrNum, mpdu_num, aggr_page_num, pTxDPape->TxPriv.AggrLen, pTxDPape->TxPriv.SN, pTxDPape->TxPriv.SN);
 #endif
                 do
                 {
@@ -1340,16 +1364,17 @@ void  hal_tx_frame(void)
                     ASSERT(STATUS==CO_STATUS_OK);
 
 #if defined (HAL_FPGA_VER)
+                    assign_tx_desc_pn(pTxDPape->TxOption.is_bc, pTxDPape->TxPriv.vid,
+                        pTxDPape->TxPriv.StaId, pTxDPape, pTxDPape->TxOption.key_type);
                     if(aml_bus_type) {
                         ASSERT(scat_req->scat_count == mpdu_num);
-                        len = hal_calc_block_in_mpdu(HW_MPDU_LEN_GET(pTxDPape->MPDUBufFlag) + HI_TXDESC_DATAOFFSET) * 12 - 4;
-                        len = hal_calc_block_in_mpdu(len + HW_MPDU_LEN_GET(pTxDPape->MPDUBufFlag) + HI_TXDESC_DATAOFFSET) * hif->CommStaticParam.tx_page_len;
-
+                        page_num = hal_calc_block_in_mpdu_ex(HW_MPDU_LEN_GET(pTxDPape->MPDUBufFlag) + HI_TXDESC_DATAOFFSET - 4);
+                        len = page_num * 12;
                         /* show packet */
                         scat_req->scat_list[mpdu_num].skbbuf = pTxDescFiFo->ampduskb; // need to free
                         scat_req->scat_list[mpdu_num].packet = pTxDPape;
-                        scat_req->scat_list[mpdu_num].page_num = pTxDPape->TxPriv.PageNum;
-                        scat_req->scat_list[mpdu_num].len = len;
+                        scat_req->scat_list[mpdu_num].page_num = page_num;
+                        scat_req->scat_list[mpdu_num].len = ALIGN(len + HW_MPDU_LEN_GET(pTxDPape->MPDUBufFlag) + HI_TXDESC_DATAOFFSET - 4, 4);
                         scat_req->scat_count++;
                         scat_req->len += scat_req->scat_list[mpdu_num].len;
                     } else {
@@ -1470,7 +1495,6 @@ int hal_calc_block_in_mpdu (int mpdulen)
     return (mpdulen + (page_len - 1)) / page_len;
 }
 
-
 //wifi_conf_mib.dot11FragmentationThreshold, fill 1st page for ampdu
 struct sk_buff *hal_fill_agg_start(struct hi_agg_tx_desc *HI_AGG,struct hi_tx_priv_hdr *HI_TxPriv)
 {
@@ -1537,10 +1561,9 @@ struct sk_buff *hal_fill_agg_start(struct hi_agg_tx_desc *HI_AGG,struct hi_tx_pr
 
     /*for callback after tx completing */
     pTxDescFiFo->callback = HI_TxPriv->hostreserve;
-    pTxDescFiFo->SN = HI_TxPriv->Seqnum;
     pTxDescFiFo->txqueueid = txqueueid;
-    pTxDescFiFo->staid = HI_AGG->StaId;
     pTxDescFiFo->pTxDPape = pTxDPape;
+    pTxDPape->TxPriv.SN = HI_TxPriv->Seqnum;
 
     pTxDPape->TxPriv.PageNum = hal_calc_mpdu_page(HI_TxPriv->MPDULEN);
     pTxDPape->MPDUBufFlag = HW_FIRST_MPDUBUF_FLAG|HW_FIRST_AGG_FLAG|HW_LAST_MPDUBUF_FLAG;
@@ -1557,7 +1580,7 @@ struct sk_buff *hal_fill_agg_start(struct hi_agg_tx_desc *HI_AGG,struct hi_tx_pr
     frame_control = *(unsigned short *)(&pTxDPape->txdata[0]);//(frame_control & 0xff) == 0x88
     if (g_dbg_modules & AML_DBG_MODULES_HAL_TX)
     {
-        //printk("pTxDescFiFo->SN:%04x, frame_control:%04x\n", pTxDescFiFo->SN, frame_control);
+        //AML_OUTPUT("pTxDescFiFo->SN:%04x, frame_control:%04x\n", pTxDescFiFo->SN, frame_control);
         hal_show_txframe(pTxDPape);
     }
 #endif
@@ -1626,13 +1649,12 @@ struct sk_buff *hal_fill_priv(struct hi_tx_priv_hdr* HI_TxPriv,unsigned char que
   #endif
 
     pTxDescFiFo->callback = HI_TxPriv->hostreserve;
-    pTxDescFiFo->SN = HI_TxPriv->Seqnum;
     pTxDescFiFo->txqueueid = txqueueid;
-    pTxDescFiFo->staid = pFirstTxDPape->TxPriv.StaId;
     pTxDescFiFo->pTxDPape =pTxDPape;
 
     hal_tx_desc_build_sub(HI_TxPriv,pTxDPape, pFirstTxDPape);
     pTxDPape->TxOption.pkt_position = AML_PKT_IN_HAL;
+    pTxDPape->TxPriv.SN = HI_TxPriv->Seqnum;
 #if defined (HAL_FPGA_VER)
     if (g_dbg_modules & AML_DBG_MODULES_HAL_TX)
     {
@@ -1695,7 +1717,7 @@ int hal_get_agg_pend_cnt(void)
 
     COMMON_LOCK();
     if (hal_is_empty_tx_id(hal_priv) < 0) {
-        printk("set bhaltxdrop to 1, tx_frames_map:%lx, %lx, page:%d\n",
+        AML_OUTPUT("set bhaltxdrop to 1, tx_frames_map:%lx, %lx, page:%d\n",
             hal_priv->tx_frames_map[0], hal_priv->tx_frames_map[1], hal_priv->txPageFreeNum);
         hal_priv->bhaltxdrop = 1;
     }
@@ -1711,11 +1733,10 @@ int hal_get_agg_pend_cnt(void)
             if (!((pTxDescFiFo->pTxDPape->TxPriv.vid == vid) || (vid == 3))) {
                 id = hal_alloc_tx_id(hal_priv,pTxDescFiFo);
                 if (id == TXID_INVALID) {
-                    printk("%s warning, please handle this situation!!!\n", __func__);
+                    AML_OUTPUT("warning, please handle this situation!!!\n");
                     break;//how to handle this situation
                 }
                 pTxDescFiFo->pTxDPape->TxPriv.hostcallbackid= (unsigned char)id;
-                pTxDescFiFo->pTxDPape->TxPriv.SN= pTxDescFiFo->SN;
             }
 
             STATUS = CO_SharedFifoPut(pTxShareFifo, CO_TX_BUFFER_MAKE, 1);
@@ -1753,7 +1774,7 @@ int hal_get_agg_pend_cnt(void)
 
     if (hal_priv->bhaltxdrop == 1) {
         hal_priv->bhaltxdrop = 0;
-        printk("recover bhaltxdrop to 0, tx_frames_map:%lx, %lx, page:%d, vid:%d\n",
+        AML_OUTPUT("recover bhaltxdrop to 0, tx_frames_map:%lx, %lx, page:%d, vid:%d\n",
             hal_priv->tx_frames_map[0], hal_priv->tx_frames_map[1], hal_priv->txPageFreeNum, vid);
     }
     return 0;
@@ -1827,20 +1848,20 @@ void hal_get_sts(unsigned int op_code, unsigned int ctrl_code)
     struct hw_interface* hif = hif_get_hw_interface();
     struct _CO_SHARED_FIFO * tx_share_fifo = NULL;
 
-    printk("\n--------hal statistic--------\n");
+    AML_OUTPUT("\n--------hal statistic--------\n");
 
     if((ctrl_code & STS_MOD_HAL) == STS_MOD_HAL)
     {
         if ((ctrl_code & STS_TYP_TX) == STS_TYP_TX)
         {
-            printk("en_beacon[0]=%d\nen_beacon[1]=%d\n", hal_priv->sts_en_bcn[0], hal_priv->sts_en_bcn[1]);
-            printk("dis_beacon[0]=%d\ndis_beacon[1]=%d\n", hal_priv->sts_dis_bcn[0], hal_priv->sts_dis_bcn[1]);
+            AML_OUTPUT("en_beacon[0]=%d\nen_beacon[1]=%d\n", hal_priv->sts_en_bcn[0], hal_priv->sts_en_bcn[1]);
+            AML_OUTPUT("dis_beacon[0]=%d\ndis_beacon[1]=%d\n", hal_priv->sts_dis_bcn[0], hal_priv->sts_dis_bcn[1]);
 
-            printk("hal:tx_free_page %d \n", hal_priv->txPageFreeNum);
-            printk("hal:tx_frm_done %d \n",  hal_priv->st_frame_done_counter);
-            printk("hal:send_frm:%d, done_frm:%d, free_frm:%d\n",  hif->HiStatus.Tx_Send_num, hif->HiStatus.Tx_Done_num, hif->HiStatus.Tx_Free_num);
-            printk("hal:gpio irq cnt %d \n",  hal_priv->gpio_irq_cnt);
-            printk("tx_cmp: tx_done_frm %d, tx_mng_frm %d, tx_page %d\n",
+            AML_OUTPUT("hal:tx_free_page %d \n", hal_priv->txPageFreeNum);
+            AML_OUTPUT("hal:tx_ok_num:%d, tx_fail_num:%d\n", hif->HiStatus.tx_ok_num, hif->HiStatus.tx_fail_num);
+            AML_OUTPUT("hal:send_frm:%d, done_frm:%d, free_frm:%d\n",  hif->HiStatus.Tx_Send_num, hif->HiStatus.Tx_Done_num, hif->HiStatus.Tx_Free_num);
+            AML_OUTPUT("hal:gpio irq cnt %d \n",  hal_priv->gpio_irq_cnt);
+            AML_OUTPUT("tx_cmp: tx_done_frm %d, tx_mng_frm %d, tx_page %d\n",
                 hal_priv->txcompletestatus->txdoneframecounter,
                 hal_priv->txcompletestatus->txmanageframecounter,
                 hal_priv->txcompletestatus->txpagecounter);
@@ -1848,7 +1869,7 @@ void hal_get_sts(unsigned int op_code, unsigned int ctrl_code)
             for(i = 0; i < HAL_NUM_TX_QUEUES; i++)
             {
                 tx_share_fifo = &hal_priv->txds_trista_fifo[i];
-                printk("txds_trista_fifo[%d]: make %d, set %d, get %d\n",
+                AML_OUTPUT("txds_trista_fifo[%d]: make %d, set %d, get %d\n",
                     i,
                     CO_SharedFifoNbElt(tx_share_fifo, CO_TX_BUFFER_MAKE),
                     CO_SharedFifoNbElt(tx_share_fifo, CO_TX_BUFFER_SET),
@@ -1857,7 +1878,7 @@ void hal_get_sts(unsigned int op_code, unsigned int ctrl_code)
 
             for(i = 0; i < hirq_max_idx; i++)
             {
-                printk("%s, %d\n", hirq_prt_info[i], hal_priv->sts_hirq[i]);
+                AML_OUTPUT("%s, %d\n", hirq_prt_info[i], hal_priv->sts_hirq[i]);
             }
         }
     }
@@ -1870,9 +1891,66 @@ int hal_close(void *drv_priv)
 {
     struct hal_private *hal_priv = hal_get_priv();
     hal_priv->bhalOpen = 0;
-    printk("%s(%d) hal_priv->bhalOpen 0x%x\n", __func__, __LINE__, hal_priv->bhalOpen);
+    AML_OUTPUT("hal_priv->bhalOpen 0x%x\n", hal_priv->bhalOpen);
     return 1;
 }
+
+extern int drv_add_wnet_vif(struct drv_private *drv_priv, int wnet_vif_id, void * if_data, enum hal_op_mode vm_opmode, unsigned char *myaddr, unsigned int ip);
+extern int wifi_mac_set_tx_power_coefficient(struct drv_private *drv_priv, struct wifi_channel *chan, int tx_power_plan);
+extern int drv_rate_setup(struct drv_private *drv_priv, enum wifi_mac_macmode mode);
+extern int drv_channel_init(struct drv_private *drv_priv, unsigned int cc);
+extern void aml_set_mac_control_register(void);
+
+int cmp_vid(struct drv_private *drv_priv)
+{
+    struct wlan_net_vif *wnet_vif = NULL;
+    unsigned char myaddr[WIFINET_ADDR_LEN] = { mac_addr0, mac_addr1, mac_addr2, mac_addr3, mac_addr4, mac_addr5 };
+    unsigned int ipv4 = 0;
+
+
+    /*add wlan0 interface*/
+    wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_MAIN_VMAC];
+    myaddr[2] += NET80211_MAIN_VMAC<<4;
+    drv_add_wnet_vif(drv_priv, NET80211_MAIN_VMAC, wnet_vif, wifi_mac_opmode_2_halmode(WIFINET_M_STA),  myaddr, ipv4);
+
+    /*add p2p0 interface*/
+    wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_P2P_VMAC];
+    myaddr[2] += NET80211_P2P_VMAC<<4;
+    if (wnet_vif->vm_opmode == WIFINET_M_P2P_DEV) {
+        drv_add_wnet_vif(drv_priv, NET80211_P2P_VMAC, wnet_vif, wifi_mac_opmode_2_halmode(WIFINET_M_STA),  myaddr, ipv4);
+    } else if (wnet_vif->vm_opmode == WIFINET_M_HOSTAP) {
+        drv_add_wnet_vif(drv_priv, NET80211_P2P_VMAC, wnet_vif, wifi_mac_opmode_2_halmode(WIFINET_M_HOSTAP),  myaddr, ipv4);
+    } else {
+        //drv_add_wnet_vif(drv_priv, NET80211_MAIN_VMAC, wnet_vif, wifi_mac_opmode_2_halmode(WIFINET_M_STA),  myaddr, ipv4);
+        ERROR_DEBUG_OUT("error opmode %d\n", wnet_vif->vm_opmode);
+    }
+
+    return 0;
+}
+
+
+int hal_fw_repair(void)
+{
+    struct hal_private *hal_priv = hal_get_priv();
+    struct drv_private *drv_priv = drv_get_drv_priv();
+
+    hal_tx_flush(0);
+    hal_download_wifi_fw_img();
+    hal_host_init(hal_priv);
+
+    drv_set_config((void *)drv_priv, CHIP_PARAM_RETRY_LIMIT, 100 << 8 | 100);
+    wifi_mac_set_tx_power_coefficient(drv_priv, NULL, drv_priv->drv_config.cfg_txpoweplan);
+    drv_priv->net_ops->wifi_mac_rate_ratmod_attach(drv_priv);
+
+    drv_rate_setup(drv_priv, WIFINET_MODE_11GNAC);
+    aml_set_mac_control_register();
+    cmp_vid(drv_priv);
+    drv_priv->drv_ops.drv_set_bmfm_info(drv_priv, 0, 0, 0, 0);
+    drv_hal_enable_coexist(drv_priv->drv_config.cfg_wifi_bt_coexist_support);
+
+    return 0;
+}
+
 
 int hal_probe(void)
 {
@@ -1900,9 +1978,9 @@ int hal_probe(void)
         if ( rg_dpll_a5.b.ro_wifi_bb_pll_done != 1 ) {
             bbpll_init();
             bbpll_start();
-            printk("bbpll  init ok!\n");
+            AML_OUTPUT("bbpll  init ok!\n");
         } else {
-            printk("bbpll  already init,not need to init!\n");
+            AML_OUTPUT("bbpll  already init,not need to init!\n");
         }
 
         hal_set_sys_clk_for_fpga();
@@ -1927,7 +2005,7 @@ int hal_probe(void)
         aml_usb_port_resume(hif->udev);
 #endif
     } else {
-        if(hal_download_wifi_fw_img() != true) {
+        if (hal_download_wifi_fw_img() != 0) {
             goto __exit_err;
         }
     }
@@ -1943,7 +2021,7 @@ int hal_probe(void)
     hal_priv->bhalProbelok = 1;
     hal_priv->beaconaddr[0]=0;
     hal_priv->beaconaddr[1]=0;
-    printk("%s(%d) hal_priv->bhalOpen 0x%x\n", __func__, __LINE__, hal_priv->bhalOpen);
+    AML_OUTPUT("hal_priv->bhalOpen 0x%x\n", hal_priv->bhalOpen);
     return true;
 
 __exit_err:
@@ -1954,12 +2032,12 @@ __exit_err:
 
 static int hal_get_did(struct hw_interface* hif)
 {
-    unsigned int Wifi_DeviceID = 0;
+    unsigned int Wifi_DeviceID = hi_get_device_id();
     int delay_ms = 0;
     int ret = false;
 
     PRINT("Wifi_DeviceID = %x\n",Wifi_DeviceID);
-    while ((Wifi_DeviceID!=PRODUCT_AMLOGIC) /*&& (delay_ms < HI_FI_SYNC_DELAY_MS) */)
+    while ((Wifi_DeviceID != PRODUCT_AMLOGIC) /*&& (delay_ms < HI_FI_SYNC_DELAY_MS) */)
     {
         Wifi_DeviceID = hi_get_device_id();
         if(!aml_bus_type) {
@@ -1985,7 +2063,7 @@ static int hal_get_did(struct hw_interface* hif)
 
 static int hal_get_vid(struct hw_interface* hif)
 {
-    unsigned int Wifi_VendorID = 0;
+    unsigned int Wifi_VendorID = hi_get_vendor_id();
     int delay_ms = 0;
     int ret = false;
     PRINT("Wifi_DeviceID = %x\n",Wifi_VendorID);
@@ -2007,7 +2085,7 @@ static int hal_get_vid(struct hw_interface* hif)
 
         PRINT("Wifi_DeviceID = %x  already delayed=%dms\n",Wifi_VendorID, delay_ms);
     }
-    if (Wifi_VendorID == PRODUCT_AMLOGIC)
+    if (Wifi_VendorID == VENDOR_AMLOGIC)
     {
         ret = true;
     }
@@ -2025,13 +2103,13 @@ static int hal_get_chip_id(void)
     unsigned char chip_id_buf[23];
 
     chip_id_l = efuse_manual_read(CHIP_ID_EFUASE_L);
-    printk("efuse addr:%08x, chip_id is :%08x\n", CHIP_ID_EFUASE_L, chip_id_l);
+    AML_OUTPUT("efuse addr:%08x, chip_id is :%08x\n", CHIP_ID_EFUASE_L, chip_id_l);
     chip_id_h = efuse_manual_read(CHIP_ID_EFUASE_H);
-    printk("efuse addr:%08x, chip_id is :%08x\n", CHIP_ID_EFUASE_H, chip_id_h);
+    AML_OUTPUT("efuse addr:%08x, chip_id is :%08x\n", CHIP_ID_EFUASE_H, chip_id_h);
 
     sprintf(chip_id_buf, CHIP_ID_F, chip_id_h & 0xffff, chip_id_l);
     if (aml_store_to_file(WIFIMAC_PATH, chip_id_buf, strlen(chip_id_buf)) > 0) {
-        printk("write the chip_id to wifimac.txt \n");
+        AML_OUTPUT("write the chip_id to wifimac.txt \n");
         ret = true;
     }
 #endif
@@ -2210,55 +2288,59 @@ static int hal_dev_unreg(void)
     hal_priv->drv_priv= NULL;
     return 0;
 }
-static int hif_set_static_param(void)
+
+int hal_recovery_init_priv(void)
 {
-    struct hw_interface* hif = hif_get_hw_interface();
+    struct hal_private * hal_priv = hal_get_priv();
+    memset(hal_priv->fw_event, 0, sizeof(struct fw_event_to_driver));
+    hal_priv->hal_fw_event_counter = 0;
 
-    hif->CommStaticParam.bus_type = aml_wifi_get_bus_type();
+    /* init work task for upper layer, by calling work thread.*/
+    hal_priv->tx_page_offset = 0;
+    hal_priv->rx_host_offset = 0;
+    /* set -1, just as a flag. */
+    hal_priv->bhalPowerSave  = 0;
+    hal_priv->powersave_init_flag = 1;
 
-    if(aml_bus_type) {
-        hif->CommStaticParam.tx_page_len = PAGE_LEN;
-        hif->CommStaticParam.iccm_rom_len = hif->CommStaticParam.iccm_buf_rd_len = 128*1024;
-        hif->CommStaticParam.iccm_ram_len = 64*1024;
-        hif->CommStaticParam.dccm_len = 48*1024;
-        hif->CommStaticParam.sram_len = 8*1024;
-        hif->CommStaticParam.iccm_check_len = 128*1024;
-        hif->CommStaticParam.dccm_check_len = 48*1024;
-        hif->CommStaticParam.all_len = hif->CommStaticParam.iccm_rom_len + hif->CommStaticParam.iccm_ram_len;
-        printk("usb ops init!\n");
-        /*1---usb*/
-        return 1;
-    } else {
-        hif->CommStaticParam.tx_page_len = PAGE_LEN;
-        hif->CommStaticParam.all_len = hif->CommStaticParam.iccm_buf_rd_len = 160*1024;
-        hif->CommStaticParam.iccm_rom_len = 96*1024;
-        hif->CommStaticParam.iccm_ram_len = 64*1024;
-        hif->CommStaticParam.dccm_len = hif->CommStaticParam.dccm_check_len = 48*1024;
-        hif->CommStaticParam.sram_len = 8*1024;
-        hif->CommStaticParam.iccm_check_len = 96*1024;
-        printk(" sdio ops init\n");
-        /*2---sdio*/
-        return 2;
-    }
+    POWER_BEGIN_LOCK();
+    hal_priv->hal_fw_ps_status = HAL_FW_IN_ACTIVE;
+    POWER_END_LOCK();
+
+    atomic_set(&hal_priv->sdio_suspend_cnt, 0);
+    atomic_set(&hal_priv->drv_suspend_cnt, 0);
+    hal_priv->hal_suspend_mode = HIF_SUSPEND_STATE_NONE;
+
+    hal_priv->gpio_irq_cnt = 0;
+    hal_priv->hst_if_init_ok = 1;
+
+    hal_priv->tx_frames_map[0] = 0;
+    hal_priv->tx_frames_map[1] = 0;
+
+    return 0;
 }
+
 
 int hal_init_priv(void)
 {
     struct hal_private * hal_priv = hal_get_priv();
-    int type;
+    struct hw_interface* hif = hif_get_hw_interface();
 
     DBG_ENTER();
-    type = hif_set_static_param();
 
-    if(type == 1) {
+    hif->CommStaticParam.bus_type = aml_wifi_get_bus_type();
+
+    if (aml_bus_type == 1) {
+        AML_OUTPUT("usb ops init!\n");
+        hif->CommStaticParam.tx_page_len = PAGE_LEN_USB;
         hif_init_usb_ops();
-    } else if(type == 2) {
+    } else if(aml_bus_type == 0) {
+        AML_OUTPUT(" sdio ops init\n");
+        hif->CommStaticParam.tx_page_len = PAGE_LEN;
         hif_init_ops();
     } else {
-        printk("hal init error!!\n");
+        AML_OUTPUT("hal init error!!\n");
         return -1;
     }
-    //hif_init_ops();
 
     memset(hal_priv , 0, sizeof( struct hal_private));
     hal_priv->hif = hif_get_hw_interface();
@@ -2292,9 +2374,9 @@ int hal_init_priv(void)
 
     atomic_set(&hal_priv->sdio_suspend_cnt, 0);
     atomic_set(&hal_priv->drv_suspend_cnt, 0);
+    atomic_set(&hal_priv->usb_isr_done, 0);
     hal_priv->hal_suspend_mode = HIF_SUSPEND_STATE_NONE;
 
-    hal_priv->st_frame_done_counter = 0;
     hal_priv->gpio_irq_cnt = 0;
     hal_init_task();
 #elif defined (HAL_SIM_VER)
@@ -2562,6 +2644,7 @@ int hal_work_thread(void *param)
 int hal_txok_thread(void *param)
 {
     struct hal_private * hal_priv = (struct hal_private *)param;
+    struct hw_interface* hif;
     struct tx_status_node* txok_status_node = NULL;
     struct tx_status_list* txok_status_list = &hal_priv->hif->tx_status_list;
     struct txdonestatus* txstatus = NULL;
@@ -2570,6 +2653,7 @@ int hal_txok_thread(void *param)
     struct sched_param sch_param;
     unsigned char queue_id = 0;
 
+    hif = hif_get_hw_interface();
     sch_param.sched_priority = 91;
     sched_setscheduler(current, SCHED_RR, &sch_param);
     WAKE_LOCK_INIT(hal_priv, WAKE_LOCK_TXOK, "hal_txok_thread");
@@ -2588,8 +2672,16 @@ int hal_txok_thread(void *param)
             }
 
             if ((hal_priv->hal_call_back->intr_tx_pkt_clear != NULL)
-                && (hal_priv->txPageFreeNum == DEFAULT_TXPAGENUM))
+                && (hal_priv->txPageFreeNum == hif->hw_config.txpagenum))
                 hal_priv->hal_call_back->intr_tx_pkt_clear(hal_priv->drv_priv);
+        }
+        if (aml_bus_type) {
+            if ((hal_priv->dpd_wait_pkt_clear == 1)
+                && (hif->HiStatus.Tx_Free_num == hif->HiStatus.Tx_Done_num)) {
+                hal_priv->dpd_wait_pkt_clear = 0;
+                hal_dpd_memory_download();
+                hal_dpd_memory_download_cmd();
+            }
         }
 
         while ((txok_status_node = tx_status_node_dequeue(txok_status_list)) != NULL)
@@ -2607,7 +2699,7 @@ int hal_txok_thread(void *param)
                 /* free skb allocated by hal*/
                 if (hal_free_tx_id(hal_priv, txstatus, &callback, &queue_id) < 0)
                 {
-                    printk("free tx_id error \n");
+                    AML_OUTPUT("free tx_id error \n");
                     tx_status_node_free(txok_status_node,txok_status_list);
                     txok_status_node = NULL;
                     continue;
@@ -2623,7 +2715,7 @@ int hal_txok_thread(void *param)
         WAKE_UNLOCK(hal_priv, WAKE_LOCK_TXOK);
     }
 
-    printk("%s(%d)  =====> exit TXOK Thread <=====\n",__func__,__LINE__);
+    AML_OUTPUT(" =====> exit TXOK Thread <=====\n");
     WAKE_LOCK_DESTROY(hal_priv, WAKE_LOCK_TXOK);
     complete_and_exit(&hal_priv->txok_thread_completion, 0);
 
@@ -2651,7 +2743,7 @@ int hal_rx_thread(void *param)
     sch_param.sched_priority = 91;
     sched_setscheduler(current, SCHED_FIFO, &sch_param);
 
-    printk("%s(%d)  =====creat thread hal_rx_thread<=====\n",__func__,__LINE__);
+    AML_OUTPUT(" =====creat thread hal_rx_thread<=====\n");
 
     WAKE_LOCK_INIT(hal_priv,WAKE_LOCK_RX,"rx_proc amlwifi");
     while (!hal_priv->rx_thread_quit)
@@ -2698,7 +2790,7 @@ int hal_rx_thread(void *param)
             {
                 /*if RxLength error, discard all data in host rx fifo*/
                 rx_fifo_fdh = rx_fifo_fdt;
-                printk("%s(%d)(RxLength:%d,rx_fifo_total_len%d)\n", __func__,__LINE__,
+                AML_OUTPUT("(RxLength:%d,rx_fifo_total_len%d)\n",
                 pVRxDesc->RxLength,rx_fifo_total_len);
                 continue;
             }
@@ -2714,7 +2806,7 @@ int hal_rx_thread(void *param)
             skb = os_skb_alloc(pVRxDesc->RxLength + RX_PRIV_HDR_LEN);
             if (skb == NULL)
             {
-                printk("Couldn't allocate RX frame");
+                AML_OUTPUT("Couldn't allocate RX frame");
                 break;
             }
 
@@ -2755,7 +2847,7 @@ int hal_rx_thread(void *param)
         WAKE_UNLOCK(hal_priv, WAKE_LOCK_RX);
     }
 
-    printk("%s(%d)  =====> exit RX Thread <=====\n",__func__,__LINE__);
+    AML_OUTPUT("=====> exit RX Thread <=====\n");
     WAKE_LOCK_DESTROY(hal_priv, WAKE_LOCK_RX);
     complete_and_exit(&hal_priv->rx_thread_completion, 0);
     return 0;
@@ -3366,7 +3458,7 @@ void hal_txinfo_show()
 
 void hal_dpd_memory_download(void)
 {
-#if 0
+#if 1
     unsigned int reg_tmp;
     struct hw_interface* hif = hif_get_hw_interface();
     unsigned char * d_ptr = NULL;
@@ -3376,17 +3468,23 @@ void hal_dpd_memory_download(void)
     d_ptr = (unsigned char *)MEMDATA;
     /* 1024 words */
     len = sizeof(MEMDATA);
-#if 0
+
     if(aml_bus_type) {
         addr = USB_DPD_MEMORY_ADDR;
     }
-#endif
 
     ASSERT(len > 0);
     ASSERT(len <= DPD_MEMORY_LEN);
 
-    //set ram share
-    hif->hif_ops.hi_write_word(0x00a0d0e4, 0x8000007f);
+    if (aml_bus_type) {
+        //set ram share
+        hif->hif_ops.hi_write_word(0x00a0d0e4, 0x0100007f);
+
+    }
+    else {
+        //set ram share
+        hif->hif_ops.hi_write_word(0x00a0d0e4, 0x8000007f);
+    }
     if(!aml_bus_type) {
     /*
      * make sure function 5 section address-mapping feature is disabled,
@@ -3433,6 +3531,21 @@ void hal_dpd_memory_download(void)
 
 void hal_dpd_calibration(void)
 {
+    struct hw_interface* hif = hif_get_hw_interface();
+    struct hal_private * hal_priv = hal_get_priv();
+    struct drv_private *drv_priv = drv_get_drv_priv();
+
+    if (aml_bus_type) {
+        if (drv_priv->drv_scanning == 1) {
+            hal_priv->dpd_delay_cail = 1;
+            return;
+        }
+        hal_priv->dpd_suspend = 1;
+        if (hif->HiStatus.Tx_Free_num != hif->HiStatus.Tx_Done_num) {
+            hal_priv->dpd_wait_pkt_clear = 1;
+            return;
+        }
+    }
 #if 0
     struct hw_interface* hif = hif_get_hw_interface();
 

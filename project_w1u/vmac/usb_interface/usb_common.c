@@ -7,7 +7,7 @@ struct aml_hwif_usb g_hwif_usb;
 unsigned char auc_driver_insmoded;
 unsigned char auc_wifi_in_insmod;
 struct crg_msc_cbw *g_cmd_buf = NULL;
-struct mutex auc_usb_metux;
+//struct mutex auc_usb_metux;
 unsigned char *g_kmalloc_buf;
 
 void auc_build_cbw(struct crg_msc_cbw *cbw_buf,
@@ -16,7 +16,7 @@ void auc_build_cbw(struct crg_msc_cbw *cbw_buf,
                                unsigned char cdb1,
                                unsigned int cdb2,
                                unsigned long cdb3,
-                               SYS_TYPE cdb4)
+                               SYS_TYPE_U cdb4)
 {
     cbw_buf->sig = AML_SIG_CBW;
     cbw_buf->tag = 0x5da729a0;
@@ -51,7 +51,7 @@ int auc_send_cmd(unsigned int addr, unsigned int len)
     /* cmd stage */
     ret = auc_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1), g_cmd_buf, sizeof(*g_cmd_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        PRINT("%s:%d, Failed to usb_bulk_msg, ret %d\n", __func__, __LINE__, ret);
+        PRINT_U("%s:%d, Failed to usb_bulk_msg, ret %d\n", __func__, __LINE__, ret);
         USB_END_LOCK();
         return ret;
     }
@@ -120,7 +120,7 @@ unsigned int auc_reg_read(unsigned int addr, unsigned int len)
 #ifdef REG_CTRL_EP0
     unsigned int req_buf = addr;
     aml_usb_control_transfer(0, &req_buf, 0, CMD_READ_REG,&reg_data, len);
-    PRINT("[USB_HOST]reg_read value: %x\n", reg_data);
+    PRINT_U("[USB_HOST]reg_read value: %x\n", reg_data);
 #else
     crg_msc_request(len, CRG_XFER_TO_HOST, CMD_READ_REG, addr, 0, len, &reg_data);
 #endif
@@ -144,7 +144,7 @@ int auc_reg_write(unsigned int addr, unsigned int value, unsigned int len)
                           0, 0, req_buf, sizeof(req_buf), AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret < 0)
     {
-        printk("%s:%d, Failed to usb_control_msg, ret %d\n", __func__, __LINE__, ret);
+        PRINT_U("%s:%d, Failed to usb_control_msg, ret %d\n", __func__, __LINE__, ret);
         return ret;
     }
 #else
@@ -207,7 +207,7 @@ void usb_write_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
     }
 #endif
     if (len > 1024*20) {
-        printk("write sram len is overflow %d\n",len);
+        PRINT_U("write sram len is overflow %d\n",len);
         return;
     }
     memcpy(g_kmalloc_buf, pdata, len);
@@ -221,7 +221,7 @@ void usb_write_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
     USB_END_LOCK();
 
 #elif defined (HAL_SIM_VER)
-    PRINT("[HOST]AML_USB_WRITE_SRAM: addr:0x%x,len:%d\n", addr, len);
+    PRINT_U("[HOST]AML_USB_WRITE_SRAM: addr:0x%x,len:%d\n", addr, len);
     crg_msc_request(len, CRG_XFER_TO_DEVICE, CMD_WRITE_SRAM, addr, (unsigned long)pdata, len, NULL);
 #endif
 }
@@ -253,7 +253,7 @@ void usb_read_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
     }
 #endif
     if (len > 1024*20) {
-        printk("Read sram len is overflow %d\n",len);
+        PRINT_U("Read sram len is overflow %d\n",len);
         return;
     }
 
@@ -267,18 +267,18 @@ void usb_read_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
     memcpy(pdata, g_kmalloc_buf, actual_length);
     USB_END_LOCK();
 #elif defined (HAL_SIM_VER)
-    PRINT("[HOST]AML_USB_READ_SRAM:addr:0x%x,len:%d\n", addr, len);
+    PRINT_U("[HOST]AML_USB_READ_SRAM:addr:0x%x,len:%d\n", addr, len);
     crg_msc_request(len, CRG_XFER_TO_HOST, CMD_READ_SRAM, addr, 0, len, (unsigned int *)pdata);
 #endif
 
 }
 
-void auc_write_sram(unsigned char *buf, unsigned char *sram_addr, SYS_TYPE len)
+void auc_write_sram(unsigned char *buf, unsigned char *sram_addr, SYS_TYPE_U len)
 {
     unsigned int addr = (unsigned int)(unsigned long)sram_addr;
     usb_write_sram(addr, buf, len);
 }
-void auc_read_sram(unsigned char *buf,unsigned char *sram_addr, SYS_TYPE len)
+void auc_read_sram(unsigned char *buf,unsigned char *sram_addr, SYS_TYPE_U len)
 {
     unsigned int addr = (unsigned int)(unsigned long)sram_addr;
     usb_read_sram(addr, buf, len);
@@ -322,7 +322,7 @@ static int auc_probe(struct usb_interface *interface, const struct usb_device_id
 
     g_cmd_buf = ZMALLOC(sizeof(*g_cmd_buf),"cmd stage",GFP_DMA | GFP_ATOMIC);
     if(!g_cmd_buf) {
-        PRINT("g_cbw_buf malloc fail\n");
+        PRINT_U("g_cbw_buf malloc fail\n");
         return -ENOMEM;;
     }
 
@@ -336,7 +336,7 @@ static int auc_probe(struct usb_interface *interface, const struct usb_device_id
 
     auc_ops_init();
 
-    PRINT("%s(%d)\n",__func__,__LINE__);
+    PRINT_U("%s(%d)\n",__func__,__LINE__);
     return 0;
 }
 
@@ -347,7 +347,7 @@ static void auc_disconnect(struct usb_interface *interface)
     FREE(g_cmd_buf,"cmd stage");
     usb_set_intfdata(interface, NULL);
     usb_put_dev(g_udev);
-    PRINT("--------aml_usb:disconnect-------\n");
+    PRINT_U("--------aml_usb:disconnect-------\n");
 }
 
 #ifdef CONFIG_PM
@@ -385,17 +385,17 @@ static struct usb_driver aml_usb_common_driver = {
 
 
 
-int aml_common_insmod(void)
+int aml_usb_insmod(void)
 {
     int err = 0;
 
     err = usb_register(&aml_usb_common_driver);
     auc_driver_insmoded = 1;
     auc_wifi_in_insmod = 0;
-    PRINT("%s(%d) aml common driver insmod\n",__func__, __LINE__);
+    PRINT_U("%s(%d) aml usb driver insmod\n",__func__, __LINE__);
 
     if(err) {
-        PRINT("failed to register usb driver: %d \n", err);
+        PRINT_U("failed to register usb driver: %d \n", err);
     }
 
     return err;
@@ -403,13 +403,13 @@ int aml_common_insmod(void)
 }
 
 
-void aml_common_rmmod(void)
+void aml_usb_rmmod(void)
 {
     usb_deregister(&aml_usb_common_driver);
     auc_driver_insmoded = 0;
-    PRINT("%s(%d) aml common driver rmsmod\n",__func__, __LINE__);
+    PRINT_U("%s(%d) aml usb driver rmsmod\n",__func__, __LINE__);
 }
-EXPORT_SYMBOL(aml_common_insmod);
+EXPORT_SYMBOL(aml_usb_insmod);
 EXPORT_SYMBOL(g_cmd_buf);
 EXPORT_SYMBOL(g_auc_hif_ops);
 EXPORT_SYMBOL(g_udev);
@@ -419,7 +419,7 @@ EXPORT_SYMBOL(auc_send_cmd);
 EXPORT_SYMBOL(auc_usb_mutex);
 
 
-module_init(aml_common_insmod);
-module_exit(aml_common_rmmod);
-MODULE_LICENSE("GPL");
+//module_init(aml_common_insmod);
+//module_exit(aml_common_rmmod);
+//MODULE_LICENSE("GPL");
 

@@ -76,7 +76,7 @@ int wifi_mac_classify(struct wifi_station *sta, struct sk_buff *skb)
     if (v_wme_ac > d_wme_ac)
     {
         cb->u_tid = v_pri;
-        printk("<running> %s %d cb->u_tid = %d\n",__func__,__LINE__,cb->u_tid);
+        AML_OUTPUT("<running> cb->u_tid = %d\n", cb->u_tid);
         os_skb_set_priority(skb,v_wme_ac);
     }
 
@@ -108,7 +108,7 @@ int wifi_mac_classify(struct wifi_station *sta, struct sk_buff *skb)
     }
 
     txinfo->tid_index =  os_skb_get_tid(skb);
-    //printk("%s tid_index:%d\n", __func__, txinfo->tid_index);
+    //AML_OUTPUT("tid_index:%d\n", txinfo->tid_index);
 
     return 0;
 }
@@ -143,7 +143,7 @@ void wifi_mac_get_rtsp_session(char* rtsp, struct wifi_mac_p2p* p2p)
             strcat(p2p->wfd_session_id, id_buf);
             buf++;
         }
-        printk("wfd_session_id=%s\n", p2p->wfd_session_id);
+        AML_OUTPUT("wfd_session_id=%s\n", p2p->wfd_session_id);
     }
 }
 
@@ -265,7 +265,25 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
     unsigned short qlen_real;
     unsigned short pending_cnt;
+    unsigned char tid_index = os_skb_get_tid(skb);
+    struct aml_driver_nsta *drv_sta = sta->drv_sta;
+    struct drv_tx_scoreboard *tid = DRV_GET_TIDTXINFO(drv_sta, tid_index);
+    struct hal_private * hal_priv = hal_get_priv();
+    if (tid->tid_tx_buff_sending) {
+        wnet_vif->vm_devstats.tx_dropped++;
+        wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[os_skb_get_tid(skb)]++;
+        return NETDEV_TX_BUSY;
+    }
 
+    if (wnet_vif->vm_phase_flags & PHASE_TX_BUFF_QUEUE) {
+        wnet_vif->vm_devstats.tx_dropped++;
+        return NETDEV_TX_BUSY;
+    }
+
+    if ((aml_bus_type) && (hal_priv->dpd_suspend)) {
+        wnet_vif->vm_devstats.tx_dropped++;
+        return NETDEV_TX_BUSY;
+    }
     /*check the txlist_x threshhold: been sent to hal and to be sent to hal*/
     /* check msdu pending num*/
     if (wifimac->drv_priv->drv_ops.txlist_isfull(wifimac->drv_priv, wifimac->wm_ac2q[os_skb_get_priority(skb)], (skb), sta->drv_sta)
@@ -280,7 +298,7 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
         pending_cnt = wifimac->drv_priv->drv_ops.drv_tx_pending_pkt(wifimac->drv_priv);
 
         if (qlen_real + pending_cnt > 200) {
-            //printk("qlen_real:%d, pending_cnt:%d\n", qlen_real, pending_cnt);
+            //AML_OUTPUT("qlen_real:%d, pending_cnt:%d\n", qlen_real, pending_cnt);
             wnet_vif->vm_devstats.tx_dropped++;
             wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[os_skb_get_tid(skb)]++;
             return NETDEV_TX_BUSY;
@@ -383,7 +401,7 @@ int wifi_mac_hardstart(struct sk_buff *skb, struct net_device *dev)
         goto bad;
     }
 
-    if (wnet_vif->vm_state != WIFINET_S_CONNECTED ||  wnet_vif->vm_phase == PHASE_DISCONNECTING) {
+    if (wnet_vif->vm_state != WIFINET_S_CONNECTED || (wnet_vif->vm_phase_flags & PHASE_DISCONNECTING)) {
         error = 3;
         goto bad;
     }
@@ -920,7 +938,7 @@ void calculate_checksum_for_fragment_pkt(struct sk_buff *skb, struct ether_heade
             struct tcphdr *th = (struct tcphdr *)((unsigned char *)iphdrp + (iphdrp->ihl << 2));
             struct udphdr *uh = (struct udphdr *)((unsigned char *)iphdrp + (iphdrp->ihl << 2));
 
-            //printk("chris ip_pkt_offset:%d, hdrsize:%d, iphdrp->ihl:%d\n", ip_pkt_offset, hdrsize, iphdrp->ihl);
+            //AML_OUTPUT("chris ip_pkt_offset:%d, hdrsize:%d, iphdrp->ihl:%d\n", ip_pkt_offset, hdrsize, iphdrp->ihl);
             iphdrp->check = 0;
             ip_hdr = (unsigned short *)((unsigned char *)os_skb_data(skb) + ip_pkt_offset);
             iphdrp->check = calculate_checksum(ip_hdr, iphdrp->ihl * 4);
@@ -1824,38 +1842,38 @@ void print_ht_opt_information(unsigned char* ht_opt)
 {
     if (ht_opt[0] != WIFINET_ELEMID_HTINFO)
     {
-        printk("%s(%d), Not HT OP IE:%d.\n\n",__func__,__LINE__,ht_opt[0]);
+        AML_OUTPUT("Not HT OP IE:%d.\n\n", ht_opt[0]);
         return;
     }
 
     /*Print Primary Channel*/
-    printk("%s(%d),primary channel:%d.\n",__func__,__LINE__,ht_opt[2]);
+    AML_OUTPUT("primary channel:%d.\n", ht_opt[2]);
 
     /*Second channel offset parsing*/
     switch( ht_opt[3] & 0x03 )
     {
         case 1:
-            printk("%s(%d),Secondary Channel is ABOVE the primary channel.\n",__func__,__LINE__);
+            AML_OUTPUT("Secondary Channel is ABOVE the primary channel.\n");
             break;
         case 3:
-            printk("%s(%d),Secondary Channel is BELOW the primary channel.\n",__func__,__LINE__);
+            AML_OUTPUT("Secondary Channel is BELOW the primary channel.\n");
             break;
         case 0:
-            printk("%s(%d),No Secondary Channel is present.\n",__func__,__LINE__);
+            AML_OUTPUT("No Secondary Channel is present.\n");
             break;
         default:
-            printk("%s(%d),Reserved value.\n",__func__,__LINE__);
+            AML_OUTPUT("Reserved value.\n");
             break;
     }
 
     /*STA Channel Width parsing*/
     if ( ht_opt[3] & 0x03 )
     {
-       printk("%s(%d),HT_OP:Allow use of any channel width in the supported channle width set.\n",__func__,__LINE__);
+       AML_OUTPUT("HT_OP:Allow use of any channel width in the supported channle width set.\n");
     }
     else
     {
-       printk("%s(%d),HT_OP:20M channel bandwidth.\n",__func__,__LINE__);
+       AML_OUTPUT("HT_OP:20M channel bandwidth.\n");
     }
 
     return;
@@ -2074,7 +2092,7 @@ wifi_mac_add_vht_cap(unsigned char *frm, struct wifi_station *sta)
 
     SET_VHT_CAP_TXOP_PS(vht_cap_ie->vht_cap_info, VHT_CAP_TXOP_PS_NOT_SUPPORT);
     SET_VHT_CAP_HTC_VHT(vht_cap_ie->vht_cap_info, VHT_CAP_NOT_SUPPORT_HTCVHT);
-    SET_VHT_CAP_MAX_APMDU_LEN_EXP(vht_cap_ie->vht_cap_info,  MAX_VHT_AMPDU_32K); 
+    SET_VHT_CAP_MAX_APMDU_LEN_EXP(vht_cap_ie->vht_cap_info,  MAX_VHT_AMPDU_32K);
     SET_VHT_CAP_LK_ADP(vht_cap_ie->vht_cap_info, VHT_CAP_LK_ADP_NO_FB);
     SET_VHT_CAP_RX_ATN_CONSTN(vht_cap_ie->vht_cap_info, VHT_CAP_RX_ATN_CONSTN_NOT_CHANGE);
     SET_VHT_CAP_TX_ATN_CONSTN(vht_cap_ie->vht_cap_info, VHT_CAP_TX_ATN_CONSTN_NOT_CHANGE);
@@ -2106,21 +2124,21 @@ void print_vht_opt_information(unsigned char* vht_opt)
 {
     if (vht_opt[0] != WIFINET_ELEMID_VHTOP)
     {
-        printk("%s(%d), Not VHT OP IE:%d.\n\n",__func__,__LINE__,vht_opt[0]);
+        AML_OUTPUT("Not VHT OP IE:%d.\n\n", vht_opt[0]);
         return;
     }
     if (vht_opt[2] & 0x3 )/*Channel Width,1:80M;0:20M or 40M BSS bandwidth*/
     {
-        printk("%s(%d),Channel bandwidth: 80M.\n",__func__,__LINE__);
+        AML_OUTPUT("Channel bandwidth: 80M.\n");
     }
     else
     {
-        printk("%s(%d),Channel bandwidth: 20M or 40M.\n",__func__,__LINE__);
+        AML_OUTPUT("Channel bandwidth: 20M or 40M.\n");
     }
 
     /*Print vht_oper_centr_freq_seg0/1_idx*/
-    printk("%s(%d),vht_oper_centr_freq_seg0_idx:%d.\n",__func__,__LINE__,vht_opt[3]);
-    printk("%s(%d),vht_oper_centr_freq_seg1_idx:%d.\n",__func__,__LINE__,vht_opt[4]);
+    AML_OUTPUT("vht_oper_centr_freq_seg0_idx:%d.\n", vht_opt[3]);
+    AML_OUTPUT("vht_oper_centr_freq_seg1_idx:%d.\n", vht_opt[4]);
 
     return;
 }
@@ -2257,8 +2275,8 @@ unsigned char *wifi_mac_add_vht_quiet_ch(unsigned char *frm, struct wifi_station
 
     } else/*in no sta mode, there is only mode =0 in queit ie */{
         ie_vht_quiet_chn->ap_quiet_md = DIS_AP_MODE_IN_QUIET_IE;
-        ie_vht_quiet_chn->elem_len = 1;	 // ie mode   
-        return frm + 1 + 1 + 1; // ie_id + ie_len + opmode in no AP mode 
+        ie_vht_quiet_chn->elem_len = 1;	 // ie mode
+        return frm + 1 + 1 + 1; // ie_id + ie_len + opmode in no AP mode
     }
 }
 
@@ -2437,7 +2455,7 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
         frm = wifi_mac_add_rates(frm, &wnet_vif->vm_mainsta->sta_rates);
         frm = wifi_mac_add_xrates(frm, &wnet_vif->vm_mainsta->sta_rates);
     }
- 
+
     /*5G mode ,non-support DSSS Parameter Set*/
     if( WIFINET_IS_CHAN_2GHZ(wifimac->wm_curchan) )
     {
@@ -2567,7 +2585,7 @@ int wifi_mac_send_auth(struct wlan_net_vif *wnet_vif,struct wifi_station *sta,vo
 
     if (skb == NULL)
     {
-        WIFINET_DPRINTF_STA( AML_DEBUG_CONNECT, sta, "%s: Auth: Unable to allocate mgmt frame", __func__);
+        ERROR_DEBUG_OUT("Auth: Unable to allocate mgmt frame\n");
         return ENOMEM;
     }
     frm = os_skb_put(skb, 3 * sizeof(unsigned short)
@@ -2604,12 +2622,7 @@ int wifi_mac_send_auth(struct wlan_net_vif *wnet_vif,struct wifi_station *sta,vo
     if (wnet_vif->vm_opmode == WIFINET_M_STA)
     {
         DPRINTF(AML_DEBUG_TIMER,"TIMERdbg <running> %s %d \n",__func__,__LINE__);
-        if (wnet_vif->mgmt_pkt_retry_count == 0) {
-            os_timer_ex_start_period(&wnet_vif->vm_mgtsend, FIRST_AUTH_RETRY_INTERVAL_DUE_TO_CHANNEL_SWITCH);
-
-        } else {
-            os_timer_ex_start_period(&wnet_vif->vm_mgtsend, DEFAULT_MGMT_RETRY_INTERVAL);
-        }
+        os_timer_ex_start_period(&wnet_vif->vm_mgtsend, DEFAULT_AUTH_RETRY_INTERVAL);
     }
     return 0;
 }
@@ -2638,16 +2651,27 @@ int wifi_mac_send_deauth(struct wlan_net_vif  *wnet_vif, struct wifi_station *st
     return 0;
 }
 
-int aml_rsn_sync_pmkid(struct wifi_station *sta, int pmkid_index) 
+int aml_rsn_sync_pmkid(struct wifi_station *sta, int pmkid_index)
 {
     struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
     struct wifi_mac_Rsnparms *rsn = &sta->sta_rsn;
     unsigned char *frm = wnet_vif->vm_opt_ie;
-    unsigned char pmkid_count_index;
-    unsigned char gm_cipher_suite[4];
-    unsigned char rsn_ie_len = frm[1];
+    unsigned char *rsnie = NULL;
+    unsigned char rsn_ie_len = 0, pmkid_pos = 0;
+    int idx = 0, rsnie_offset = 0, pmkid_count;
 
-    if (wnet_vif->vm_opt_ie_len <= 0) {
+    while (idx < wnet_vif->vm_opt_ie_len) {
+        if (frm[idx] == WIFINET_ELEMID_RSN) {
+            rsnie = frm + idx;
+            rsn_ie_len = frm[idx+IE_LEN_OFFSET];
+            pmkid_pos = rsn->rsn_caps_offset + 2 + 2; // 2: rsn_caps_len; 2: pmkid_cnt
+            rsnie_offset = rsnie - frm;
+            break;
+        }
+        idx += (frm[idx+IE_LEN_OFFSET] + IE_HDR_LEN);
+    }
+
+    if (wnet_vif->vm_opt_ie_len <= 0 || rsnie == NULL) {
         DPRINTF(AML_DEBUG_WARNING, "RSN ie invalid\n");
         return WIFINET_REASON_IE_INVALID;
     }
@@ -2655,11 +2679,15 @@ int aml_rsn_sync_pmkid(struct wifi_station *sta, int pmkid_index)
     if (pmkid_index != -1) {
         if (rsn->rsn_pmkid_count == 0) {
             DPRINTF(AML_DEBUG_WARNING, "no rsn pmkid, need to add\n");
-            frm[IE_HDR_LEN + rsn_ie_len - 6] = 1;
-            memcpy(gm_cipher_suite, frm + IE_HDR_LEN + rsn_ie_len - OUI_LEN, OUI_LEN);
-            memcpy(frm + IE_HDR_LEN + rsn_ie_len - OUI_LEN, wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, WPA_PMKID_LEN);
-            memcpy(frm + IE_HDR_LEN + rsn_ie_len - OUI_LEN + WPA_PMKID_LEN, gm_cipher_suite, OUI_LEN);
-            frm[IE_LEN_OFFSET] += WPA_PMKID_LEN;
+            memcpy(rsnie+pmkid_pos+WPA_PMKID_LEN,rsnie+pmkid_pos,wnet_vif->vm_opt_ie_len-rsnie_offset-pmkid_pos);
+            rsnie[rsn->rsn_caps_offset + 2] = 1;
+            rsnie[rsn->rsn_caps_offset + 3] = 0;
+            rsn->rsn_pmkid_offset = pmkid_pos;
+            memcpy(rsnie + pmkid_pos, wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, WPA_PMKID_LEN);
+            memcpy(rsn->rsn_pmkid, wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, WPA_PMKID_LEN);
+            rsnie[IE_LEN_OFFSET] += WPA_PMKID_LEN;
+            wnet_vif->vm_opt_ie_len += WPA_PMKID_LEN;
+            rsn->rsn_pmkid_count++;
 
         } else {
             if (memcmp(rsn->rsn_pmkid, wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, WPA_PMKID_LEN)) {
@@ -2668,8 +2696,8 @@ int aml_rsn_sync_pmkid(struct wifi_station *sta, int pmkid_index)
                     rsn->rsn_pmkid[7], rsn->rsn_pmkid[8], rsn->rsn_pmkid[9], rsn->rsn_pmkid[10], rsn->rsn_pmkid[11], rsn->rsn_pmkid[12], rsn->rsn_pmkid[13],
                     rsn->rsn_pmkid[14], rsn->rsn_pmkid[15]);
 
-                memcpy(wnet_vif->vm_opt_ie + rsn->rsn_pmkid_offset, wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, WPA_PMKID_LEN);
-
+                memcpy(rsnie+rsn->rsn_pmkid_offset, wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, WPA_PMKID_LEN);
+                memcpy(rsn->rsn_pmkid, wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, WPA_PMKID_LEN);
             } else {
                 DPRINTF(AML_DEBUG_WARNING, "pmkid the same\n");
             }
@@ -2680,15 +2708,24 @@ int aml_rsn_sync_pmkid(struct wifi_station *sta, int pmkid_index)
             DPRINTF(AML_DEBUG_WARNING, "no rsn pmkid, just return, not delete\n");
             return 0;
         }
+        pmkid_count = rsnie[rsn->rsn_caps_offset + 2] | (rsnie[rsn->rsn_caps_offset + 3] << 8);
+        DPRINTF(AML_DEBUG_WARNING, "delete rsn pmkid:%d\n", pmkid_count);
 
-        DPRINTF(AML_DEBUG_WARNING, "delete rsn pmkid\n");
-        pmkid_count_index = rsn->rsn_pmkid_offset - 2;
-        wnet_vif->vm_opt_ie_len -= WPA_PMKID_LEN;
-        frm[IE_LEN_OFFSET] -= WPA_PMKID_LEN;
-        frm[pmkid_count_index] = 0;
-        frm[pmkid_count_index + 1] = 0;
+        rsnie[IE_LEN_OFFSET] -= pmkid_count * WPA_PMKID_LEN;
+        rsnie[rsn->rsn_caps_offset + 2] = 0;
+        rsnie[rsn->rsn_caps_offset + 3] = 0;
+        memcpy(rsnie + pmkid_pos, rsnie + pmkid_pos + (WPA_PMKID_LEN * pmkid_count),
+            wnet_vif->vm_opt_ie_len - rsnie_offset - pmkid_pos - (WPA_PMKID_LEN * pmkid_count));
+        memset(rsn->rsn_pmkid, 0, WPA_PMKID_LEN);
+        rsn_ie_len -= (WPA_PMKID_LEN * pmkid_count);
+        wnet_vif->vm_opt_ie_len -= (WPA_PMKID_LEN * pmkid_count);
+        rsn->rsn_pmkid_count -= pmkid_count;
+        if (rsn->rsn_pmkid_count == 0) {
+            rsn->rsn_pmkid_offset = 0;
 
-        memcpy((frm+ pmkid_count_index + 2), (frm + rsn->rsn_pmkid_offset + WPA_PMKID_LEN), OUI_LEN);
+        } else {
+            ERROR_DEBUG_OUT("BUG!\n");
+        }
     }
 
     return 0;
@@ -2843,6 +2880,7 @@ int wifi_mac_send_assoc_req(struct wlan_net_vif *wnet_vif, struct wifi_station *
 #endif//#ifdef CONFIG_P2P
 
     os_skb_trim(skb, frm - os_skb_data(skb));
+    wifi_mac_save_app_ie(&wnet_vif->assocreq_ie, os_skb_data(skb) + 4/*sizeof(capinfo+listen int)*/,os_skb_get_pktlen(skb) - 4);
     wifi_mac_mgmt_output(sta, skb, type);
     DPRINTF(AML_DEBUG_TIMER, "TIMERdbg <running> %s %d \n",__func__,__LINE__);
     os_timer_ex_start_period(&wnet_vif->vm_mgtsend, DEFAULT_MGMT_RETRY_INTERVAL);
@@ -2912,9 +2950,9 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
             WIFINET_VMAC_UAPSD_ENABLED(wnet_vif));
     }
 
-    printk("%s %d sta flags: 0x%x, assoc success :%d.\n",__func__,__LINE__,sta->sta_flags, *(int *)arg);
+    AML_OUTPUT("sta flags: 0x%x, assoc success :%d.\n", sta->sta_flags, *(int *)arg);
     if (sta->sta_flags & WIFINET_NODE_HT) {
-        printk("%s %d will add ht cat and op for assocresp\n",__func__,__LINE__);
+        AML_OUTPUT("will add ht cat and op for assocresp\n");
         frm = wifi_mac_add_htcap(frm, sta);
         frm = wifi_mac_add_htinfo(frm, sta);
 
@@ -2925,7 +2963,7 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
     }
 
     if (wifi_mac_is_vht_enable(wnet_vif) && (sta->sta_flags & WIFINET_NODE_VHT)) {
-        printk("%s %d will add vht cat and op for assocresp\n",__func__,__LINE__);
+        AML_OUTPUT("will add vht cat and op for assoresp\n");
         frm = wifi_mac_add_vht_cap( frm, sta) ;
         frm = wifi_mac_add_vht_opt( frm, sta , WIFINET_FC0_SUBTYPE_ASSOC_RESP);
     }
@@ -3272,7 +3310,7 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
             switch (action) {
                 case WIFINET_ACT_PUBLIC_BSSCOEXIST:
                     wifi_mac_get_bsscoexist_channel(chan_list, &num_channels, &num_intol);
-                    printk("%s:%d, num_channels=%d, num_intol=%d.\n", __func__, __LINE__, num_channels, num_intol);
+                    AML_OUTPUT("num_channels=%d, num_intol=%d.\n", num_channels, num_intol);
 
                     frm = os_skb_put(skb, sizeof(struct wifi_mac_action_bss_coex_frame) + num_channels);
                     bsscoex = (struct wifi_mac_action_bss_coex_frame *)frm;
@@ -3377,7 +3415,6 @@ int wifi_mac_send_mgmt(struct wifi_station *sta, int type, void *arg)
             break;
 
         case WIFINET_FC0_SUBTYPE_DEAUTH:
-            wnet_vif->vm_phase = PHASE_DISCONNECTING;
             if (sta->sta_flags_ext & WIFINET_NODE_MFP) {
                 for (retry_count = 0; retry_count < 2; ++retry_count) {
                     ret = wifi_mac_send_deauth(wnet_vif,sta,arg);
@@ -3453,7 +3490,7 @@ int wifi_mac_send_arp_req(struct wlan_net_vif *wnet_vif) {
     memset(&ipv4, 0, sizeof(ipv4));
     ipv4 = ifa_v4->ifa_local;
 
-    printk("wifi_mac_send_arp_req, ipv4:%08x\n", ipv4);
+    AML_OUTPUT("wifi_mac_send_arp_req, ipv4:%08x\n", ipv4);
     for (i = 1; i < 15; ++i) {
         skb = os_skb_alloc(pkt_len + 64 + HI_TXDESC_DATAOFFSET);
         if (skb == NULL) {
@@ -3579,7 +3616,7 @@ int wifi_mac_set_arp_rsp(struct wlan_net_vif *wnet_vif) {
     memset(&ipv4, 0, sizeof(ipv4));
     ipv4 = ifa_v4->ifa_local;
 
-    printk("wifi_mac_set_arp_rsp rx, ipv4:%08x\n", ipv4);
+    AML_OUTPUT("wifi_mac_set_arp_rsp rx, ipv4:%08x\n", ipv4);
     for (i = 1; i < 3; ++i) {
         skb = os_skb_alloc(pkt_len);
         if (skb == NULL) {

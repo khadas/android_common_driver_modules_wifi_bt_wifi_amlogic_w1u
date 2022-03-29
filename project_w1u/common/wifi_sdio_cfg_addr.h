@@ -25,10 +25,14 @@ bit5-bit7 of 0x221, bit16-bit20 are mapped with bit0-bit4 of 0x222 */
 /* bit 0-3 pmu status, bit 4 wf power en, bit 5-7 fw status (get
     fw status from RG_AON_A30[bit3-0] )*/
 #define RG_SDIO_PMU_STATUS (0x23c)
-
 #define USB_FW_SLEEP BIT(0)
 
+
+#ifdef HOST_USB
+#define FW_SLEEP  BIT(0) //flag in RG_AON_A30
+#else
 #define FW_SLEEP  BIT(4) //host, w1, flag in RG_SDIO_PMU_STATUS
 #define HOST_SLEEP_REQ  BIT(5) //host, w1, flag in RG_SDIO_PMU_HOST_REQ
+#endif
 #endif
 

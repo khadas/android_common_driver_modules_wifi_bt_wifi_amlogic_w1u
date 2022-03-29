@@ -5,24 +5,6 @@
 
 #define TXPWR_CFFC_CFG_CMD 0x2e
 
-typedef struct txtssi_ratio_limit_param
-{
-    unsigned char enable;
-    unsigned char wf2g_ratio_limit;
-    unsigned char wf5g_ratio_limit;
-    unsigned char reserved;
-} txtssi_ratio_limit_param;
-
-typedef struct digital_gain_limit_param
-{
-    unsigned char enable;
-    unsigned char min_2g;
-    unsigned char max_2g;
-    unsigned char min_5g;
-    unsigned char max_5g;
-    unsigned char resv[3];
-} digital_gain_limit_param;
-
 typedef struct patch_Cali_Param
 {
     unsigned char Cmd;
@@ -43,6 +25,15 @@ typedef struct patch_Cali_Param
     unsigned short platform_versionid;
 } patch_Cali_Param;
 
+struct tx_trb_info_ex
+{
+    /* The number of pages needed for a single transfer */
+    unsigned int packet_num;
+    /* Actual size used for each page */
+    unsigned short buffer_size[128];
+};
+
+#if 0
 struct tx_trb_info
 {
     /* The number of pages needed for a single transfer */
@@ -60,5 +51,7 @@ typedef struct Txpwr_Cffc_Cfg_Param
     unsigned char reserve[2];
     unsigned char band[4];
 } Txpwr_Cffc_Cfg_Param;
+
+#endif
 
 #endif

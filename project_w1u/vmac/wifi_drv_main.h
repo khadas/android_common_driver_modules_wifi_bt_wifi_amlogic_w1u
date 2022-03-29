@@ -124,6 +124,8 @@
                 }                                                           \
         } while (0)
 
+#define MIN_DWELL_DUR 10
+
 struct drv_tx_scoreboard
 {
     unsigned char vid;
@@ -139,6 +141,7 @@ struct drv_tx_scoreboard
     struct drv_txdesc *tx_desc[DRV_TID_MAX_BUFS];
     struct list_head txds_queue;// tx_ds node
     struct list_head tid_queue_elem; //tid node
+    struct sk_buff_head tid_tx_buffer_queue;
     struct aml_driver_nsta *drv_sta;
     struct drv_queue_ac *ac;
     struct os_timer_ext addba_requesttimer;
@@ -148,6 +151,7 @@ struct drv_tx_scoreboard
     unsigned char addba_exchangecomplete;
     unsigned char addba_amsdusupported;
     unsigned char addba_exchangestatuscode;
+    unsigned char tid_tx_buff_sending;
     unsigned long baw_map;
 } ;
 
@@ -359,6 +363,9 @@ struct driver_ops
     void        (*scan_start)(struct drv_private *);
     void        (*scan_end)(struct drv_private *);
 
+    /* fw recovery */
+    void        (*fw_repair)(struct drv_private *);
+
     /* connect notifications */
     void        (*connect_start)(struct drv_private *);
     void        (*connect_end)(struct drv_private *);
@@ -379,13 +386,15 @@ struct driver_ops
 
     /* aggregation callbacks */
     int          (*check_aggr)(struct drv_private *, void *, unsigned char tid_index);
+    int          (*check_aggr_allow_to_send)(struct drv_private *, void *, unsigned char tid_index);
     void        (*set_ampdu_params)(struct drv_private *, void *, unsigned short maxampdu, unsigned int mpdudensity);
     void        (*addba_request_setup)(struct drv_private *, void *, unsigned char tid_index,
                                        struct wifi_mac_ba_parameterset *baparamset,
                                        unsigned short *batimeout,
                                        struct wifi_mac_ba_seqctrl *basequencectrl,
                                        unsigned short buffersize);
-    void        (*addba_response_setup)(struct drv_private *, void * drv_sta, unsigned char tid_index);
+    void        (*addba_response_setup)(struct drv_private *, void * drv_sta,
+                                        unsigned char tid_index);
     int         (*addba_request_process)(struct drv_private *, void * drv_sta,
                                          unsigned char dialogtoken,
                                          struct wifi_mac_ba_parameterset *baparamset,

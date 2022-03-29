@@ -17,9 +17,12 @@
 #ifndef _FI_SDIO_H
 #define _FI_SDIO_H
 
-#define PRODUCT_AMLOGIC  0x8888
+#define PRODUCT_AMLOGIC 0x8888
 #define VENDOR_AMLOGIC  0x8888
-#define  HOST_VERSION  1234
+#define  HOST_VERSION   1234
+#define FW_VERSION_W1   0x1
+#define FW_VERSION_W1U  0x2
+
 
  /* memory mapping for wifi space */
 #define MAC_ICCM_AHB_BASE    0x00000000
@@ -28,13 +31,10 @@
 #define MAC_DCCM_AHB_BASE    0x00d00000
 #define PHY_REG_AGC_BASE     0x00a08000
 #define PHY_AGC_BUSY_FSM          (PHY_REG_AGC_BASE+0x34)
-//#define MAC_RXPKT_CONTROL45      (MAC_REG_BASE+0x324)
-
 #define DF_AGC_REG_A12 (PHY_REG_AGC_BASE + 0x30)
 #define DF_AGC_REG_A27 (PHY_REG_AGC_BASE + 0x6c)
 #define REG_STF_AC_Q_THR (PHY_REG_AGC_BASE + 0x5c)
 #define REG_ED_THR_DB (PHY_REG_AGC_BASE + 0x74)
-
 
 /*
 * BT device baseAddr seen from wifi system side
@@ -55,7 +55,7 @@
 #define   HOST_VERSION_ADDR  (MAC_SRAM_BASE+0x00000C)
 #define   HW_CONFIG_ADDR  (MAC_SRAM_BASE+0x000010)
 #define   FW_IRQ_TIME_ADDR  (MAC_SRAM_BASE+0x000028)
-#define   HOST_TO_FIRMWARE_FLAGS  (MAC_SRAM_BASE + 0x00002c)
+#define   HOST_TO_FIRMWARE_FLAGS (MAC_SRAM_BASE+0x00002c)
 
 #define   APP_CMD_PERFIFO_LEN  64
 #define   APP_CMD_FIFO_NUM  2
@@ -81,6 +81,7 @@
 
 #ifdef HOST
 #define PAGE_LEN  512
+#define PAGE_LEN_USB 1680
 #endif
 
 #define WIFI_MAX_VID  2
@@ -253,7 +254,8 @@ enum
 };
 
 //friwmare version
-#define FW_UNUSED_IRQ_VERSION  0x0000
+#define FW_UNUSED_IRQ_VERSION   0x0000
+#define FW_IRQ_VERSION          FW_VERSION_W1U
 
 /* Ack policy */
 /*Explicit BA*/
@@ -804,11 +806,13 @@ typedef struct Fw_TxPriv
 /*use in HW_TxVector option address, for key */
 typedef struct HW_TxOption
 {
-        unsigned char Reserve[2];
-        unsigned char pkt_position;
-        unsigned char KeyIdex;
-        //tkip/ccmp use 8B, wpi use 16B
-        unsigned char PN[16];
+    unsigned char is_bc;
+    unsigned char key_type;
+    unsigned char pkt_position;
+    unsigned char KeyIdex;
+    //tkip/ccmp use 8B, wpi use 16B
+    unsigned char PN[16];
+
 } HW_TxOption;
 
 #define HI_TXDESC_DATAOFFSET  ((size_t) &(((struct hi_tx_desc *)0)->txdata))
@@ -968,7 +972,8 @@ typedef struct HW_CONFIG
         unsigned int beaconframeaddress;
         unsigned int rxframeaddress;
         unsigned int txcompleteaddress;
-        unsigned short bcn_page_num;
+        unsigned char bcn_page_num;
+        unsigned char ep1_cmd_len;
         unsigned short page_len;
         unsigned int fweventaddress;
 } HW_CONFIG;

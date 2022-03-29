@@ -528,7 +528,7 @@ int vm_p2p_update_noa_count_start (struct wifi_mac_p2p *p2p)
         if (p2p_noa_start_time_cond(next_tbtt, p2p->noa.start+P2P_NOA_START_TIME_WRAP)
             & P2P_NOA_START_IN_PAST)
         {
-            printk("%s(%d) noa_len %d, count=%d\n",__func__,__LINE__,
+            AML_OUTPUT("noa_len %d, count=%d\n",
                 wnet_vif->app_ie[WIFINET_APPIE_FRAME_BEACON].length, p2p->noa.count);
             wnet_vif->vm_p2p->noa_index ++;
             p2p->noa.start += P2P_NOA_START_TIME_WRAP;
@@ -1863,9 +1863,9 @@ void vm_p2p_print_buf(const void *frm, int len)
     unsigned char *ie = (unsigned char *)frm;
     for (i = 0; i < len; i++)
     {
-        printk("%02x:", *(ie + i));
+        AML_OUTPUT("---%02x\n", *(ie + i));
         if (i % 10 == 0)
-            printk("\n");
+            AML_OUTPUT("\n");
     }
 }
 #endif
@@ -2031,7 +2031,7 @@ void set_p2p_negotiation_status(struct wifi_station *sta, enum NET80211_P2P_NEGO
     if ((wnet_vif != NULL) && (wnet_vif->vm_p2p_support)) {
         p2p = wnet_vif->vm_p2p;
         p2p->p2p_negotiation_state = status;
-        printk("%s p2p_negotiation_state:%d\n", __func__, p2p->p2p_negotiation_state);
+        AML_OUTPUT("p2p_negotiation_state:%d\n", p2p->p2p_negotiation_state);
     }
 }
 
@@ -2047,7 +2047,7 @@ unsigned char is_p2p_negotiation_complete(struct wifi_mac *wifimac) {
             && (p2p->p2p_negotiation_state < NET80211_P2P_STATE_GO_COMPLETE)) {
             return 1;
         }
-        printk("%s p2p_negotiation_state:%d\n", __func__, p2p->p2p_negotiation_state);
+        AML_OUTPUT("p2p_negotiation_state:%d\n", p2p->p2p_negotiation_state);
     }
 
     return 0;
@@ -2144,7 +2144,7 @@ void vm_p2p_switch_nego_state(struct wifi_mac_p2p *p2p, struct wifi_mac_p2p_pub_
             {
                 p2p->p2p_negotiation_state = NET80211_P2P_STATE_GONEGO_CONF;
                 if (vm_get_wfd_ie(frm->elts, *len - 8, NULL, &tmplen)) {
-                    printk("invite rsp set is_miracast_connect 1\n");
+                    AML_OUTPUT("invite rsp set is_miracast_connect 1\n");
                     wifimac->is_miracast_connect = 1;
                 }
             }else {
@@ -2226,7 +2226,7 @@ void vm_p2p_switch_nego_state(struct wifi_mac_p2p *p2p, struct wifi_mac_p2p_pub_
             memset(p2p->peer_dev_addr, 0 , MAX_MAC_BUF_LEN);
             if (0 == *(frm->elts + 9)) {
                 if (vm_get_wfd_ie(frm->elts, *len - 8, NULL, &tmplen)) {
-                    printk("conf set is_miracast_connect 1\n");
+                    AML_OUTPUT("conf set is_miracast_connect 1\n");
                     wifimac->is_miracast_connect = 1;
                 }
             }
@@ -2265,7 +2265,7 @@ int vm_p2p_parse_negotiation_frames(struct wifi_mac_p2p *p2p,
                 is_p2p_frame = true;
                 buflen += sprintf(printbuf+buflen, "%s>%s dialog_token=%d", tx?"tx":"rx",
                     p2p_public_action_tmp[p2p_pub_act->subtype], p2p_pub_act->dialog_token);
-                printk("%s\n", printbuf);
+                AML_OUTPUT("%s\n", printbuf);
 
             } else {
                  AML_PRINT(AML_DBG_MODULES_P2P,"p2p_public_action not p2p action\n");
@@ -2507,7 +2507,7 @@ int vm_p2p_initial(struct wifi_mac_p2p *p2p)
     int index = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
 
-    printk("%s\n", __func__);
+    AML_OUTPUT("\n");
 #ifdef CONFIG_WFD
     vm_wfd_initial(p2p);
 #endif //CONFIG_WFD

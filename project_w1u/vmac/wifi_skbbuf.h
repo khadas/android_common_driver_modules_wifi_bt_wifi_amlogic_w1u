@@ -3,8 +3,6 @@
 
 #include <linux/skbuff.h>
 
-//#define SKBBUF_DEBUG
-
 #define OS_SKB_CB_MAXLEN (48)//kernel skb -> cb len = 48
 #define os_skb_data(_skb) ((_skb)->data)
 #define os_skb_cb(_skb) ((_skb)->cb)

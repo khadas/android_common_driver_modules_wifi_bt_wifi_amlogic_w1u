@@ -20,7 +20,7 @@ unsigned int dut_get_reg_frag(int address, int high_bit, int low_bit)
     int mask = (bitwidth == 32) ? -1 : ((1 << (bitwidth)) - 1);
     if ((bitwidth < 1) || (low_bit > 31) || (high_bit > 31)) {
         error = 1;
-        printk("get reg frag error!addr 0x%x high_bit %d low_bit %d\n", address, high_bit, low_bit);
+        AML_OUTPUT("get reg frag error!addr 0x%x high_bit %d low_bit %d\n", address, high_bit, low_bit);
     } else {
         tmp = hif->hif_ops.hi_read_word(address);
         tmp >>= low_bit;
@@ -48,10 +48,10 @@ int dut_v32_tx(unsigned int *outbuffer, unsigned int *inbufer, const unsigned lo
     outoffset = len - 1;
     do_div(inbuffer_len, 4);
 
-    //printk("bitnum111=%016llx\n", bitnum);
+    //AML_OUTPUT("bitnum111=%016llx\n", bitnum);
     for (inoffset = 0; inoffset < inbuffer_len; inoffset++) {
         for (;;) {
-            //printk("bit = %08x, indata=%016llx, ((1<<bitnum)-1)=%016llx\n",  (long unsigned int )indata&((1<<bitnum)-1), indata, (long unsigned int )((1<<bitnum)-1) );
+            //AML_OUTPUT("bit = %08x, indata=%016llx, ((1<<bitnum)-1)=%016llx\n",  (long unsigned int )indata&((1<<bitnum)-1), indata, (long unsigned int )((1<<bitnum)-1) );
             outbuffer[outoffset] = indata & (((unsigned long long)1 <<  bitnum) - (unsigned long long)1);
             outoffset--;
             if (outoffset < 0) {
@@ -86,13 +86,13 @@ int dut_dump_data(unsigned int addr, unsigned char *data, int len)
     ASSERT(len > 0);
 
     for (;;) {
-        //printk("%s(%d) read addr=0x%4x, data_len=%d\n", __func__, __LINE__,BASE_AHB_TESTBUS_CAPTURE+addr+ a_cnt, MAX_SDIO_ACCESS_LEN);
+        //AML_OUTPUT("read addr=0x%4x, data_len=%d\n", BASE_AHB_TESTBUS_CAPTURE+addr+ a_cnt, MAX_SDIO_ACCESS_LEN);
         if(!aml_bus_type) {
             if (sdio_base !=  ((BASE_AHB_TESTBUS_CAPTURE +  addr + a_cnt) & 0xffff0000)) {
                 sdio_base = (BASE_AHB_TESTBUS_CAPTURE + addr + a_cnt) & 0xffff0000;
                 hif->hif_ops.hi_write_reg32(RG_SCFG_FUNC5_BADDR_A,
                 (unsigned long)(BASE_AHB_TESTBUS_CAPTURE + addr + a_cnt) & 0xffff0000);
-                printk("sdio base addr change ,sdio base addr=0x%08x\n", sdio_base);
+                AML_OUTPUT("sdio base addr change ,sdio base addr=0x%08x\n", sdio_base);
             }
         }
 
@@ -125,14 +125,14 @@ int dut_dump_data(unsigned int addr, unsigned char *data, int len)
         }
     }
 #if 0
-    printk("print data start\n");
+    AML_OUTPUT("print data start\n");
     for ( i = 0; i < len ; i++) {
-        printk("0x%02x  ", data[i]);
+        AML_OUTPUT("0x%02x  \n", data[i]);
         if ( i %16 == 0 ) {
-            printk("\n");
+            AML_OUTPUT("\n");
         }
     }
-    printk("\n");
+    AML_OUTPUT("\n");
 #endif
     return 0;
 }
@@ -169,15 +169,15 @@ void dut_set_tbus(int trigger)
         stopaddr =  hw_if->hif_ops.hi_read_word(TBC_OFFSET_120);
         if ( tmp == stopaddr ) {
             do_gettimeofday(&t_end);
-            printk("used time %dus stopaddr=0x%08x, =%d\n",
+            AML_OUTPUT("used time %dus stopaddr=0x%08x, =%d\n",
                 _get_tv_us(&t_end, &t_start),  stopaddr, i );
             break;
         }
         tmp = stopaddr;
-        //printk("stopaddr=0x%0x\n", stopaddr);
+        //AML_OUTPUT("stopaddr=0x%0x\n", stopaddr);
         //msleep(5);
     }
-    printk("stopaddr=0x%0x\n", stopaddr);
+    AML_OUTPUT("stopaddr=0x%0x", stopaddr);
 #endif
 }
 
@@ -212,7 +212,7 @@ void dut_set_gain(unsigned int value)
     g_test_gain = value & 0x3ff;
 
     new_get_reg(0x00a0810c, &chk_value);
-    printk("check gain 0x%x\n", chk_value);
+    AML_OUTPUT("check gain 0x%x\n", chk_value);
 }
 
 int dut_start_capture(unsigned int value)
@@ -250,7 +250,7 @@ int dut_start_capture(unsigned int value)
     dut_set_reg_frag(TBC_OFFSET_114 , 16, 12, trigger);
     dut_set_reg_frag(TBC_OFFSET_114 , 8, 8, 1);// enable
 
-    printk("start_capture: \ntmode 0x%08x, trg 0x%08x, trigger_delay_time=%d, test_bus=0x%08x\nphy100=0x%08x, phy114=0x%08x\n",
+    AML_OUTPUT("start_capture: \ntmode 0x%08x, trg 0x%08x, trigger_delay_time=%d, test_bus=0x%08x\nphy100=0x%08x, phy114=0x%08x\n",
         test_mode, trigger, trigger_delay_time, test_bus,
         hif->hif_ops.hi_read_word(TBC_OFFSET_100),
         hif->hif_ops.hi_read_word(TBC_OFFSET_114));
@@ -275,11 +275,11 @@ int dut_stop_capture(void)
         }
     }
 
-    printk("cap_log file %s\n", fp_path);
+    AML_OUTPUT("cap_log file %s\n", fp_path);
     fp = filp_open(fp_path, O_RDWR | O_CREAT | O_APPEND | O_TRUNC, 0777);
 
     if (IS_ERR(fp)) {
-        printk("create file error/n");
+        AML_OUTPUT("create file error\n");
         return -1;
     }
 
@@ -289,7 +289,7 @@ int dut_stop_capture(void)
 
     if (fp) {
         filp_close(fp, NULL);
-        printk("close file and exit\n");
+        AML_OUTPUT("close file and exit\n");
     }
 
     // return the capture buf to mac
@@ -497,18 +497,18 @@ unsigned char dut_set_reg_frag(int address, int bit_end, int bit_start, int valu
 
     struct hw_interface* hif = hif_get_hw_interface();
     tmp = hif->hif_ops.hi_read_word(address);
-    //printk("tmp is 0x%x\n", tmp);
+    //AML_OUTPUT("tmp is 0x%x\n", tmp);
 
     if ((bitwidth < 1) || (bit_start > 31) || (bit_end > 31)) {
         while (1) {
-           printk("----------------->Set_RegFragment is halt.\n");
+           AML_OUTPUT("----------------->Set_RegFragment is halt.\n");
         }
         error = 1;
     } else {
         error = 0;
         tmp &= ~(max_value << bit_start); // clear [bit_end: bit_start]
         tmp |= ((value&max_value) << bit_start);
-        //printk("addr 0x%x tmp2 is 0x%x\n", address, tmp);
+        //AML_OUTPUT("addr 0x%x tmp2 is 0x%x\n", address, tmp);
         hif->hif_ops.hi_write_word(address, tmp);
     }
 
@@ -539,7 +539,7 @@ int dut_bt_start_capture(unsigned int value)
 
     hif->hif_ops.hi_write_word(TBC_OFFSET_114, 0x0000051c); //ram share enable
 
-    printk("start_capture: \ntmode 0x%08x, trg 0x%08x,  test_bus=0x%08x\nphy100=0x%08x, phy114=0x%08x\n",
+    AML_OUTPUT("start_capture: \ntmode 0x%08x, trg 0x%08x,  test_bus=0x%08x\nphy100=0x%08x, phy114=0x%08x\n",
         test_mode, trigger, test_bus,
         hif->hif_ops.hi_read_word(TBC_OFFSET_100),
         hif->hif_ops.hi_read_word(TBC_OFFSET_114));
@@ -562,7 +562,7 @@ int dut_bt_stop_capture(void)
         }
     }
 
-    printk("cap_log file %s\n", fp_path);
+    AML_OUTPUT("cap_log file %s\n", fp_path);
     fp = filp_open(fp_path,O_RDWR | O_CREAT | O_APPEND | O_TRUNC, 0777);
 
     if (IS_ERR(fp)) {
@@ -575,7 +575,7 @@ int dut_bt_stop_capture(void)
 
     if (fp) {
         filp_close(fp, NULL);
-        printk("close file and exit\n");
+        AML_OUTPUT("close file and exit\n");
     }
 
     g_test_bus = 0;

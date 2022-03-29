@@ -23,7 +23,7 @@ wifi_mac_beacon_init(struct wifi_station *sta, struct wifi_mac_beacon_offsets *b
     struct wifi_mac_rateset *rs = &sta->sta_rates;
 
     KASSERT(wnet_vif->vm_curchan != WIFINET_CHAN_ERR, ("no bss chan"));
-    printk("%s(%d)\n", __func__, __LINE__);
+    AML_OUTPUT("\n");
 
     memset(frm, 0, 8);
     frm += 8;
@@ -218,7 +218,7 @@ int _wifi_mac_beacon_update(struct wifi_station *sta,
 
     if (bo->bo_initial != 1)
     {
-        printk(KERN_CRIT "%s %d, bug to fix\n",__func__,__LINE__);
+        AML_OUTPUT(KERN_CRIT "bug to fix\n");
         return len_changed;
     }
 
@@ -292,7 +292,7 @@ int _wifi_mac_beacon_update(struct wifi_station *sta,
                 }
 
                 wifi_mac_set_wnet_vif_channel(wnet_vif, main_vmac_chan->chan_pri_num, main_vmac_chan->chan_bw, wifi_mac_Mhz2ieee(main_vmac_chan->chan_cfreq1, 0));
-                printk("set ap %s(%d) chan %d, mac mode %d, band %d\n",__func__,__LINE__,
+                AML_OUTPUT("set ap chan %d, mac mode %d, band %d\n",
                       wnet_vif->vm_curchan->chan_pri_num, wnet_vif->vm_mac_mode, wnet_vif->vm_bandwidth);
             }
         }
@@ -312,7 +312,7 @@ int _wifi_mac_beacon_update(struct wifi_station *sta,
         if (frm == NULL)
         {
             WIFINET_BEACON_UNLOCK(wifimac);
-            printk("<running> %s %d ERROR\n",__func__,__LINE__);
+            AML_OUTPUT("<running> ERROR\n");
             return 0;
         }
         os_skb_put(skb, wifi_mac_beacon_init(sta, bo, frm) - frm);
@@ -351,7 +351,7 @@ int _wifi_mac_beacon_update(struct wifi_station *sta,
         struct wifi_mac_wme_state *wme = &wifimac->wm_wme[wnet_vif->wnet_vif_id];
         if (wme == NULL)
         {
-            printk("<running> %s %d ERROR!!\n",__func__,__LINE__);
+            AML_OUTPUT("<running> ERROR!!\n");
         }
 
         if (wnet_vif->vm_flags_ext & WIFINET_FEXT_WMETUN)
@@ -621,7 +621,7 @@ int _wifi_mac_beacon_update(struct wifi_station *sta,
         && (wnet_vif->vm_p2p->p2p_enable == 1)
         && (wnet_vif->vm_p2p->p2p_flag & P2P_NOA_START_FLAG_HI))
     {
-        printk("%s(%d) noa_len %d\n",__func__,__LINE__,
+        AML_OUTPUT("noa_len %d\n",
             wnet_vif->app_ie[WIFINET_APPIE_FRAME_BEACON].length);
         vm_p2p_update_noa_count_start(wnet_vif->vm_p2p);
     }
@@ -715,7 +715,7 @@ int wifi_mac_beacon_alloc_ex(SYS_TYPE param1,
         return -1;
     }
 
-    printk("%s %d \n",__func__,__LINE__);
+    AML_OUTPUT("\n");
     return wifi_mac_beacon_alloc(ieee, wnet_vif_id);
 }
 
@@ -787,7 +787,7 @@ int wifi_mac_update_beacon(void * ieee, int wnet_vif_id,
     {
         /* FIXME: Remove, Beacon lock in drv_main.c bcn_tx_ok irq */
         WIFINET_BEACONBUF_UNLOCK(wifimac);
-        printk("<running> %s %d  beacon_realloc\n",__func__,__LINE__);
+        AML_OUTPUT("<running> beacon_realloc\n");
         wifi_mac_beacon_alloc(ieee,  wnet_vif_id);
         WIFINET_BEACONBUF_LOCK(wifimac);
     }
@@ -799,7 +799,7 @@ void wifi_mac_process_beacon_miss_ex(SYS_TYPE arg)
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)arg;
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
-    printk("%s vid:%d, vm_bmiss_count:%d\n", __func__, wnet_vif->wnet_vif_id, wnet_vif->vm_bmiss_count);
+    AML_OUTPUT("vid:%d, vm_bmiss_count:%d\n", wnet_vif->wnet_vif_id, wnet_vif->vm_bmiss_count);
 
     if (wnet_vif->vm_opmode != WIFINET_M_STA ||
         wnet_vif->vm_state != WIFINET_S_CONNECTED)
@@ -817,7 +817,7 @@ void wifi_mac_process_beacon_miss_ex(SYS_TYPE arg)
         /*if not in roaming mode, triger roaming */
         if ((wifimac->wm_roaming == WIFINET_ROAMING_BASIC) && (wnet_vif->vm_chan_roaming_scan_flag != 1)
              && (wnet_vif->vm_bmiss_count >= 2)) {
-            printk("Miss beacon trigger roaming\n");
+            AML_OUTPUT("Miss beacon trigger roaming\n");
             wifi_mac_roaming_trigger(wnet_vif);
          }
         return;
@@ -836,6 +836,7 @@ void wifi_mac_process_beacon_miss_ex(SYS_TYPE arg)
         DPRINTF(AML_DEBUG_WARNING,"bcn lost...re-scan\n");
 
         wnet_vif->vm_chan_roaming_scan_flag = 0;
+        wifi_mac_scan_access(wnet_vif);
 
         wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
     }
@@ -889,7 +890,7 @@ int wifi_mac_set_vsdb_ex(struct wlan_net_vif *wnet_vif, unsigned char enable)
 {
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
-    printk("%s, vid:%d, enable:%d\n", __func__, wnet_vif->wnet_vif_id, enable);
+    AML_OUTPUT("vid:%d, enable:%d\n", wnet_vif->wnet_vif_id, enable);
     wifimac->drv_priv->drv_ops.drv_set_vsdb(wifimac->drv_priv, wnet_vif->wnet_vif_id, enable);
     return 0;
 }

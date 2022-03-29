@@ -186,3 +186,6 @@ struct amlw1_hif_ops {
     int (*hif_suspend)(unsigned int suspend_enable);
 };
 
+int aml_sdio_insmod(void);
+void aml_sdio_rmmod(void);
+

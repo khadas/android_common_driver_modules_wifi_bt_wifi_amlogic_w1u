@@ -303,12 +303,12 @@ int drv_process_uapsd_nsta_trigger( struct drv_private *drv_priv, void * nsta, u
             txn_real = maxsp;
     }
 
-    printk("before tx uapsd\n");
+    AML_OUTPUT("before tx uapsd\n");
     DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d flush=%d uapsd_qqcnt=%d\n", __func__,__LINE__, flush, uapsd_qqcnt);
     for (count = txn_real; ((count > 0) && (eosp_flag==0)); count--)
     {
 
-        printk("tx=%d\n", count);
+        AML_OUTPUT("tx=%d\n", count);
 
 #ifdef DRV_SUPPORT_TX_WITHDRAW
         if (drv_sta->sta_txwd_uapsd_qqcnt)

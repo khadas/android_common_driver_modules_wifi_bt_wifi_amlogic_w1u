@@ -239,6 +239,7 @@ struct wifi_station
 
     int32_t sta_avg_bcn_rssi;    // dbm
     int32_t sta_avg_rssi;
+    int32_t sta_avg_data_rssi;
     int32_t sta_avg_snr;
     unsigned int sta_last_txrate;  //kbps
     unsigned int sta_last_rxrate;  //kbps
@@ -373,6 +374,8 @@ struct wifi_station_tbl
                 M_AGE_SET(_skb, _age);                  \
         } while (0)
 
+#define WIFINET_SAVEQ_GET_TAIL(_pstxqueue) skb_peek_tail(_pstxqueue)
+
 #define vm_StaSetAid(_wnet_vif, _aid) ((_wnet_vif)->vm_aid_bitmap[WIFINET_AID(_aid) / 32] |= (1 << (WIFINET_AID(_aid) % 32)))
 #define vm_StaClearAid(_wnet_vif, _aid) ((_wnet_vif)->vm_aid_bitmap[WIFINET_AID(_aid) / 32] &= ~(1 << (WIFINET_AID(_aid) % 32)))
 #define vm_StaIsSetAid(_wnet_vif, _aid) ((_wnet_vif)->vm_aid_bitmap[WIFINET_AID(_aid) / 32] & (1 << (WIFINET_AID(_aid) % 32)))
@@ -394,13 +397,16 @@ struct wifi_station *wifi_mac_get_new_sta_node(struct wifi_station_tbl *nt, stru
 struct wifi_station *wifi_mac_tmp_nsta(struct wlan_net_vif *, const unsigned char *);
 struct wifi_station *wifi_mac_bup_bss(struct wlan_net_vif *, const unsigned char *);
 void wifi_mac_free_sta(struct wifi_station *sta);
+void wifi_mac_free_sta_from_list(struct wifi_station *sta);
+int wifi_mac_rm_sta(struct wifi_station_tbl *nt, const unsigned char *macaddr);
 struct wifi_station *wifi_mac_get_sta(struct wifi_station_tbl *, const unsigned char *,int);
 struct wifi_station * wifi_mac_find_rx_sta(struct wifi_mac *, const struct wifi_mac_frame_min *,int);
 struct wifi_station *wifi_mac_find_tx_sta(struct wlan_net_vif *, const unsigned char *);
 int wifi_mac_add_wds_addr(struct wifi_station_tbl *, struct wifi_station *, const unsigned char *);
-int wifi_mac_rm_wds_addr(struct wifi_station_tbl *, const unsigned char *);
+int wifi_mac_rm_sta_from_wds_by_addr(struct wifi_station_tbl *, const unsigned char *);
+int wifi_mac_rm_wds_addr_list(struct wifi_station_tbl *, const unsigned char *);
 struct wifi_station *wifi_mac_find_wds_sta(struct wifi_station_tbl *, const unsigned char *);
-int wifi_mac_rm_all_staWds(struct wifi_station_tbl *, struct wifi_station *);
+int wifi_mac_rm_sta_from_wds_by_sta(struct wifi_station_tbl *, struct wifi_station *);
 void wifi_mac_func_to_task_cb(SYS_TYPE param1, SYS_TYPE param2, SYS_TYPE param3, SYS_TYPE param4, SYS_TYPE param5);
 
 typedef void wifi_mac_IterFunc(void *, struct wifi_station *);
@@ -413,6 +419,7 @@ struct wifi_station *wifi_mac_add_neighbor(struct wlan_net_vif *, const struct w
 
 void wifi_mac_sta_connect(struct wifi_station *, int);
 void wifi_mac_sta_disconnect(struct wifi_station *);
+void wifi_mac_sta_disconnect_from_ap(struct wifi_station *);
 void wifi_mac_sta_deauth(void *arg, struct wifi_station *sta);
 void wifi_mac_sta_disassoc(void *arg, struct wifi_station *sta);
 struct wifi_station *wifi_mac_find_mgmt_tx_sta(struct wlan_net_vif *wnet_vif, const unsigned char *mac);
@@ -443,6 +450,11 @@ int wifi_mac_sta_arp_agent_ex (SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3,
 #define WIFINET_PSLOCK_INIT(_ic, _name) spin_lock_init(&(_ic)->wm_pslock)
 #define WIFINET_PSLOCK(_ic) OS_SPIN_LOCK_IRQ(&(_ic)->wm_pslock, (_ic)->wm_pslock_flags);
 #define WIFINET_PSUNLOCK(_ic) OS_SPIN_UNLOCK_IRQ(&(_ic)->wm_pslock,  (_ic)->wm_pslock_flags);
+
+#define WIFINET_FW_STAT_LOCK_INIT(_ic, _name) spin_lock_init(&(_ic)->fw_stat_lock)
+#define WIFINET_FW_STAT_LOCK_DESTORY(_ic, _name)
+#define WIFINET_FW_STAT_LOCK(_ic) { OS_SPIN_LOCK(&(_ic)->fw_stat_lock); } while(0)
+#define WIFINET_FW_STAT_UNLOCK(_ic) { OS_SPIN_UNLOCK(&(_ic)->fw_stat_lock); } while(0)
 
 #if defined(CONFIG_SMP)
 #define WIFINET_LOCK_ASSERT(_ic) KASSERT(spin_is_locked(&(_ic)->wm_comlock),("wifi_mac not locked!"))
@@ -534,7 +546,7 @@ extern int my_mod_use;
 
 #define MY_MOD_INC_USE(_m, _err) do{\
                 if (my_mod_use>2) {\
-                        printk(KERN_WARNING "%s: try_module_get failed\n",__func__); \
+                        AML_OUTPUT(KERN_WARNING "try_module_get failed\n"); \
                         _err;\
                 }\
                 my_mod_use= 1;\

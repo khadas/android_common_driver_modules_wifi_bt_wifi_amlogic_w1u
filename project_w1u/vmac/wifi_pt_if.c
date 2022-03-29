@@ -53,14 +53,14 @@ void Driver_intr_tx_handle(void *drv_priv,
     send_frame_num++;
 
     if((send_frame_num>STA2_VMAC1_SEND_FRAME_NUM) && (STA2_VMAC1_SEND_FRAME_NUM != 99999)){
-        //printk("send complete> %d status %d \n",status, STA2_VMAC1_SEND_FRAME_NUM);
+        //AML_OUTPUT("send complete> %d status %d \n",status, STA2_VMAC1_SEND_FRAME_NUM);
         //Test_Done(1);
     }
     //
     ///if one frame send fail ,end test
     //
     if (tx_done_status->txstatus != TX_DESCRIPTOR_STATUS_SUCCESS) {
-        //printk("send complete status %d \n",status);
+        //AML_OUTPUT("send complete status %d \n",status);
         //Test_Done(0);
     }
 }
@@ -126,7 +126,7 @@ int Do_HI_AGG_TxPriv_TYPE_AMSDU(struct _HI_TxPrivDescripter_chain* HI_TxPriv[],
             length[i] -= 8;//tkip mic
         }
 #endif //STA2_VMAC1_TKIPMIC_HW
-        //printk("length[%d]= %d \n ",i,length[i]);
+        //AML_OUTPUT("length[%d]= %d \n ",i,length[i]);
 
         buffer = &os_skb_data((struct sk_buff *)skbptr[i]);
 
@@ -174,7 +174,7 @@ void Do_HI_AGG_TxPriv_TYPE_AMPDU(
         }
         HI_TxPriv[i]->HI_TxPriv.DMAADDR = (SYS_TYPE)skbptr[i];
         HI_TxPriv[i]->HI_TxPriv.DDRADDR = (unsigned long)buffer;
-        //printk("HI_TxPriv.DDRADDR %p length=0x%x\n",buffer[i], length[i]);
+        //AML_OUTPUT("HI_TxPriv.DDRADDR %p length=0x%x\n",buffer[i], length[i]);
         HI_TxPriv[i]->HI_TxPriv.DMALEN = length[i];
         HI_TxPriv[i]->HI_TxPriv.MPDULEN  = length[i];
         HI_TxPriv[i]->HI_TxPriv.Delimiter = 0;
@@ -349,12 +349,12 @@ int Driver_IsTxPrivEnough(int num)
 {
     if (our_txpriv_pool.min_count > num)
     {
-        //printk("---xman debug: the min_count is :%d.\n",our_txpriv_pool.min_count);
+        //AML_OUTPUT("---xman debug: the min_count is :%d.\n",our_txpriv_pool.min_count);
         return 1;
     }
     else
     {
-        printk("---xman debug: the min_count is :%d.\n",our_txpriv_pool.min_count);
+        AML_OUTPUT("---xman debug: the min_count is :%d.\n",our_txpriv_pool.min_count);
         return 0;
     }
 }

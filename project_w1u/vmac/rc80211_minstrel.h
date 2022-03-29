@@ -157,7 +157,7 @@ struct minstrel_rate_control_ops {
     void (*rate_update)(void *priv, struct ieee80211_supported_band *sband, struct ieee80211_sta *sta, void *priv_sta, u32 changed);
     void (*free_sta)(void *priv_sta);
 
-    void (*tx_status)(void *priv, struct ieee80211_supported_band *sband, void *priv_sta,struct ieee80211_tx_info *info);
+    void (*tx_status)(void *priv, struct ieee80211_supported_band *sband, void *priv_sta,struct ieee80211_tx_info *info,void *p_sta);
     void (*get_rate)(void *priv, struct ieee80211_sta *sta, void *priv_sta, struct ieee80211_tx_info *info);
     u32 (*get_expected_throughput)(void *priv_sta);
 };

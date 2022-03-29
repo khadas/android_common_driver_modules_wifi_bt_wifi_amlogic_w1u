@@ -21,7 +21,7 @@ int drv_set_config(void * dev, enum cip_param_id id, int data)
     struct drv_private *drv_priv = ( struct drv_private *)dev;
     struct hal_private* hal_priv = hal_get_priv();
     
-    printk("%s(%d) id 0x%x data 0x%x\n", __func__, __LINE__, id, data);
+    AML_OUTPUT("id 0x%x data 0x%x\n", id, data);
 
     switch (id) {
         case CHIP_PARAM_TXCHAINMASK:
@@ -45,28 +45,28 @@ int drv_set_config(void * dev, enum cip_param_id id, int data)
             break;
 
         case CHIP_PARAM_AMPDU:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             drv_priv->drv_config.cfg_txaggr = data;
             drv_priv->drv_config.cfg_rxaggr = data;
             break;
 
         case CHIP_PARAM_AMPDU_RX:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             drv_priv->drv_config.cfg_rxaggr = data;
             break;
 
         case CHIP_PARAM_AMPDU_LIMIT:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             drv_priv->drv_config.cfg_ampdu_limit = data;
             break;
 
         case CHIP_PARAM_AMPDU_SUBFRAMES:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             drv_priv->drv_config.cfg_ampdu_subframes = data;
             break;
 
         case CHIP_PARAM_AGGR_PROT:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             drv_priv->drv_config.cfg_aggr_prot = data;
             break;
 
@@ -75,12 +75,12 @@ int drv_set_config(void * dev, enum cip_param_id id, int data)
             break;
 
         case CHIP_PARAM_BURST_ACK:
-            printk("<running> %s %d CHIP_PARAM_BURST_ACK\n",__func__,__LINE__);
+            AML_OUTPUT("<running> CHIP_PARAM_BURST_ACK\n");
             drv_priv->drv_config.cfg_burst_ack = data;
             break;
 
         case CHIP_PARAM_ACK_POLICY:
-            printk("<running> %s %d CHIP_PARAM_ACK_POLICY\n",__func__,__LINE__);
+            AML_OUTPUT("<running> CHIP_PARAM_ACK_POLICY\n");
             drv_priv->drv_config.cfg_ampduackpolicy= data;
             break;
 
@@ -143,7 +143,7 @@ int drv_set_config(void * dev, enum cip_param_id id, int data)
             break;
 
         case CHIP_PARAM_SHORTPREAMBLE:
-            printk("%s(%d),Before set short preamble.\n\n",__func__,__LINE__);
+            AML_OUTPUT("Before set short preamble.\n\n");
             drv_priv->drv_config.cfg_shortpreamble = data;
             break;
 
@@ -197,27 +197,27 @@ int drv_get_config(void *dev, enum cip_param_id id)
             break;
 
         case CHIP_PARAM_AMPDU:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             supported = drv_priv->drv_config.cfg_txaggr;
             break;
 
         case CHIP_PARAM_AMPDU_RX:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             supported = drv_priv->drv_config.cfg_rxaggr;
             break;
 
         case CHIP_PARAM_AMPDU_LIMIT:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             supported = drv_priv->drv_config.cfg_ampdu_limit;
             break;
 
         case CHIP_PARAM_AMPDU_SUBFRAMES:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             supported = drv_priv->drv_config.cfg_ampdu_subframes;
             break;
 
         case CHIP_PARAM_AGGR_PROT:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             supported = drv_priv->drv_config.cfg_aggr_prot;
             break;
 

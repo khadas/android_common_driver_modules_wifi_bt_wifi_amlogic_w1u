@@ -76,7 +76,7 @@ static const struct wiphy_wowlan_support wowlan_stub =
     .max_pkt_offset = 0,
 };
 
-static struct ieee80211_channel aml_2ghz_channels[] =
+struct ieee80211_channel aml_2ghz_channels[AML_2G_CHANNELS_NUM] =
 {
     CHAN2G(1, 2412, 0),
     CHAN2G(2, 2417, 0),
@@ -94,12 +94,10 @@ static struct ieee80211_channel aml_2ghz_channels[] =
     CHAN2G(14, 2484, 0),
 };
 
-static struct ieee80211_channel aml_5ghz_a_channels[] =
+struct ieee80211_channel aml_5ghz_channels[AML_5G_CHANNELS_NUM] =
 {
-    CHAN5G(34, 0),      CHAN5G(36, 0),
-    CHAN5G(38, 0),      CHAN5G(40, 0),
-    CHAN5G(42, 0),      CHAN5G(44, 0),
-    CHAN5G(46, 0),      CHAN5G(48, 0),
+    CHAN5G(36, 0),      CHAN5G(40, 0),
+    CHAN5G(44, 0),      CHAN5G(48, 0),
     CHAN5G(52, 0),      CHAN5G(56, 0),
     CHAN5G(60, 0),      CHAN5G(64, 0),
     CHAN5G(100, 0),     CHAN5G(104, 0),
@@ -107,18 +105,14 @@ static struct ieee80211_channel aml_5ghz_a_channels[] =
     CHAN5G(116, 0),     CHAN5G(120, 0),
     CHAN5G(124, 0),     CHAN5G(128, 0),
     CHAN5G(132, 0),     CHAN5G(136, 0),
-    CHAN5G(140, 0),     CHAN5G(149, 0),
-    CHAN5G(153, 0),     CHAN5G(157, 0),
-    CHAN5G(161, 0),     CHAN5G(165, 0),
-    CHAN5G(184, 0),     CHAN5G(188, 0),
-    CHAN5G(192, 0),     CHAN5G(196, 0),
-    CHAN5G(200, 0),     CHAN5G(204, 0),
-    CHAN5G(208, 0),     CHAN5G(212, 0),
-    CHAN5G(216, 0),
+    CHAN5G(140, 0),     CHAN5G(144, 0),
+    CHAN5G(149, 0),     CHAN5G(153, 0),
+    CHAN5G(157, 0),     CHAN5G(161, 0),
+    CHAN5G(165, 0),
 };
 
 
-static struct ieee80211_rate aml_rates[] =
+struct ieee80211_rate aml_rates[AML_G_RATES_NUM] =
 {
     RATETAB_ENT(10,  0x1,   0),
     RATETAB_ENT(20,  0x2,   0),
@@ -196,7 +190,7 @@ static void aml_2g_channels_init(struct ieee80211_channel *channels)
 
 static void aml_5g_channels_init(struct ieee80211_channel *channels)
 {
-    memcpy((void*)channels, (void*)aml_5ghz_a_channels,
+    memcpy((void*)channels, (void*)aml_5ghz_channels,
            sizeof(struct ieee80211_channel)*AML_5G_CHANNELS_NUM);
 }
 
@@ -1393,10 +1387,12 @@ void vm_cfg80211_indicate_connect(struct wlan_net_vif *wnet_vif)
     struct wireless_dev *pwdev = wnet_vif->vm_wdev;
     struct vm_wdev_priv *pwdev_priv = wdev_to_priv(pwdev);
     struct wifi_station *sta = wnet_vif->vm_mainsta;
-    const unsigned char *req_ie = NULL;
-    size_t req_ie_len = 0;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0))
     struct cfg80211_bss *bss = NULL;
+    struct ieee80211_channel *notify_channel = NULL;
+    unsigned short channel = wnet_vif->vm_curchan->chan_pri_num;
+    unsigned int freq;
+
 #endif
 
     DPRINTF(AML_DEBUG_CFG80211, "%s %d <%s>\n", __func__, __LINE__, VMAC_DEV_NAME(wnet_vif));
@@ -1412,25 +1408,27 @@ void vm_cfg80211_indicate_connect(struct wlan_net_vif *wnet_vif)
         return;
     }
 
-    if (wnet_vif->vm_opt_ie_len)
-    {
-        DPRINTF(AML_DEBUG_CFG80211, "%s %d wnet_vif->vm_opt_ie_len=%d add req_ie_len\n",
-            __func__, __LINE__, wnet_vif->vm_opt_ie_len);
-        req_ie = wnet_vif->vm_opt_ie;
-        req_ie_len = wnet_vif->vm_opt_ie_len;
-    }
-
     DPRINTF(AML_DEBUG_CFG80211, "%s %d wnet_vif->vm_state=%d pwdev->iftype =%d\n",
         __func__, __LINE__, wnet_vif->vm_state,pwdev->iftype);
-    os_timer_ex_cancel(&pwdev_priv->connect_timeout, CANCEL_SLEEP);
     pwdev_priv->connect_request = NULL;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0))
-    bss = cfg80211_get_bss(pwdev->wiphy, NULL, sta->sta_bssid, sta->sta_essid, sta->sta_esslen,
+    if (channel <= AML_2G_CHANNELS_NUM)
+        freq = aml_ieee80211_chan_to_frq(channel, IEEE80211_BAND_2GHZ);
+    else
+        freq = aml_ieee80211_chan_to_frq(channel, IEEE80211_BAND_5GHZ);
+
+    notify_channel = ieee80211_get_channel(wnet_vif->vm_wdev->wiphy, freq);
+    if (!notify_channel) {
+        ERROR_DEBUG_OUT("notify_channel info is null\n");
+        return;
+    }
+
+    bss = cfg80211_get_bss(pwdev->wiphy, notify_channel, sta->sta_bssid, sta->sta_essid, sta->sta_esslen,
         IEEE80211_BSS_TYPE_ANY, IEEE80211_PRIVACY_ANY);
 
     if (bss != NULL) {
-        cfg80211_connect_bss(wnet_vif->vm_ndev, sta->sta_bssid, bss, req_ie, req_ie_len, wnet_vif->assocrsp_ie.ie,
+        cfg80211_connect_bss(wnet_vif->vm_ndev, sta->sta_bssid, bss, wnet_vif->assocreq_ie.ie, wnet_vif->assocreq_ie.length, wnet_vif->assocrsp_ie.ie,
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(4, 12, 0)
             wnet_vif->assocrsp_ie.length, WLAN_STATUS_SUCCESS, GFP_ATOMIC);
 #else
@@ -1440,12 +1438,9 @@ void vm_cfg80211_indicate_connect(struct wlan_net_vif *wnet_vif)
         ERROR_DEBUG_OUT("can't find bss in kernel: %s\n", sta->sta_essid);
     }
 #else
-    cfg80211_connect_result(wnet_vif->vm_ndev, sta->sta_bssid, req_ie, req_ie_len, wnet_vif->assocrsp_ie.ie,
+    cfg80211_connect_result(wnet_vif->vm_ndev, sta->sta_bssid,  wnet_vif->assocreq_ie.ie, wnet_vif->assocreq_ie.length, wnet_vif->assocrsp_ie.ie,
         wnet_vif->assocrsp_ie.length, WLAN_STATUS_SUCCESS, GFP_ATOMIC);
 #endif
-
-    memset(wnet_vif->vm_opt_ie, 0, WIFINET_MAX_IV_OPT_IE);
-    wnet_vif->vm_opt_ie_len = 0;
 
     DPRINTF(AML_DEBUG_CFG80211, "%s %d wnet_vif->vm_state=%d\n", __func__, __LINE__, wnet_vif->vm_state);
     return;
@@ -1468,7 +1463,8 @@ static int vm_cfg80211_connect_timeout_timer (void * arg)
     static unsigned int connect_timeout_taskid = 0, connect_timeout_once = 0;
 
     DPRINTF(AML_DEBUG_CFG80211, "%s vid:%d, state:%d\n", __func__, wnet_vif->wnet_vif_id, wnet_vif->vm_state);
-    if (pwdev_priv->connect_request && (wnet_vif->vm_state != WIFINET_S_CONNECTED)) {
+    if ((pwdev_priv->connect_request && (wnet_vif->vm_mainsta->connect_status != CONNECT_DHCP_GET_ACK))
+        || (wifimac->recovery_stat != WIFINET_RECOVERY_END)) {
         if (connect_timeout_once == 0) {
             connect_timeout_taskid = wifi_mac_register_behindTask(wifimac, vm_cfg80211_connect_timeout_task);
             wifi_mac_call_task(wifimac,connect_timeout_taskid,(SYS_TYPE)arg);
@@ -1509,6 +1505,7 @@ void vm_cfg80211_indicate_disconnect(struct wlan_net_vif *wnet_vif)
 {
     struct wireless_dev *pwdev = wnet_vif->vm_wdev;
     struct vm_wdev_priv *pwdev_priv = wdev_to_priv(pwdev);
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
     DPRINTF(AML_DEBUG_CFG80211, "%s %d <%s>\n", __func__, __LINE__, VMAC_DEV_NAME(wnet_vif));
 
@@ -1524,7 +1521,6 @@ void vm_cfg80211_indicate_disconnect(struct wlan_net_vif *wnet_vif)
 
     if (pwdev_priv->connect_request) {
         pwdev_priv->connect_request = NULL;
-        os_timer_ex_cancel(&pwdev_priv->connect_timeout, CANCEL_SLEEP);
     }
 
     if (wnet_vif->vm_state == WIFINET_S_CONNECTING) {
@@ -1553,7 +1549,10 @@ void vm_cfg80211_indicate_disconnect(struct wlan_net_vif *wnet_vif)
             cfg80211_disconnected(wnet_vif->vm_ndev, 0, NULL, 0, GFP_ATOMIC);
         #endif
     }
-
+    wnet_vif->vm_phase_flags = 0;
+    wifimac->recovery_stat = WIFINET_RECOVERY_END;
+    wifi_mac_scan_access(wnet_vif);
+    os_timer_ex_cancel(&pwdev_priv->connect_timeout, CANCEL_SLEEP);
     os_timer_ex_cancel(&wnet_vif->vm_mgtsend, CANCEL_SLEEP);
     return;
 }
@@ -1822,7 +1821,7 @@ vm_cfg80211_change_vif(struct wiphy *wiphy,
     int ret = 0;
 
     if (!aml_insmod_flag) {
-        printk("%s %d, aml insmod not complete\n",__func__,__LINE__);
+        AML_OUTPUT("aml insmod not complete\n");
         return -1;
     }
 
@@ -1900,6 +1899,7 @@ vm_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
     struct net_device *ndev = wdev_to_ndev(request->wdev);
     struct drv_private* drv_priv = wifimac->drv_priv;
     struct cfg80211_ssid *ssids = request->ssids;
+    struct hal_private * hal_priv = hal_get_priv();
     int nssids = request->n_ssids;
     struct wifi_mac_ScanSSID lssids[IV_SSID_SCAN_AMOUNT];
     int lnssids = 0;
@@ -1912,22 +1912,19 @@ vm_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 
     if (aml_wifi_is_enable_rf_test())
         return 0;
+    if ((aml_bus_type) && (hal_priv->dpd_suspend == 1)) {
+        ERROR_DEBUG_OUT("rejected scan due to dpd cail\n");
+        return -EINVAL;
+    }
 
     if (wnet_vif->vm_ndev && !(wnet_vif->vm_ndev->flags & IFF_RUNNING)) {
         ERROR_DEBUG_OUT("IFF_RUNNING\n");
         return -EINVAL;
     }
 
-    DPRINTF(AML_DEBUG_CFG80211, "<%s>:%s vm_opmode:%d, vm_state:%d, connect_status:%d, nssids:%d\n",
-        ndev->name, __func__, wnet_vif->vm_opmode, wnet_vif->vm_state, wnet_vif->vm_mainsta->connect_status, nssids);
-
     if (wnet_vif->vm_opmode == WIFINET_M_STA) {
-        if (((wnet_vif->vm_state >= WIFINET_S_CONNECTING) && (wnet_vif->vm_mainsta->connect_status != CONNECT_DHCP_GET_ACK))
-            || ((wifimac->wm_flags & WIFINET_F_SCAN) && (wifimac->wm_scan->scan_CfgFlags & WIFINET_SCANCFG_CONNECT))
-            || (wnet_vif->vm_phase == PHASE_CONNECTING)
-            || (wnet_vif->vm_phase == PHASE_DISCONNECTING)
-            || (wnet_vif->vm_chan_roaming_scan_flag)) {
-            ERROR_DEBUG_OUT("rejected scan due to connecting\n");
+        if (!wifi_mac_scan_check_available(wnet_vif)) {
+            ERROR_DEBUG_OUT("rejected scan due to scan not available\n");
 
             OS_SPIN_LOCK(&pwdev_priv->scan_req_lock);
             if (pwdev_priv->scan_request == NULL) {
@@ -2003,7 +2000,7 @@ vm_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
         wifi_mac_rm_app_ie(probereq_app_ie);
     }
 
-    if (!IS_RUNNING(wnet_vif->vm_ndev))
+    if (wnet_vif->vm_ndev && (!IS_RUNNING(wnet_vif->vm_ndev)))
     {
         DPRINTF(AML_DEBUG_ERROR|AML_DEBUG_CFG80211,
                 "<%s> %s %d flags %x,IFF_RUNNING= %x,IFF_UP=%x scan abort\n",
@@ -2051,7 +2048,7 @@ vm_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 
         } else {
             ret_startscan =  wifi_mac_start_scan(wnet_vif, WIFINET_SCANCFG_ACTIVE | WIFINET_SCANCFG_NOPICK
-                | WIFINET_SCANCFG_USERREQ | WIFINET_SCANCFG_FLUSH, 0, wnet_vif->vm_des_ssid);
+                | WIFINET_SCANCFG_USERREQ | WIFINET_SCANCFG_FLUSH, wnet_vif->vm_des_nssid, wnet_vif->vm_des_ssid);
         }
     }
 
@@ -2082,7 +2079,7 @@ static int vm_cfg80211_set_wiphy_params(struct wiphy *wiphy, unsigned int change
     unsigned short retry_short = 0;
     unsigned short retry_long = 0;
 
-    printk("enter %s, %d\n", __func__, __LINE__);
+    AML_OUTPUT("enter\n");
     retry_short = wiphy->retry_short;
     retry_long = wiphy->retry_long;
     if (changed & WIPHY_PARAM_RETRY_LONG || changed & WIPHY_PARAM_RETRY_SHORT) {
@@ -2097,13 +2094,13 @@ static int vm_cfg80211_set_wiphy_params(struct wiphy *wiphy, unsigned int change
     if (changed & WIPHY_PARAM_RTS_THRESHOLD &&
         wnet_vif->vm_rtsthreshold != wiphy->rts_threshold) {
         wnet_vif->vm_rtsthreshold = wiphy->rts_threshold;
-        printk("vm_rtsthreshold:%d\n", wnet_vif->vm_rtsthreshold);
+        AML_OUTPUT("vm_rtsthreshold:%d\n", wnet_vif->vm_rtsthreshold);
      }
 
     if (changed & WIPHY_PARAM_FRAG_THRESHOLD &&
         wnet_vif->vm_fragthreshold != wiphy->frag_threshold) {
         wnet_vif->vm_fragthreshold = wiphy->frag_threshold;
-        printk("vm_fragthreshold: %d\n", wnet_vif->vm_fragthreshold);
+        AML_OUTPUT("vm_fragthreshold: %d\n", wnet_vif->vm_fragthreshold);
     }
 
     DPRINTF(AML_DEBUG_CFG80211, "%s %d\n", __func__, __LINE__);
@@ -2119,7 +2116,7 @@ vm_cfg80211_update_wiphy_params(struct wiphy *wiphy)
     struct wireless_dev *vm_wdev;
 
     vm_wdev = wnet_vif->vm_wdev;
-    printk("vm_wdev:0x%p, %s, %d\n", vm_wdev, __func__, __LINE__);
+    AML_OUTPUT("vm_wdev:0x%p\n", vm_wdev);
 
     chandef = &vm_wdev->preset_chandef;
     if (chandef->chan == NULL) {
@@ -2176,8 +2173,8 @@ vm_cfg80211_join_ibss(struct wiphy *wiphy,
                 break;
             case NL80211_CHAN_WIDTH_80P80:
             case NL80211_CHAN_WIDTH_160:
-                printk("%s:%d, not support bandwidth %d yet \n",
-                __func__, __LINE__, params->chandef.width);
+                AML_OUTPUT("not support bandwidth %d yet\n",
+                params->chandef.width);
                 bw = WIFINET_BWC_WIDTH20;
                 center_chan = pri_chan;
                 break;
@@ -2225,7 +2222,7 @@ vm_cfg80211_set_tx_power(struct wiphy *wiphy,
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
     DPRINTF(AML_DEBUG_CFG80211, "%s %d\n", __func__, __LINE__);
-    printk("---tx_power_setting: %d, dbm: %d\n", type, dbm);
+    AML_OUTPUT("---tx_power_setting: %d, dbm: %d\n", type, dbm);
 
     wifimac->drv_priv->drv_ops.drv_set_txPwrLimit(wifimac->drv_priv, type, dbm);
 
@@ -2240,7 +2237,7 @@ vm_cfg80211_get_tx_power(struct wiphy *wiphy,
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
     DPRINTF(AML_DEBUG_CFG80211, "%s %d\n", __func__, __LINE__);
-    printk("---drv_curtxpower:%d\n", *dbm);
+    AML_OUTPUT("---drv_curtxpower:%d\n", *dbm);
     *dbm = wifimac->drv_priv->drv_curtxpower;
 
     return 0;
@@ -2322,6 +2319,7 @@ static  int vm_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev, uns
     struct wifi_macreq_key kr;
     struct wifi_mac_key *wk;
     struct wifi_station *sta;
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
     DPRINTF(AML_DEBUG_CFG80211, "%s adding key for <%s> vm_state=%d, cipher=0x%x key_len=%d seq_len=%d kid=%d, pariwise:%d\n",
         __func__, dev->name, wnet_vif->vm_state, lparams->cipher, lparams->key_len, lparams->seq_len, kid, pairwise);
@@ -2428,6 +2426,15 @@ static  int vm_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev, uns
     if (sta != NULL) {
         DPRINTF(AML_DEBUG_CONNECT, "%s %d 4-way handshake completed\n", __func__, __LINE__);
         sta->connect_status = CONNECT_FOUR_WAY_HANDSHAKE_COMPLETED;
+        if (wifimac->recovery_stat == WIFINET_RECOVERY_VIF_UP) {
+            struct vm_wdev_priv *pwdev_priv = wdev_to_priv(wnet_vif->vm_wdev);
+
+            os_timer_ex_cancel(&pwdev_priv->connect_timeout, CANCEL_SLEEP);
+            sta->connect_status = CONNECT_DHCP_GET_ACK;
+            wifimac->recovery_stat = WIFINET_RECOVERY_END;
+            wifi_mac_scan_access(wnet_vif);
+            AML_OUTPUT("!!!!!!!!! fw recovery end !!!!!!!!!\n");
+        }
     }
 
     wifi_mac_KeyUpdateBegin(wnet_vif);
@@ -2451,7 +2458,7 @@ static  int vm_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev, uns
         if (kr.ik_type == WIFINET_CIPHER_AES_CMAC) {
             wk->wk_valid = 1;
             wk->wk_keyix = key_index;
-            printk("not set pmf key to fw\n");
+            AML_OUTPUT("not set pmf key to fw\n");
             goto new_key_exit;
         }
 
@@ -2506,11 +2513,10 @@ static int vm_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev,
     unsigned char key_index, bool pairwise, const unsigned char *mac_addr)
 {
     struct wlan_net_vif *wnet_vif = wiphy_to_adapter(wiphy);
-    struct wifi_station *sta;
-
-    if (wnet_vif->vm_phase == PHASE_DISCONNECTING) {
-        return 0;
-    }
+    struct wifi_station *sta = NULL;
+    int total_delay = 0;
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+    struct drv_private *drv_priv = wifimac->drv_priv;
 
     DPRINTF(AML_DEBUG_CFG80211, "%s vm_flags:%08x, kid=%d, pairwise:%d\n", __func__, wnet_vif->vm_flags, key_index, pairwise);
     if (mac_addr != NULL) {
@@ -2519,12 +2525,21 @@ static int vm_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev,
         sta = wifi_mac_get_sta(&wnet_vif->vm_sta_tbl, mac_addr,wnet_vif->wnet_vif_id);
 
     } else {
-        sta = wnet_vif->vm_mainsta;
+        if (wnet_vif->vm_opmode == WIFINET_M_STA
+            || wnet_vif->vm_opmode == WIFINET_M_P2P_CLIENT) {
+            sta = wnet_vif->vm_mainsta;
+        }
     }
 
     if (sta == NULL) {
         DPRINTF(AML_DEBUG_WARNING, "%s %d  WARN\n", __func__, __LINE__);
         goto exit;
+    }
+
+    while (total_delay < 1000 && ((sta->connect_status != CONNECT_IDLE)
+        || (!drv_priv->hal_priv->hal_ops.hal_tx_empty()))) {
+        msleep(10);
+        total_delay += 10;
     }
 
     if (key_index < WIFINET_WEP_NKID) {
@@ -2678,12 +2693,11 @@ static int vm_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
     wnet_vif->vm_flags &= ~WIFINET_F_DESBSSID;
 
     wifimac->wm_lastroaming = jiffies;
-    wnet_vif->vm_chan_roaming_scan_flag = 0;
 
     /*if change AP,change roaming_ssid and clean roaming candidate channel*/
     if(!wnet_vif->vm_wmac->wm_scan->roaming_ssid.len
         || memcmp(wnet_vif->vm_wmac->wm_scan->roaming_ssid.ssid, lsme->ssid, wnet_vif->vm_wmac->wm_scan->roaming_ssid.len) != 0) {
-        printk("clean roaming candidate channels \n");
+        AML_OUTPUT("clean roaming candidate channels\n");
         wnet_vif->vm_wmac->wm_scan->roaming_ssid.len = lsme->ssid_len;
         memcpy(wnet_vif->vm_wmac->wm_scan->roaming_ssid.ssid, lsme->ssid, lsme->ssid_len);
 
@@ -2742,7 +2756,7 @@ static int vm_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 
         wnet_vif->vm_mainsta->sta_authmode = sta_authmode;
     }
-    printk("%s %d lsme->auth_type=%d, sta_authmode=%d\n", __func__, __LINE__, lsme->auth_type, wnet_vif->vm_mainsta->sta_authmode);
+    AML_OUTPUT("lsme->auth_type=%d, sta_authmode=%d\n", lsme->auth_type, wnet_vif->vm_mainsta->sta_authmode);
 
     if (lsme->crypto.wpa_versions) {
         unsigned int wpa_versions = lsme->crypto.wpa_versions;
@@ -2839,6 +2853,7 @@ static int vm_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 #ifdef AML_WPA3
     if (lsme->mfp == NL80211_MFP_REQUIRED) {
         wnet_vif->vm_mainsta->sta_flags_ext |= WIFINET_NODE_MFP;
+        wnet_vif->vm_mainsta->pmf_key.wk_keylen = 0;
         DPRINTF(AML_DEBUG_CFG80211, "%s NL80211_MFP_REQUIRED\n", __func__);
 
     } else {
@@ -2853,13 +2868,15 @@ static int vm_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
             ERROR_DEBUG_OUT("ie_len too long\n");
             goto exit;
         }
+        memset(wnet_vif->vm_opt_ie, 0, WIFINET_MAX_IV_OPT_IE);
+        wnet_vif->vm_opt_ie_len = 0;
 
         rsn_ie = vm_get_ie(lsme->ie, lsme->ie_len, NULL, (unsigned int *)&rsn_ie_len, WIFINET_ELEMID_RSN, 0);
         memcpy(wnet_vif->vm_opt_ie, lsme->ie, lsme->ie_len);
         wnet_vif->vm_opt_ie_len = lsme->ie_len;
         if ((wnet_vif->vm_mainsta->sta_flags_ext & WIFINET_NODE_MFP) && rsn_ie) {
-            if (wifi_mac_parse_own_rsn(wnet_vif->vm_mainsta, wnet_vif->vm_opt_ie)) {
-                goto exit;;
+            if (wifi_mac_parse_own_rsn(wnet_vif->vm_mainsta, rsn_ie)) {
+                goto exit;
             }
         }
 
@@ -2908,6 +2925,9 @@ vm_cfg80211_disconnect(struct wiphy *wiphy,
     struct wlan_net_vif *wnet_vif = wiphy_to_adapter(wiphy);
     int ret = 0;
     int mgmt_arg;
+    int total_delay = 0;
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+    struct drv_private *drv_priv = wifimac->drv_priv;
     DPRINTF(AML_DEBUG_CFG80211, "%s %d <%s> reason_code=%d\n",
             __func__, __LINE__, dev->name, reason_code);
 
@@ -2917,6 +2937,14 @@ vm_cfg80211_disconnect(struct wiphy *wiphy,
         ret = -EINVAL;
         ERROR_DEBUG_OUT("wifi_mac_security_req err\n");
         goto exit;
+    }
+
+    if (!(wnet_vif->vm_phase_flags & PHASE_DISCONNECTING) && wnet_vif->vm_state == WIFINET_S_CONNECTED) {
+        wnet_vif->vm_phase_flags |= PHASE_DISCONNECTING;
+        wifi_mac_scan_forbidden(wnet_vif, FORBIDDEN_SCAN_FOR_DISCONNECTING_TIMEOUT, FORBIDDEN_SCAN_FOR_DISCONNECTING);
+
+    } else {
+      goto exit;
     }
 
     if (wnet_vif->vm_wmac->wm_flags & WIFINET_F_SCAN) {
@@ -2937,6 +2965,12 @@ vm_cfg80211_disconnect(struct wiphy *wiphy,
             wifi_mac_send_mgmt(wnet_vif->vm_mainsta, WIFINET_FC0_SUBTYPE_DEAUTH, (void *)&mgmt_arg);
             if (wnet_vif->vm_p2p_support) {
                 wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
+            }
+
+            while (total_delay < 1000 && ((wifimac->wm_runningmask & BIT(wnet_vif->wnet_vif_id))
+                || (!drv_priv->hal_priv->hal_ops.hal_tx_empty()))) {
+                msleep(10);
+                total_delay += 10;
             }
             break;
         case WIFINET_M_HOSTAP:
@@ -3062,7 +3096,7 @@ aml_vm_legacy_5g_rate_map(unsigned int kernel_rate)
 		case 128:
 			return 0x0b;//54M;
 		default:
-			//printk("Legacy 5G Warning: Not supported rate.\n");
+			//AML_OUTPUT("Legacy 5G Warning: Not supported rate.\n");
 			return 0;
 	}
 }
@@ -3089,7 +3123,7 @@ aml_vm_ht_rate_map(unsigned int kernel_rate)
 		case 128:
 			return 0x0087;
 		default:
-			//printk("HT Warning: Not supported rate: %d\n",kernel_rate);
+			//AML_OUTPUT("HT Warning: Not supported rate: %d\n",kernel_rate);
 			return 0;
 	}
 }
@@ -3120,7 +3154,7 @@ aml_vm_vht_rate_map(unsigned int kernel_rate)
 		case 512:
 			return 0x00c9;
 		default:
-			//printk("VHT Warning: Not supported rate: %d\n",kernel_rate);
+			//AML_OUTPUT("VHT Warning: Not supported rate: %d\n",kernel_rate);
 			return 0;
 	}
 }
@@ -3134,7 +3168,7 @@ legacy_k2dot11_rate_map(unsigned int kernel_rate)
     //For 11b: (0x82 -0x80) * 500K =  1M
     //For 11g:  0xc * 500k = 6M
     unsigned int ret = 0;
-    printk("rate 0x%x %s(%d)\n", kernel_rate, __func__, __LINE__);
+    AML_OUTPUT("rate 0x%x\n", kernel_rate);
     switch (kernel_rate)
     {
         case BIT(0):
@@ -3293,8 +3327,8 @@ SET_BITRATE:
 
     if (aml_wifi_is_enable_rf_test()) {
         gB2BTestCasePacket.data_rate = final_bit_rate;
-        printk("Cfg80211 B2B: %s %d, rate to be set:0x%04x\n",
-                __func__,__LINE__,gB2BTestCasePacket.data_rate );
+        AML_OUTPUT("Cfg80211 B2B: rate to be set:0x%04x\n",
+                gB2BTestCasePacket.data_rate );
         return 0;
     }
 
@@ -3302,8 +3336,8 @@ SET_BITRATE:
         wnet_vif->vm_fixed_rate.rateinfo = final_bit_rate;
         wnet_vif->vm_fixed_rate.mode = WIFINET_FIXED_RATE_MCS;
         wnet_vif->vm_change_rate_enable = 0;
-        printk("Cfg80211: %s %d, rate to be set:0x%02x\n",
-                __func__,__LINE__,wnet_vif->vm_fixed_rate.rateinfo );
+        AML_OUTPUT("Cfg80211: rate to be set:0x%02x\n",
+                wnet_vif->vm_fixed_rate.rateinfo );
     }
 
     return 0;
@@ -3437,7 +3471,7 @@ static int _iv_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *d
             }
         } else {
             pri_chan = dsps_ie[2];
-            printk("%s(%d),pri_chan:%d\n\n",__func__,__LINE__,pri_chan);
+            AML_OUTPUT("pri_chan:%d\n", pri_chan);
 
             if (wifi_mac_if_dfs_channel(wifimac, (int)pri_chan) == 1) {
                 ERROR_DEBUG_OUT("Soft AP don't support in DFS channel \n");
@@ -3603,7 +3637,7 @@ static int _iv_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *d
                     __func__,__LINE__,vht_op_ie_len, pri_chan, vht_op_ie->vht_op_ch_freq_seg1);
 
                 /*bandwidth/mode/channel offset*/
-                printk("%s(%d):chan %d, cntr_seg1 %d\n", __func__, __LINE__, pri_chan, vht_op_ie->vht_op_ch_freq_seg1);
+                AML_OUTPUT("chan %d, cntr_seg1 %d\n", pri_chan, vht_op_ie->vht_op_ch_freq_seg1);
                 center_chan = vht_op_ie->vht_op_ch_freq_seg1;
                 if (vht_op_ie->vht_op_chwidth == VHT_OPT_CHN_WD_80M) {
                     wnet_vif->vm_bandwidth = WIFINET_BWC_WIDTH80;
@@ -3625,7 +3659,7 @@ static int _iv_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *d
             }
         }
         wnet_vif->vm_mainsta->sta_bssmode = wnet_vif->vm_mac_mode;
-        printk("%s vm_mac_mode %d, offset %d, vm_bandwidth:%d, center_chan:%d\n", __func__,
+        AML_OUTPUT("vm_mac_mode %d, offset %d, vm_bandwidth:%d, center_chan:%d\n",
             wnet_vif->vm_mac_mode, wnet_vif->scnd_chn_offset, wnet_vif->vm_bandwidth, center_chan);
 
 #ifdef CONFIG_P2P
@@ -3752,7 +3786,7 @@ static int _iv_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *d
 
             if (vm_rsn->rsn_caps & MFP_MASK) {
                 sta->sta_flags_ext |= WIFINET_NODE_MFP;
-                printk("%s disable hw mgmt decrypt\n", __func__);
+                AML_OUTPUT("disable hw mgmt decrypt\n");
                 wifi_mac_disable_hw_mgmt_decrypt();
             }
 
@@ -3915,7 +3949,7 @@ static int _iv_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *d
         }
     }
 
-    printk("%s set_beacon_flag %d, wm_flags_ext:%08x, wm_flags:%08x, sta_vhtcap:%08x\n", __func__,
+    AML_OUTPUT("set_beacon_flag %d, wm_flags_ext:%08x, wm_flags:%08x, sta_vhtcap:%08x\n",
         set_beacon_flag, wifimac->wm_flags_ext, wifimac->wm_flags, sta->sta_vhtcap);
 
     if (set_beacon_flag)
@@ -3954,9 +3988,9 @@ static int vm_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
         settings->hidden_ssid, settings->auth_type);
 
     if (settings->chandef.chan) {
-        printk("chandef center_freq:%d, hw_value:%d band:%d, at %s, %d\n",
+        AML_OUTPUT("chandef center_freq:%d, hw_value:%d band:%d\n",
             settings->chandef.chan->center_freq, settings->chandef.chan->hw_value,
-            settings->chandef.chan->band, __func__, __LINE__);
+            settings->chandef.chan->band);
         if (wifi_mac_if_dfs_channel(wifimac, (int)settings->chandef.chan->hw_value) == 1) {
             ERROR_DEBUG_OUT("Soft AP don't support in DFS channel \n");
             return -EINVAL;
@@ -4057,7 +4091,6 @@ static void _del_station(void *arg, struct wifi_station *sta)
         } else {
             wifi_mac_send_mgmt(sta, WIFINET_FC0_SUBTYPE_DEAUTH, (void *)&reason);
         }
-        wifi_mac_sta_disconnect(sta);
     }
 }
 
@@ -4100,7 +4133,11 @@ vm_cfg80211_del_station(
         return ret;
     }
 
-    _del_station(&arg, sta);
+    if (sta->sta_associd != 0) {
+        _del_station(&arg, sta);
+        wifi_mac_sta_disconnect_from_ap(sta);
+    }
+
     return ret;
 }
 
@@ -4569,7 +4606,7 @@ static int vm_cfg80211_mgmt_tx_p2p(struct wiphy *wiphy, struct wireless_dev *wde
     p2p_pub_act = (struct wifi_mac_p2p_pub_act_frame *)(params->buf + sizeof(struct wifi_frame));
     if (wnet_vif->vm_opmode != WIFINET_M_HOSTAP && wnet_vif->vm_state == WIFINET_S_CONNECTED) {
         if (is_need_process_p2p_action((unsigned char*)params->buf)) {
-            printk("%s, Need to send action frame in the connected state, params->len=%d\n", __func__, params->len);
+            AML_OUTPUT("Need to send action frame in the connected state, params->len=%d\n", params->len);
         } else {
             return 0;//no need to send mgmt after connected,if so, disconnect first
         }
@@ -4880,7 +4917,7 @@ vm_cfg80211_set_txq_params(struct wiphy *wiphy, struct net_device *dev,
     wmep->wmep_logcwmin =  WME_PARAM_LOGCWMAX_GET(params->cwmax);
     wmep->wmep_txopLimit = params->txop;
 
-    printk("%s(%d) aifs:%d, cwmax:%d, cwmin:%d, txop_lmt:%d\n", __func__, __LINE__,
+    AML_OUTPUT("aifs:%d, cwmax:%d, cwmin:%d, txop_lmt:%d\n",
            wmep->wmep_aifsn,  wmep->wmep_logcwmax, wmep->wmep_logcwmin,  wmep->wmep_txopLimit);
 
     wme_update_ex(wifimac,wnet_vif);
@@ -4902,7 +4939,7 @@ vm_cfg80211_get_channel(struct wiphy *wiphy, struct wireless_dev *wdev,
     struct wlan_net_vif *wnet_vif = NULL;
     struct wifi_mac *wifimac = NULL;
     struct wifi_channel *temp_chan = NULL;
-    printk("enter %s, no support yet\n", __func__);
+    AML_OUTPUT("enter, no support yet\n");
     return -1;
     if (!chandef || !wiphy) {
        ERROR_DEBUG_OUT("chandef or wiphy null\n");
@@ -4927,7 +4964,7 @@ vm_cfg80211_get_channel(struct wiphy *wiphy, struct wireless_dev *wdev,
     }
     if (temp_chan) {
         if (chandef->chan) {
-            printk("enter %s, %d\n", __func__, __LINE__);
+            AML_OUTPUT("enter\n");
          } else {
             ERROR_DEBUG_OUT("chandef->chan null \n");
          }
@@ -4975,8 +5012,8 @@ vm_cfg80211_set_noack_map(struct wiphy *wiphy,struct net_device *dev,
     struct wlan_net_vif *wnet_vif = wiphy_to_adapter(wiphy);
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
-    printk("enter %s\n", __func__);
-    printk("---wiphy addr:  0x%p\n", wiphy);
+    AML_OUTPUT("enter\n");
+    AML_OUTPUT("---wiphy addr:  0x%p\n", wiphy);
 
     if (noack_map & BE_MAP)
         wifimac->drv_priv->drv_txlist_table[HAL_WME_AC_BE].noack_flag = 1;
@@ -4999,7 +5036,7 @@ vm_cfg80211_start_p2p_device(struct wiphy *wiphy,struct wireless_dev *wdev)
     struct vm_wdev_priv *pwdev_priv = wdev_to_priv(wdev);
     struct wifi_mac_p2p *p2p = &pwdev_priv->p2p;
 
-    printk("%s(%d) \n", __func__, __LINE__);
+    AML_OUTPUT("in\n");
     if (!vm_p2p_enabled(p2p))
     {
         vm_p2p_up(wnet_vif);
@@ -5019,7 +5056,7 @@ vm_cfg80211_stop_p2p_device(struct wiphy *wiphy, struct wireless_dev *wdev)
     struct vm_wdev_priv *pwdev_priv = wdev_to_priv(wdev);
     struct wifi_mac_p2p *p2p = &pwdev_priv->p2p;
 
-    printk("enter %s\n", __func__);
+    AML_OUTPUT("enter\n");
     if (vm_p2p_enabled(p2p))
         vm_p2p_down(wnet_vif);
     wifi_mac_top_sm(wnet_vif, WIFINET_S_INIT,0);
@@ -5039,7 +5076,7 @@ static int
 vm_cfg80211_start_radar_detection(struct wiphy *wiphy, struct net_device *dev,
                                   struct cfg80211_chan_def *chandef, unsigned int cac_time_ms)
 {
-    printk("no support yet %s\n", __func__);
+    AML_OUTPUT("no support yet\n");
     return -1;
 }
 #endif
@@ -5075,8 +5112,8 @@ vm_cfg80211_auth(struct wiphy *wiphy, struct net_device *dev,
     struct wlan_net_vif *wnet_vif = wiphy_to_adapter(wiphy);
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
-    printk("-<running> %s %d\n",__func__,__LINE__);
-    printk("----auth_type:%d\n", req->auth_type);
+    AML_OUTPUT("-<running>\n");
+    AML_OUTPUT("----auth_type:%d\n", req->auth_type);
     switch (req->auth_type)
     {
         case NL80211_AUTHTYPE_OPEN_SYSTEM:
@@ -5102,11 +5139,11 @@ vm_cfg80211_auth(struct wiphy *wiphy, struct net_device *dev,
             auth_value = WIFINET_AUTH_AUTO;
             break;
         default:
-            printk("<running> %s %d, unknown auth type\n",__func__,__LINE__);
+            AML_OUTPUT("<running> unknown auth type\n");
             break;
     }
     wnet_vif->vm_mainsta->sta_authmode = auth_value;
-    printk("----sta_authmode:%d\n", wnet_vif->vm_mainsta->sta_authmode);
+    AML_OUTPUT("----sta_authmode:%d\n", wnet_vif->vm_mainsta->sta_authmode);
 
     return rc;
 }
@@ -5130,7 +5167,7 @@ vm_cfg80211_set_monitor_channel(struct wiphy *wiphy,
         ERROR_DEBUG_OUT("chandef is null at\n");
         return -1;
     }
-    printk("---enter %s\n", __func__);
+    AML_OUTPUT("---enter\n");
     chan_dbg(wnet_vif->vm_wmac->wm_curchan, "x4", 4863);
     return 0;
 }
@@ -5141,10 +5178,10 @@ vm_cfg80211_set_cqm_rssi_cfg(struct wiphy *wiphy,
 {
     struct wlan_net_vif *wnet_vif = wiphy_to_adapter(wiphy);
 
-    printk("---enter %s\n", __func__);
+    AML_OUTPUT("---enter\n");
     wnet_vif->vm_wmac->drv_priv->drv_config.cqm_rssi_thold = rssi_thold;
     wnet_vif->vm_wmac->drv_priv->drv_config.cqm_rssi_hyst = rssi_hyst;
-    printk("---rssi_thold:%d, rssi_hyst:%d\n", rssi_thold, rssi_hyst);
+    AML_OUTPUT("---rssi_thold:%d, rssi_hyst:%d\n", rssi_thold, rssi_hyst);
     wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
 
     return 0;
@@ -5157,11 +5194,11 @@ int vm_cfg80211_external_auth(struct wiphy *wiphy, struct net_device *dev,
     struct wlan_net_vif *wnet_vif = wiphy_to_adapter(wiphy);
     struct wifi_station *sta;
 
-    printk("%s vid:%d, action:%d, status:%d\n", __func__, wnet_vif->wnet_vif_id, params->action, params->status);
+    AML_OUTPUT("vid:%d, action:%d, status:%d\n", wnet_vif->wnet_vif_id, params->action, params->status);
     if (params->status == WLAN_STATUS_SUCCESS) {
-        printk("bssid: "MAC_FMT"", MAC_ARG(params->bssid));
-        printk("SSID: [%s]\n", ((params->ssid.ssid_len == 0) ? "" : (char *)params->ssid.ssid));
-        printk("suite: 0x%08x\n", params->key_mgmt_suite);
+        AML_OUTPUT("bssid: "MAC_FMT"\n", MAC_ARG(params->bssid));
+        AML_OUTPUT("SSID: [%s]\n", ((params->ssid.ssid_len == 0) ? "" : (char *)params->ssid.ssid));
+        AML_OUTPUT("suite: 0x%08x\n", params->key_mgmt_suite);
 
         if (wnet_vif->vm_opmode == WIFINET_M_STA) {
             wifi_mac_top_sm(wnet_vif, WIFINET_S_ASSOC, 0);
@@ -5169,7 +5206,7 @@ int vm_cfg80211_external_auth(struct wiphy *wiphy, struct net_device *dev,
         } else {
             sta = wifi_mac_get_sta(&wnet_vif->vm_sta_tbl, params->bssid, wnet_vif->wnet_vif_id);
             if (sta != NULL) {
-                printk("auth sta:%p\n", sta);
+                AML_OUTPUT("auth sta:%p\n", sta);
                 wifi_mac_sta_auth(sta);
             }
         }
@@ -5253,7 +5290,7 @@ static struct cfg80211_ops vm_cfg80211_ops =
 */
 static void vm_cfg80211_init_vht_capab(struct ieee80211_sta_vht_cap *vht_cap, enum ieee80211_band band)
 {
-    printk("%s(%d)\n",__func__,__LINE__);
+    AML_OUTPUT("in\n");
 
     vht_cap->vht_supported = true;
     #if 0 /*Original added from RTL view, interpreated into kernel language*/
@@ -5295,7 +5332,7 @@ static void vm_cfg80211_init_vht_capab(struct ieee80211_sta_vht_cap *vht_cap, en
 
 static void vm_cfg80211_init_ht_capab(struct ieee80211_sta_ht_cap *ht_cap, enum ieee80211_band band)
 {
-    printk("%s(%d)\n",__func__,__LINE__);
+    AML_OUTPUT("in\n");
 
     ht_cap->ht_supported = true;
 
@@ -5364,6 +5401,48 @@ unsigned int irr_para_reg_addr[] ={
 extern void print_driver_version(void);
 extern unsigned int efuse_manual_read(unsigned int addr);
 char *rssi_result_path = "/vendor/etc/rssi.txt";
+char *reg_result_path = "/data/reg.txt";
+
+void record_reg_value(unsigned int address, unsigned int value)
+{
+    struct kstat stat;
+    struct file *fp;
+    mm_segment_t fs;
+    int error = 0;
+    char buf[512] = {0};
+
+    fs = get_fs();
+    set_fs(KERNEL_DS);
+
+    fp = filp_open(reg_result_path, O_CREAT|O_RDWR, 0644);
+
+    if (!IS_ERR(fp)) {
+        sprintf(buf, "address: 0x%08x 0x%08x\r\n",
+            address,
+            value);
+
+        error = vfs_stat(reg_result_path, &stat);
+        if (error) {
+            filp_close(fp, NULL);
+            goto err;
+        }
+
+        fp->f_pos = (int)stat.size;
+        if ((int)stat.size < 0) {
+            filp_close(fp, NULL);
+            goto err;
+        }
+
+        vfs_write(fp, buf, strlen(buf), &fp->f_pos);
+
+        filp_close(fp, NULL);
+    }
+    else {
+        ERROR_DEBUG_OUT("open file %s failed.\n", reg_result_path);
+    }
+err:
+    set_fs(fs);
+}
 
 int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev, const void *data, int data_len)
 {
@@ -5395,14 +5474,14 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
     opt_data = (unsigned char *)data;
     vnd_if = (union vendor_if *)data;
 
-    printk("%s cmd 0x%x, addr 0x%x, data 0x%x\n", __func__,
+    AML_OUTPUT("cmd 0x%x, addr 0x%x, data 0x%x\n",
         (vnd_if->vnd_reg_cmd.cmd), ntohl(vnd_if->vnd_reg_cmd.addr), ntohl(vnd_if->vnd_reg_cmd.data));
 
     if (data_len > 0) {
         opcode = iwVendorCmd->first_eight_byte & 0x000000ff;
         switch(data_len) {
             case 1:
-                printk("---Aml drv: only opcode.\n");
+                AML_OUTPUT("---Aml drv: only opcode.\n");
                 break;
 
             case 2:
@@ -5468,7 +5547,7 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
                 wifimac->wm_flags_ext |= WIFINET_FEXT_AMSDU;
                 wifi_mac_config(wifimac, CHIP_PARAM_AMSDU_ENABLE, 1);
             }
-            printk("Cfg80211: Set amsdu done:%d\n",usr_data);
+            AML_OUTPUT("Cfg80211: Set amsdu done:%d\n",usr_data);
             break;
 
         case VM_NL80211_VENDER_SUBCMD_AMPDU:
@@ -5489,68 +5568,68 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
             if (IS_RUNNING(netdev)) {
                 wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
             }
-            printk("Cfg80211: Set ampdu done:%d\n",usr_data);
+            AML_OUTPUT("Cfg80211: Set ampdu done:%d\n",usr_data);
             break;
 
         case VM_NL80211_VENDER_SUBCMD_B2BNCTYPE:
-            printk("Cfg80211: Set encryption type done:%d\n",usr_data);
+            AML_OUTPUT("Cfg80211: Set encryption type done:%d\n",usr_data);
             gB2BTestCasePacket.encryp_type = usr_data;
             break;
 
         case VM_NL80211_VENDER_SUBCMD_B2BTKIPMIC:
-            printk("Cfg80211: Set tkip mic done:%d\n",usr_data);
+            AML_OUTPUT("Cfg80211: Set tkip mic done:%d\n",usr_data);
             gB2BTestCasePacket.tkip_mic = usr_data;
             break;
 
         case VM_NL80211_VENDER_SUBCMD_B2BTCPCSUM:
-            printk("Cfg80211: Set tcp checksum done:%d\n",usr_data);
+            AML_OUTPUT("Cfg80211: Set tcp checksum done:%d\n",usr_data);
             gB2BTestCasePacket.tcpip_csum = usr_data;
             break;
 
         case VM_NL80211_VENDER_SUBCMD_B2BPKTSNUM:
-            printk("Cfg80211: Set send packets numbers done:%d\n",usr_data);
+            AML_OUTPUT("Cfg80211: Set send packets numbers done:%d\n",usr_data);
             gB2BTestCasePacket.send_frame_num = usr_data;
             break;
 
         case VM_NL80211_VENDER_SUBCMD_B2BTESTYPE:
-            printk("Cfg80211: To be send data packets and test type :%d\n",usr_data);
-            printk("Cfg80211: Please make sure set bssid mac address as the same with dest.\n");
+            AML_OUTPUT("Cfg80211: To be send data packets and test type :%d\n",usr_data);
+            AML_OUTPUT("Cfg80211: Please make sure set bssid mac address as the same with dest.\n");
             gB2BTestCasePacket.packet_type = usr_data;
-            printk("Cfg80211: Before calling prepare_test_hal_layer_thr_init.\n");
+            AML_OUTPUT("Cfg80211: Before calling prepare_test_hal_layer_thr_init.\n");
             prepare_test_hal_layer_thr_init(usr_data);
             break;
 
         case VM_NL80211_VENDER_SUBCMD_DRV_B2B_SET_LOCAL_MAC_ADDR:
             memcpy(TrcConfMib.the_mac_address,vmc_tmp_addr,6);
             local_mac_addr_update();
-            printk("Cfg80211: Set local mac addr done.\n");
+            AML_OUTPUT("Cfg80211: Set local mac addr done.\n");
             break;
 
         case VM_NL80211_VENDER_SUBCMD_DRV_B2B_GET_LOCAL_MAC_ADDR:
-            printk("Cfg80211: local wnet_vif addr: "MAC_FMT"\n",MAC_ARG(TrcConfMib.the_mac_address));
+            AML_OUTPUT("Cfg80211: local wnet_vif addr: "MAC_FMT"\n",MAC_ARG(TrcConfMib.the_mac_address));
             break;
 
         case VM_NL80211_VENDER_SUBCMD_DRV_B2B_SET_PEER_MAC_ADDR:
             memcpy(TrcConfMib.the_desc_address,vmc_tmp_addr,6);
             memcpy(TrcConfMib.the_connect_address,vmc_tmp_addr,6);
             dst_mac_addr_update();
-            printk("Cfg80211: Set peer mac addr done.\n");
+            AML_OUTPUT("Cfg80211: Set peer mac addr done.\n");
             break;
 
         case VM_NL80211_VENDER_SUBCMD_DRV_B2B_GET_PEER_MAC_ADDR:
-            printk("Cfg80211:  dest wnet_vif addr: "MAC_FMT"\n", MAC_ARG(TrcConfMib.the_desc_address));
+            AML_OUTPUT("Cfg80211:  dest wnet_vif addr: "MAC_FMT"\n", MAC_ARG(TrcConfMib.the_desc_address));
             break;
 
         case VM_NL80211_VENDER_SUBCMD_DRV_B2B_SET_BSSID_MAC_ADDR:
             memcpy(TrcConfMib.the_bssid,vmc_tmp_addr,6);
-            printk("Cfg80211: Set bssid mac addr done.\n");
+            AML_OUTPUT("Cfg80211: Set bssid mac addr done.\n");
             break;
 
         case VM_NL80211_VENDER_SUBCMD_DRV_B2B_GET_BSSID_MAC_ADDR:
-            printk("Cfg80211: local wnet_vif addr: "MAC_FMT"\n", MAC_ARG(TrcConfMib.the_mac_address));
-            printk("Cfg80211: dest wnet_vif addr: "MAC_FMT"\n", MAC_ARG(TrcConfMib.the_desc_address));
-            printk("Cfg80211: connect addr: "MAC_FMT"\n", MAC_ARG(TrcConfMib.the_connect_address));
-            printk("Cfg80211: bssid : "MAC_FMT"\n", MAC_ARG(TrcConfMib.the_bssid));
+            AML_OUTPUT("Cfg80211: local wnet_vif addr: "MAC_FMT"\n", MAC_ARG(TrcConfMib.the_mac_address));
+            AML_OUTPUT("Cfg80211: dest wnet_vif addr: "MAC_FMT"\n", MAC_ARG(TrcConfMib.the_desc_address));
+            AML_OUTPUT("Cfg80211: connect addr: "MAC_FMT"\n", MAC_ARG(TrcConfMib.the_connect_address));
+            AML_OUTPUT("Cfg80211: bssid : "MAC_FMT"\n", MAC_ARG(TrcConfMib.the_bssid));
             break;
 
         case VM_NL80211_VENDER_SUBCMD_DRV_B2B_SET_CHL:
@@ -5562,7 +5641,7 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
                 hchan.pchan_num = vnd_if->vnd_chn_bw_cmd.chn;
                 hchan.chan_bw = vnd_if->vnd_chn_bw_cmd.bw;
 
-                printk("Cfg80211: set channel to %d. bw =%d\n",vnd_if->vnd_chn_bw_cmd.chn, vnd_if->vnd_chn_bw_cmd.bw);
+                AML_OUTPUT("Cfg80211: set channel to %d. bw =%d\n",vnd_if->vnd_chn_bw_cmd.chn, vnd_if->vnd_chn_bw_cmd.bw);
 
                 phy_set_rf_chan(&hchan, 0, wnet_vif->wnet_vif_id);
                 break;
@@ -5570,7 +5649,7 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
 
         case VM_NL80211_VENDER_SUBCMD_DRV_B2B_PKT_LENGTH:
             gB2BTestCasePacket.pkt_length = usr_data;
-            printk("Cfg80211: set pkt_len(mpdu_len) = %d uninvolve(fcs,delimter)\n",usr_data);
+            AML_OUTPUT("Cfg80211: set pkt_len(mpdu_len) = %d uninvolve(fcs,delimter)\n",usr_data);
             break;
 
         case VM_NL80211_VENDER_SUBCMD_DRV_SET_SHORT_GI:
@@ -5579,30 +5658,30 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
 
             if (1 == usr_data) {
                 wifimac->wm_flags_ext |= WIFINET_FEXT_SHORTGI_ENABLE;
-                printk("Cfg80211: enable short GI done");
+                AML_OUTPUT("Cfg80211: enable short GI done\n");
 
             } else {
                 wifimac->wm_flags_ext &= ~WIFINET_FEXT_SHORTGI_ENABLE;
-                printk("Cfg80211: disable short GI done.\n");
+                AML_OUTPUT("Cfg80211: disable short GI done.\n");
             }
 
             if (1 == usr_data)
-                printk("Cfg80211: enable short GI done.\n");
+                AML_OUTPUT("Cfg80211: enable short GI done.\n");
             else
-                printk("Cfg80211: disable short GI done.\n");
+                AML_OUTPUT("Cfg80211: disable short GI done.\n");
             break;
 
         case VM_NL80211_VENDER_SUBCMD_B2BCHLBW:
-            printk("Cfg80211: Set channel bandwidth done:%d\n",usr_data);
+            AML_OUTPUT("Cfg80211: Set channel bandwidth done:%d\n",usr_data);
             if (aml_wifi_is_enable_rf_test())
                 gB2BTestCasePacket.channel_bw = usr_data;
 
             if (usr_data == 2) {
-                printk("\n----: 80M bw\n");
+                AML_OUTPUT("----: 80M bw\n");
             } else if (usr_data == 1) {
-                printk("\n----: 40M bw\n");
+                AML_OUTPUT("----: 40M bw\n");
             } else {
-                printk("\n-----: 20M bw\n");
+                AML_OUTPUT("-----: 20M bw\n");
             }
             break;
 
@@ -5618,11 +5697,12 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
             } else {
                 reg_val = wnet_vif->vif_ops.read_word(usr_data);
             }
-            printk("Drv info: Reg data=&0x%08x\n",reg_val);//do not remove me!!!!!
+            AML_OUTPUT("Drv info: Reg data=&0x%08x\n",reg_val);//do not remove me!!!!!
+            record_reg_value(usr_data, reg_val);
             break;
 
         case VM_NL80211_VENDER_SUBCMD_SETREG:
-            printk("Cfg80211: Reg addr: val:0x%08x,val:0x%08x\n",usr_data,usr_data_ext);
+            AML_OUTPUT("Cfg80211: Reg addr: val:0x%08x,val:0x%08x\n",usr_data,usr_data_ext);
             if (((usr_data >> 24) & 0xff) == 0xff) {
 #ifdef USE_T902X_RF
                 rf_i2c_write( usr_data & 0x00ffffff,usr_data_ext );//access t902x rf reg
@@ -5642,7 +5722,7 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
         reg_val = rf_i2c_read(usr_data);
 #endif
 
-        printk("[I2C read]: Reg data=&0x%08x\n",reg_val);
+        AML_OUTPUT("[I2C read]: Reg data=&0x%08x\n",reg_val);
         break;
 
     case VM_NL80211_VENDER_I2C_SETREG:
@@ -5650,7 +5730,7 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
         rf_i2c_write(usr_data,usr_data_ext);
 #endif
 
-        printk("[I2C write] I2c addr: 0x%08x, data:0x%08x\n",usr_data,usr_data_ext);
+        AML_OUTPUT("[I2C write] I2c addr: 0x%08x, data:0x%08x\n",usr_data,usr_data_ext);
         break;
 
      case VM_NL80211_T9026_DUMP_RXIRR_REG:
@@ -5667,15 +5747,15 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
 
     case VM_NL80211_VENDER_DBG_INFO_ENABLE:
         g_dbg_info_enable = (unsigned long long)usr_data;
-        printk("%s(%d)dbg_en=0x%08llx\n ", __func__, __LINE__, g_dbg_info_enable);
+        AML_OUTPUT("dbg_en=0x%08llx\n", g_dbg_info_enable);
         break;
     case VM_NL80211_VENDER_DYNAMIC_BW_CFG:
         if( usr_data != 0 ){
             wifi_mac_config(wifimac, CHIP_PARAM_DYNAMIC_BW, 1);
-            printk("enable dynamic bandwith\n");
+            AML_OUTPUT("enable dynamic bandwith\n");
         }else{
             wifi_mac_config(wifimac, CHIP_PARAM_DYNAMIC_BW, 0);
-            printk("disable dynamic bandwith\n");
+            AML_OUTPUT("disable dynamic bandwith\n");
         }
 
         break;
@@ -5688,7 +5768,7 @@ int vm_cfg80211_vnd_cmd_set_para(struct wiphy *wiphy, struct wireless_dev *wdev,
 
             if (bcn_intvl == 0)
                 bcn_intvl = WIFINET_BINTVAL_DEFAULT;
-            printk("%s:%d, bcn intvl %d\n", __func__, __LINE__, bcn_intvl);
+            AML_OUTPUT("bcn intvl %d\n", bcn_intvl);
             wifimac->drv_priv->drv_ops.Phy_beaconinit(wifimac->drv_priv,
                 wnet_vif->wnet_vif_id, bcn_intvl);
 
@@ -5753,26 +5833,26 @@ err:
         break;
 
     case VM_NL80211_VENDOR_UPDATE_WIPHY_PARAMS:
-        printk("Cfg80211: update_wiphy_params\n");
-        printk("Cfg80211: wiphy addr: 0x%p----\n", wiphy);
+        AML_OUTPUT("Cfg80211: update_wiphy_params\n");
+        AML_OUTPUT("Cfg80211: wiphy addr: 0x%p----\n", wiphy);
         vm_cfg80211_update_wiphy_params(wiphy);
         break;
     case VM_NL80211_VENDOR_SET_PREAMBLE_TYPE:
-        printk("Cfg80211: set preanble type\n");
+        AML_OUTPUT("Cfg80211: set preanble type\n");
         phy_set_preamble_type(usr_data);
         break;
     case VM_NL80211_VENDOR_SET_BURST:
-        printk("Cfg80211: set burst\n");
+        AML_OUTPUT("Cfg80211: set burst\n");
         wifimac->drv_priv->drv_config.cfg_burst_ack = usr_data;
         break;
     case VM_NL80211_VENDOR_SET_ACK_POLICY:
-        printk("Cfg80211: set ack policy\n");
+        AML_OUTPUT("Cfg80211: set ack policy\n");
         wifimac->drv_priv->drv_config.ack_policy = usr_data;
         break;
     case VM_NL80211_SENDTEST:
         frame_num = usr_data >> 16;
         frame_len = usr_data & 0xffff;
-        printk("Cfg80211: frame_num =%d,frame_len=%d\n", frame_num, frame_len);
+        AML_OUTPUT("Cfg80211: frame_num =%d,frame_len=%d\n", frame_num, frame_len);
         do
         {
             wifi_mac_send_testdata(wnet_vif->vm_mainsta,  frame_len);
@@ -5783,12 +5863,12 @@ err:
 
     case VM_NL80211_BT_REG_READ:
         reg_val = wnet_vif->vif_ops.bt_read_word(usr_data);
-        printk("Read BT Addr = 0x%x,data = 0x%x\n",usr_data,reg_val);
+        AML_OUTPUT("Read BT Addr = 0x%x,data = 0x%x\n",usr_data,reg_val);
         break;
 
     case VM_NL80211_BT_REG_WRITE:
         wnet_vif->vif_ops.bt_write_word(usr_data,usr_data_ext);
-        printk("Write BT Addr = 0x%x,data = 0x%x\n",usr_data,usr_data_ext);
+        AML_OUTPUT("Write BT Addr = 0x%x,data = 0x%x\n",usr_data,usr_data_ext);
         break;
 
     case VM_NL80211_SET_LDPC:
@@ -5796,23 +5876,23 @@ err:
         {
             if (aml_wifi_is_enable_rf_test()) {
                 gB2BTestCasePacket.ldpc_enable = 1;
-                printk("Enable tx ldpc\n");
+                AML_OUTPUT("Enable tx ldpc\n");
             }
 
             wnet_vif->vm_mainsta->sta_vhtcap |= WIFINET_VHTCAP_RX_LDPC;
             wifimac->wm_flags |=WIFINET_F_LDPC;
-            printk("Enalbe ldpc, if need change,the action must be excute before connect ap or create ap\n");
+            AML_OUTPUT("Enalbe ldpc, if need change,the action must be excute before connect ap or create ap\n");
         }
         else
         {
             if (aml_wifi_is_enable_rf_test()) {
                 gB2BTestCasePacket.ldpc_enable = 0;
-                printk("Disable tx ldpc\n");
+                AML_OUTPUT("Disable tx ldpc\n");
             }
 
             wnet_vif->vm_mainsta->sta_vhtcap &= ~WIFINET_VHTCAP_RX_LDPC;
             wifimac->wm_flags &=~WIFINET_F_LDPC;
-            printk("Disable ldpc, if need change,the action must be excute before connect ap or create ap\n");
+            AML_OUTPUT("Disable ldpc, if need change,the action must be excute before connect ap or create ap\n");
         }
         break;
 
@@ -5848,22 +5928,22 @@ err:
 
 #ifdef WIFI_CAPTURE
     case VM_NL80211_SET_CAP_GAIN:
-        printk("set gain = 0x%08x\n",ntohl(vnd_if->vnd_com_cmd.data));
+        AML_OUTPUT("set gain = 0x%08x\n",ntohl(vnd_if->vnd_com_cmd.data));
         dut_set_gain(ntohl(vnd_if->vnd_com_cmd.data));
         break;
 
    case VM_NL80211_SET_BCAP_NAME:
-        printk("bcap name = 0x%08x\n",ntohl(vnd_if->vnd_com_cmd.data));
+        AML_OUTPUT("bcap name = 0x%08x\n",ntohl(vnd_if->vnd_com_cmd.data));
         dut_set_bcap_log_name(ntohl(vnd_if->vnd_com_cmd.data));
        break;
 
     case VM_NL80211_VDR_SUBCMD_START_CAPTURE:
-        printk("Drv info: Reg addr=0x%08x\n",ntohl(vnd_if->vnd_com_cmd.data));
+        AML_OUTPUT("Drv info: Reg addr=0x%08x\n",ntohl(vnd_if->vnd_com_cmd.data));
         dut_start_capture(ntohl(vnd_if->vnd_com_cmd.data));
         break;
 
     case VM_NL80211_VDR_SUBCMD_STOP_CAPTURE:
-        printk("Drv info: Reg addr=0x%08x\n",usr_data);
+        AML_OUTPUT("Drv info: Reg addr=0x%08x\n",usr_data);
         dut_stop_capture();
         break;
 #endif
@@ -5876,46 +5956,46 @@ err:
         wnet_vif->vm_pwrsave.ips_inactivitytime = (unsigned int)usr_data;
 
         os_timer_ex_start_period(&wnet_vif->vm_pwrsave.ips_timer_presleep, wnet_vif->vm_pwrsave.ips_inactivitytime);
-        printk("%s(%d) set ips_inactivitytime = 0x%08x\n ", __func__, __LINE__, wnet_vif->vm_pwrsave.ips_inactivitytime);
+        AML_OUTPUT("set ips_inactivitytime = 0x%08x\n", wnet_vif->vm_pwrsave.ips_inactivitytime);
         break;
 
     case VM_NL80211_FETCH_PKT_METHOD:
         wnet_vif->vm_mainsta->sta_fetch_pkt_method = (unsigned char)usr_data;
-        printk("%s(%d) set sta_fetch_pkt_method = %d\n ", __func__, __LINE__, wnet_vif->vm_mainsta->sta_fetch_pkt_method);
+        AML_OUTPUT("set sta_fetch_pkt_method = %d\n", wnet_vif->vm_mainsta->sta_fetch_pkt_method);
         break;
 
     case VM_NL80211_PKT_FRAGMENT_THRESHOLD:
         if ((unsigned short)usr_data > 0) {
             wnet_vif->vm_fragthreshold = (unsigned short)usr_data;
         }
-        printk("%s(%d) set vm_fragthreshold = %d\n ", __func__, __LINE__, wnet_vif->vm_fragthreshold);
+        AML_OUTPUT("set vm_fragthreshold = %d\n", wnet_vif->vm_fragthreshold);
         break;
 
     case VM_NL80211_UAPSD_ENABLE:
         if ((unsigned char)usr_data != 0) {
             WIFINET_VMAC_UAPSD_ENABLE(wnet_vif);
-            printk("%s(%d) enable ap uapsd\n ", __func__, __LINE__);
+            AML_OUTPUT("enable ap uapsd\n");
 
         } else {
             WIFINET_VMAC_UAPSD_DISABLE(wnet_vif);
-            printk("%s(%d) disable ap uapsd\n ", __func__, __LINE__);
+            AML_OUTPUT("disable ap uapsd\n");
         }
         break;
 
     case VM_NL80211_CLK_MEASURE:
         host_clk_msr((unsigned char)(usr_data));
-        printk("%s(%d) host_clk_msr: %d\n ", __func__, __LINE__, (unsigned char)(usr_data));
+        AML_OUTPUT("host_clk_msr: %d\n", (unsigned char)(usr_data));
         break;
 
     case VM_NL80211_AUTORATE_ENABLE:
         wnet_vif->vm_fixed_rate.rateinfo = 0;
         wnet_vif->vm_fixed_rate.mode = WIFINET_FIXED_RATE_NONE;
         wnet_vif->vm_change_rate_enable = 1;
-        printk("%s %d, enable autorate\n", __func__,__LINE__);
+        AML_OUTPUT("enable autorate\n");
         break;
 
     case VM_NL80211_SDIO_DLY_ADJUST:
-        printk("sdio change timing %08x\n", usr_data);
+        AML_OUTPUT("sdio change timing %08x\n", usr_data);
         hif->hif_ops.hi_write_reg8(0x2c0, 0);
 
         switch (usr_data) {
@@ -5936,11 +6016,11 @@ err:
                 break;
         }
 
-        printk("debug reg:%08x, read:%08x\n", reg, (unsigned int)(hif->hif_ops.hi_read_reg8(reg)));
+        AML_OUTPUT("debug reg:%08x, read:%08x\n", reg, (unsigned int)(hif->hif_ops.hi_read_reg8(reg)));
         for (i = 0; i < 32; ++i) {
             hif->hif_ops.hi_write_reg8(reg, i);
 
-            printk("0x0000b078 %08x, debug reg:%08x, i :%d, read:%08x\n",
+            AML_OUTPUT("0x0000b078 %08x, debug reg:%08x, i :%d, read:%08x\n",
                 (unsigned int)(hif->hif_ops.hi_read_word(0x0000b078)), reg, i,  (unsigned int)(hif->hif_ops.hi_read_reg8(reg)));
             hif->hif_ops.hi_write_word(0x0000b078, 0x00000701 + i);
         }
@@ -5952,50 +6032,50 @@ err:
 
         if ((usr_data & 0xFF) > 4)
         {
-            printk("support max spatial is 4 !\n");
+            AML_OUTPUT("support max spatial is 4 !\n");
             wifimac->max_spatial = 4;
         }
         else if ((usr_data & 0xFF) <= 0)
         {
-            printk("min spatial is 1 !\n");
+            AML_OUTPUT("min spatial is 1 !\n");
             wifimac->max_spatial = 1;
         }
         else
             wifimac->max_spatial = usr_data & 0xFF;
-        printk("%s:%d, set spatial %d \n", __func__, __LINE__, wifimac->max_spatial);
+        AML_OUTPUT("set spatial %d\n", wifimac->max_spatial);
 
         if ((((usr_data >> 8) & 0xFF) & BIT(0)) == BIT(0))
         {
             wifimac->wm_flags_ext2 |= WIFINET_VHTCAP_SU_BFMEE;
-            printk("%s:%d, enable su mimo\n", __func__, __LINE__);
+            AML_OUTPUT("enable su mimo\n");
         }
         else
         {
             wifimac->wm_flags_ext2 &= ~WIFINET_VHTCAP_SU_BFMEE;
-            printk("%s:%d, disable su mimo\n", __func__, __LINE__);
+            AML_OUTPUT("disable su mimo\n");
         }
 
         if ((((usr_data >> 8) & 0xFF) & BIT(1)) == BIT(1))
         {
             wifimac->wm_flags_ext2 |= WIFINET_VHTCAP_MU_BFMEE;
-            printk("%s:%d, enable mu mimo\n", __func__, __LINE__);
+            AML_OUTPUT("enable mu mimo\n");
         }
         else
         {
             wifimac->wm_flags_ext2 &= ~WIFINET_VHTCAP_MU_BFMEE;
-            printk("%s:%d, disable mu mimo\n", __func__, __LINE__);
+            AML_OUTPUT("disable mu mimo\n");
         }
         break;
 #endif
 
 #ifdef WIFI_CAPTURE
         case VM_NL80211_VDR_SUBCMD_BT_START_CAPTURE:
-            printk("Drv info: Reg addr=0x%08x\n",ntohl(vnd_if->vnd_com_cmd.data));
+            AML_OUTPUT("Drv info: Reg addr=0x%08x\n",ntohl(vnd_if->vnd_com_cmd.data));
             dut_bt_start_capture(ntohl(vnd_if->vnd_com_cmd.data));
             break;
 
         case VM_NL80211_VDR_SUBCMD_BT_STOP_CAPTURE:
-            printk("Drv info: Reg addr=0x%08x\n",usr_data);
+            AML_OUTPUT("Drv info: Reg addr=0x%08x\n",usr_data);
             dut_bt_stop_capture();
             break;
 #endif
@@ -6006,7 +6086,7 @@ err:
             wifi_mac_set_scan_time(wnet_vif);
         }
 
-        printk("%s, vid:%d set scan_time_idle = %d\n ", __func__, wnet_vif->wnet_vif_id, wnet_vif->vm_scan_time_idle);
+        AML_OUTPUT("vid:%d set scan_time_idle = %d\n", wnet_vif->wnet_vif_id, wnet_vif->vm_scan_time_idle);
         break;
 
     case VM_NL80211_SCAN_TIME_CONNECT:
@@ -6015,37 +6095,37 @@ err:
             wifi_mac_set_scan_time(wnet_vif);
         }
 
-        printk("%s, vid:%d set scan_time_connect = %d\n ", __func__, wnet_vif->wnet_vif_id, wnet_vif->vm_scan_time_connect);
+        AML_OUTPUT("vid:%d set scan_time_connect = %d\n", wnet_vif->wnet_vif_id, wnet_vif->vm_scan_time_connect);
         break;
 
     case VM_NL80211_SCAN_HANG:
         wnet_vif->vm_scan_hang = (unsigned char)usr_data;
-        printk("%s, vid:%d vm_scan_hang:%d\n ", __func__, wnet_vif->wnet_vif_id, wnet_vif->vm_scan_hang);
+        AML_OUTPUT("vid:%d vm_scan_hang:%d\n", wnet_vif->wnet_vif_id, wnet_vif->vm_scan_hang);
         break;
 
     case VM_NL80211_PRINT_VERSION:
         print_driver_version();
-        printk("driver version: %s\n", DRIVERVERSION);
+        AML_OUTPUT("driver version: %s\n", DRIVERVERSION);
         break;
 
      case VM_NL80211_SET_EN_COEX:
-        printk("%s, coexist en= %d\n ", __func__, usr_data);
+        AML_OUTPUT("coexist en= %d\n", usr_data);
         wifimac->drv_priv->hal_priv->hal_ops.phy_set_coexist_en(usr_data);
         break;
 
     case VM_NL80211_SET_COEXIST_MAX_MISS_BCN_CNT:
-        //printk("%s, set max bcn miss cnt= %d\n ", __func__, usr_data);
+        //AML_OUTPUT("set max bcn miss cnt= %d\n", usr_data);
         wifimac->drv_priv->hal_priv->hal_ops.phy_set_coexist_max_miss_bcn(usr_data);
         break;
 
     case VM_NL80211_SET_COEXIST_REQ_TIMEOUT:
         wifimac->drv_priv->hal_priv->hal_ops.phy_set_coexist_req_timeslice_timeout_value(usr_data);
-        printk("%s, set req timeout value= %d\n ", __func__, usr_data);
+        AML_OUTPUT("set req timeout value= %d\n", usr_data);
         break;
 
     case VM_NL80211_SET_COEXIST_NOT_GRANT_WEIGHT:
         wifimac->drv_priv->hal_priv->hal_ops.phy_set_coexist_not_grant_weight(usr_data);
-         printk("%s, set coexist_not_grant_weight= %d\n ", __func__, usr_data);
+         AML_OUTPUT("set coexist_not_grant_weight= %d\n", usr_data);
         break;
 
     case VM_NL80211_SET_COEXIST_CONFIG:
@@ -6054,13 +6134,13 @@ err:
 
     case VM_NL80211_SET_COEXIST_MAX_NOT_GRANT_CNT:
         wifimac->drv_priv->hal_priv->hal_ops.phy_set_coexist_max_not_grant_cnt(usr_data);
-        printk("%s, set coexist_max_not_grant_cnt= %d\n ", __func__, usr_data);
+        AML_OUTPUT("set coexist_max_not_grant_cnt= %d\n", usr_data);
         break;
 
      case VM_NL80211_SET_COEXIST_IRQ_END_TIM:
-        printk("%s, set SET_COEXIST_IRQ_END_TIM= 0x%8x\n ", __func__, usr_data);
-        printk("%s, A2DP irq end time is = %d\n ", __func__, usr_data &0xffff);
-        printk("%s, other traffic irq end time is = %d\n ", __func__, usr_data>>16);
+        AML_OUTPUT("set SET_COEXIST_IRQ_END_TIM= 0x%8x\n", usr_data);
+        AML_OUTPUT("A2DP irq end time is = %d\n", usr_data &0xffff);
+        AML_OUTPUT("other traffic irq end time is = %d\n", usr_data>>16);
         wnet_vif->vif_ops.write_word(RG_COEX_IRQ_END_TIME, usr_data);
         break;
 
@@ -6083,7 +6163,7 @@ err:
 
     case VM_NL80211_GET_EFUSE_DATA:
         efuse_data = efuse_manual_read(usr_data);
-        printk("efuse addr:%08x, efuse data is :%08x\n", usr_data, efuse_data);
+        AML_OUTPUT("efuse addr:%08x, efuse data is :%08x\n", usr_data, efuse_data);
         break;
     /* add host print fw log. */
     case VM_NL80211_GET_FW_LOG:
@@ -6091,7 +6171,7 @@ err:
         break;
 
     default:
-        printk("Cfg80211 Warning:Vendor subcmd index out of range!!!\n");
+        AML_OUTPUT("Cfg80211 Warning:Vendor subcmd index out of range!!!\n");
         break;
     }
     return ret;
@@ -6168,7 +6248,7 @@ static void vm_cfg80211_preinit_wiphy(struct wlan_net_vif *wnet_vif, struct wiph
     wiphy->flags |= WIPHY_FLAG_HAVE_AP_SME;
     wiphy->flags |= WIPHY_FLAG_OFFCHAN_TX | WIPHY_FLAG_HAVE_AP_SME;
 
-    printk("AML INFO:before register vendor cmd!!!\n ");
+    AML_OUTPUT("AML INFO:before register vendor cmd!!!\n");
     vm_register_cfg80211_vnd_cmd(wiphy);
     return;
 }
@@ -6398,7 +6478,7 @@ vm_wlan_net_vif_attach_ex(struct wlan_net_vif *wnet_vif,struct vm_wlan_net_vif_p
     struct in_ifaddr *ifa_v4;
     __be32 ipv4 = 0;
 
-    printk("<running> %s %d  cp->vm_param_opmode  %x \n",__func__,__LINE__,cp->vm_param_opmode);
+    AML_OUTPUT("<running> cp->vm_param_opmode  %x\n", cp->vm_param_opmode);
     switch (cp->vm_param_opmode)
     {
         case WIFINET_M_STA:
@@ -6414,7 +6494,7 @@ vm_wlan_net_vif_attach_ex(struct wlan_net_vif *wnet_vif,struct vm_wlan_net_vif_p
             netif_carrier_on(wnet_vif->vm_ndev);
             break;
         default:
-            printk("<running> %s %d \n",__func__,__LINE__);
+            AML_OUTPUT("<running>\n");
             return ;
     }
 
@@ -6428,19 +6508,19 @@ vm_wlan_net_vif_attach_ex(struct wlan_net_vif *wnet_vif,struct vm_wlan_net_vif_p
     if (wifimac->drv_priv->drv_ops.change_interface(wifimac->drv_priv,
             wnet_vif->wnet_vif_id,wnet_vif,vm_opmode, wnet_vif->vm_myaddr, ipv4))
     {
-        printk("Unable to add an interface for driver.\n");
+        AML_OUTPUT("Unable to add an interface for driver.\n");
         wifi_mac_free_vmac(wnet_vif);
         return ;
     }
     vm_wlan_net_vif_setup_forchvif(wifimac, wnet_vif, NULL, vm_opmode);
     wifi_mac_station_init(wnet_vif);
-    printk("<running> %s %d wnet_vif->vm_opmode =%d \n",__func__,__LINE__,wnet_vif->vm_opmode);
+    AML_OUTPUT("<running> wnet_vif->vm_opmode =%d\n", wnet_vif->vm_opmode);
     wifi_mac_pwrsave_latevattach(wnet_vif);
 }
 
 void vm_wlan_net_vif_mode_change(struct wlan_net_vif *wnet_vif,struct vm_wlan_net_vif_params *cp)
 {
-    printk("<running> %s %d \n",__func__,__LINE__);
+    AML_OUTPUT("<running>\n");
     wnet_vif->wnet_vif_replaycounter++;
 
     wifi_mac_stop(wnet_vif->vm_ndev);
@@ -6526,7 +6606,7 @@ int wifi_mac_preempt_scan(struct wifi_mac *wifimac, int max_grace, int max_wait)
     int total_delay = 0;
     int canceled = 0, ready = 0;
 
-    printk("%s %d try to preempt scan \n", __func__, __LINE__);
+    AML_OUTPUT("try to preempt scan\n");
 
     while (!ready && total_delay < max_grace + max_wait)
     {
@@ -6538,7 +6618,7 @@ int wifi_mac_preempt_scan(struct wifi_mac *wifimac, int max_grace, int max_wait)
         {
             if (!canceled && total_delay > max_grace)
             {
-                printk("%s: cancel pending scan request", __func__);
+                AML_OUTPUT("cancel pending scan request\n");
                 (void) wifi_mac_cancel_scan(wifimac);
                 canceled = 1;
             }
@@ -6549,7 +6629,7 @@ int wifi_mac_preempt_scan(struct wifi_mac *wifimac, int max_grace, int max_wait)
 
     if (!ready)
     {
-       printk("%s: ","Timeout canceling current scan.");
+       AML_OUTPUT("Timeout canceling current scan.\n");
     }
 
     return ready;
@@ -6599,7 +6679,7 @@ void batch_dump_reg(struct wiphy *wiphy,unsigned int addr[], unsigned int addr_n
             reg_val = wnet_vif->vif_ops.read_word(addr[i]);
         }
 
-        printk("addr[%d] 0x%x  data 0x%x\n", i, addr[i] , reg_val);
+        AML_OUTPUT("addr[%d] 0x%x  data 0x%x\n", i, addr[i] , reg_val);
     }
 
 }

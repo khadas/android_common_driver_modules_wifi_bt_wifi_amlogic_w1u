@@ -131,7 +131,7 @@ struct country_chan_mapping {
 
 struct country_chan_plan {
     char support_class_num;
-    int support_class[16];
+    int support_class[17];
     char class_na_freq_plan;
     unsigned char dfs_chan_flag;
     unsigned char tx_power_plan;
@@ -323,8 +323,8 @@ static inline int drv_hal_setdhcp(unsigned char wnet_vif_id, unsigned int ip)
     struct hal_private* hal_priv = hal_get_priv();
 
     if (hal_priv->dhcp_offload == 1) {
-        printk("NOTICE: DHCP OFFLOAD function is enabled, caller must ensure upper layer's dhcp module is closed.\n"); 
-        printk("Because under this situation, the FW will handle the dhcp pkts and never transmit to driver.\n");
+        AML_OUTPUT("NOTICE: DHCP OFFLOAD function is enabled, caller must ensure upper layer's dhcp module is closed.\n");
+        AML_OUTPUT("Because under this situation, the FW will handle the dhcp pkts and never transmit to driver.\n");
         DPRINTF(AML_DEBUG_HAL, "%s %d: ip %03d.%03d.%03d.%03d\n",__func__,__LINE__,
             (ip >> 24) & 0xff, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff);
         hal_priv->hal_ops.phy_set_dhcp(wnet_vif_id, ip);

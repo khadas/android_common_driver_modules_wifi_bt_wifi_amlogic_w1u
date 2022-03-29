@@ -20,8 +20,6 @@
 #define RG_AGC_OB_CCA_COND23 (WIFI_AGC+0x27c)
 #define RG_AGC_GAIN_SEL (WIFI_AGC+ 0x84)
 #define RG_AGC_STS_REG_0 (WIFI_AGC+ 0x64)
-#define RG_AGC_EN (WIFI_AGC+ 0x10)
-
 
 struct	AGC_CCA_COND_TS_CTRL_BITS {
     unsigned int cca_cond_ts :8,

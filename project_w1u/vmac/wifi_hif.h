@@ -85,7 +85,7 @@ struct amlw_hif_scatter_req {
     struct scatterlist sgentries[MAX_SG_ENTRIES];
     struct amlw_hif_scatter_item scat_list[MAX_SG_ENTRIES];
     struct HW_TxBufferInfo bufferinfo[MAX_SG_ENTRIES];
-    struct tx_trb_info page;
+    struct tx_trb_info_ex page;
 };
 #endif
 
@@ -186,6 +186,7 @@ void tx_status_node_enqueue(struct tx_status_node *txok_status_node,
     struct tx_status_list *tx_status_list);
 struct tx_status_node * tx_status_node_dequeue(struct tx_status_list *tx_status_list);
 struct tx_status_node * tx_status_node_alloc(struct tx_status_list *tx_status_list);
+void hi_supplement_usb_buffer(void);
 void hi_irq_task(struct hal_private *hal_priv);
 void hi_rx_fifo_init(void);
 int hal_calc_block_in_mpdu (int mpdulen);

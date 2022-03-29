@@ -36,6 +36,7 @@ enum aml_prealloc_index {
     AML_RX_FIFO = 0,
     AML_TX_DESC_BUF = 1
 };
+
 #define AML_RX   11
 #define AML_TX   20
 #define AML_RX_FIFO_SIZE   (1290 * 1024)
@@ -72,4 +73,5 @@ void *wifi_mem_prealloc(int section, unsigned long size)
     }
     return NULL;
 }
+
 

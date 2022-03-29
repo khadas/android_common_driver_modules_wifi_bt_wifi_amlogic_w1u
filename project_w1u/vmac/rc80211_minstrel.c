@@ -343,7 +343,7 @@ static void minstrel_update_stats(struct minstrel_priv *mp, struct minstrel_sta_
     DPRINTF(AML_DEBUG_RATE, "%s(%d):mi->max_prob_rate =%d\n", __func__, __LINE__, mi->max_prob_rate);
 }
 
-static void minstrel_tx_status(void *priv, struct ieee80211_supported_band *sband, void *priv_sta, struct ieee80211_tx_info *info)
+static void minstrel_tx_status(void *priv, struct ieee80211_supported_band *sband, void *priv_sta, struct ieee80211_tx_info *info,void *p_sta)
 {
     struct minstrel_priv *mp = priv;
     struct minstrel_sta_info *mi = priv_sta;
@@ -389,8 +389,8 @@ minstrel_get_retry_count(struct minstrel_rate *mr, struct ieee80211_tx_info *inf
     else if (info->control.use_cts_prot)
         retry = MAX( 2, MIN(mr->retry_count_cts, retry));
 
-    //printk("%s retry_count_rtscts:%d, retry_count_cts:%d, retry:%d\n",
-        //__func__, mr->stats.retry_count_rtscts, mr->retry_count_cts, retry);
+    //AML_OUTPUT("retry_count_rtscts:%d, retry_count_cts:%d, retry:%d\n",
+        //mr->stats.retry_count_rtscts, mr->retry_count_cts, retry);
     return retry;
 }
 
@@ -630,7 +630,7 @@ static void minstrel_rate_init(void *priv, struct ieee80211_supported_band *sban
 
 	init_sample_table(mi);
 	minstrel_update_rates(mp, mi);
-	printk("%s(%d) n:%d\n",  __func__, __LINE__, n);
+	AML_OUTPUT("n:%d\n", n);
 }
 
 static void *minstrel_alloc_sta(void *priv, struct ieee80211_sta *sta, gfp_t gfp)

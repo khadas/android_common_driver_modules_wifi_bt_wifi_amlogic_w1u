@@ -47,14 +47,14 @@ unsigned int clk_msr_calc(unsigned int clk_mux, unsigned int exp_freq)
     measured_feq = (measured_val * 1000000) / (us_gate_time);
     delt = exp_freq * 4 /100;
     
-    printk("exp_freq = %d(MHz)\n", exp_freq / 1000000);
-    printk("measured_feq = %d(MHz)\n", measured_feq / 1000000);
+    AML_OUTPUT("exp_freq = %d(MHz)\n", exp_freq / 1000000);
+    AML_OUTPUT("measured_feq = %d(MHz)\n", measured_feq / 1000000);
 
     if (measured_val == 0xFFFFF) {
-        printk("measured_val is 20 bits max\n");
+        AML_OUTPUT("measured_val is 20 bits max\n");
         return 0;
     } else if ((measured_feq < (exp_freq - delt)) || (measured_feq > (exp_freq + delt))) {
-        printk("clock measure failed, clock id : %d\n", clk_mux);
+        AML_OUTPUT("clock measure failed, clock id : %d\n", clk_mux);
         return 0;
     } else {
         return 1;
@@ -127,7 +127,7 @@ void clk_msr_other(CLOCK_MUX clk_mux)
             exp_val = WF_ADC_CLK_320M; 
             break;
         case CTS_CLK_VIT_POS:     
-            printk("not measure now\n");
+            AML_OUTPUT("not measure now\n");
             exp_val = BT_BBP_CLK_240M/2;
             return;
         case CTS_CLK_11BRX_POS:     
@@ -221,7 +221,7 @@ unsigned char * clk_mux_name(CLOCK_MUX clk_mux)
 void clk_msr(CLOCK_MUX clk_mux)
 {
     if (clk_mux != CTS_CLK_VIT_POS) {
-        printk("clk mux %s\n", clk_mux_name(clk_mux));
+        AML_OUTPUT("clk mux %s\n", clk_mux_name(clk_mux));
     }
 
     switch(clk_mux) {

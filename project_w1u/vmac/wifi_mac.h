@@ -241,8 +241,10 @@ struct country_na_freq_set
 #define WIFINET_MAX_SCAN_CHAN 64
 
 #define WIFINET_CHAN_2GHZ 0x4000  /* 2.4 GHz  channel. */
-#define  WIFINET_CHAN_5GHZ 0x8000  /* 5 GHz  channel */
-#define  WIFINET_CHAN_DFS 0x2000  /* DFS */
+#define WIFINET_CHAN_5GHZ 0x8000  /* 5 GHz  channel */
+#define WIFINET_CHAN_DFS  0x2000  /* DFS */
+#define WIFINET_CHAN_AWARE  0x1000  /* chan aware */
+
 #define  WIFINET_CHAN_MODE_MASK             0xff
 
 #define WIFINET_IS_CHAN_2GHZ(_c) \
@@ -265,45 +267,55 @@ struct country_na_freq_set
 
 struct wifi_mac_rateset
 {
-    unsigned char      dot11_rate_num;
-    unsigned char      dot11_rate[WIFINET_HT_RATE_SIZE];
+    unsigned char dot11_rate_num;
+    unsigned char  dot11_rate[WIFINET_HT_RATE_SIZE];
 };
 
 enum wifi_mac_state
 {
-    WIFINET_S_INIT  = 0,
-    WIFINET_S_SCAN  = 1,
-    WIFINET_S_CONNECTING    = 2,
-    WIFINET_S_AUTH  = 3,
+    WIFINET_S_INIT = 0,
+    WIFINET_S_SCAN = 1,
+    WIFINET_S_CONNECTING = 2,
+    WIFINET_S_AUTH = 3,
     WIFINET_S_ASSOC = 4,
-    WIFINET_S_CONNECTED     = 5,
+    WIFINET_S_CONNECTED = 5,
     WIFINET_S_MAX,
 };
 
 enum wifi_mac_main_state
 {
-    WIFINET_MAIN_INIT   = 0,
-    WIFINET_MAIN_SCAN   = 1,
+    WIFINET_MAIN_INIT = 0,
+    WIFINET_MAIN_SCAN = 1,
     WIFINET_MAIN_CONNECTING = 2,
-    WIFINET_MAIN_CONNECTED  = 5,
+    WIFINET_MAIN_CONNECTED = 5,
     WIFINET_MAIN_MAX,
 };
 
 enum wifi_mac_connect_state
 {
-    WIFINET_CON_INIT        = 1,
-    WIFINET_CON_AUTH        = 2,
-    WIFINET_CON_ASSOC   = 3,
-    WIFINET_CON_DONE        = 4,
+    WIFINET_CON_INIT = 1,
+    WIFINET_CON_AUTH = 2,
+    WIFINET_CON_ASSOC = 3,
+    WIFINET_CON_DONE = 4,
     WIFINET_CON_MAX,
 };
 
-#define PHASE_CONNECTING    1
+#define PHASE_CONNECTING 1
 #define PHASE_DISCONNECTING 2
+#define PHASE_TX_BUFF_QUEUE 4
 
-#define WIFINET_F_DOSORT    0x00000001
-#define WIFINET_F_DOFRATE   0x00000002
-#define WIFINET_F_DOXSECT   0x00000004
+enum wifi_mac_recovery_state
+{
+    WIFINET_RECOVERY_INIT = 0,
+    WIFINET_RECOVERY_START = 1,
+    WIFINET_RECOVERY_UNDER_CONNECT = 2,
+    WIFINET_RECOVERY_VIF_UP = 4,
+    WIFINET_RECOVERY_END,
+};
+
+#define WIFINET_F_DOSORT 0x00000001
+#define WIFINET_F_DOFRATE 0x00000002
+#define WIFINET_F_DOXSECT 0x00000004
 #define WIFINET_F_DOBRS 0x00000008
 
 struct wmeParams
@@ -321,8 +333,8 @@ struct wmeParams
 
 struct chanAccParams
 {
-    unsigned char      cap_info_count;
-    struct wmeParams   cap_wmeParams[WME_NUM_AC];
+    unsigned char cap_info_count;
+    struct wmeParams cap_wmeParams[WME_NUM_AC];
 };
 
 struct wifi_mac_wme_state

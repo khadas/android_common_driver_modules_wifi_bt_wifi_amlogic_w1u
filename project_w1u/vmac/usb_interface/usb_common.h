@@ -10,11 +10,11 @@
 
 #define OS_LOCK spinlock_t
 
-#define SDIO_MAXSG_SIZE 32
-#define SDIO_MAX_SG_ENTRIES (SDIO_MAXSG_SIZE+2)
-typedef unsigned long SYS_TYPE;
+#define USB_MAXSG_SIZE 32
+#define USB_MAX_SG_ENTRIES (USB_MAXSG_SIZE+2)
+typedef unsigned long SYS_TYPE_U;
 
-#define PRINT(...)      do {printk("aml_usb_common->");printk( __VA_ARGS__ );}while(0)
+#define PRINT_U(...)      do {printk("aml_usb_common->");printk( __VA_ARGS__ );}while(0)
 #ifndef ASSERT
 #define ASSERT(exp) do{    \
                 if (!(exp)) {   \
@@ -70,14 +70,15 @@ struct mutex auc_usb_mutex;
 #define USB_CTRL_IN_REQTYPE (USB_DIR_IN | USB_TYPE_VENDOR | (USB_RECIP_ENDPOINT & 0x1f))
 #define USB_CTRL_OUT_REQTYPE (USB_DIR_OUT | USB_TYPE_VENDOR | (USB_RECIP_ENDPOINT & 0x1f))
 
-struct amlw_hif_scatter_item {
+
+struct amlw1u_hif_scatter_item {
     struct sk_buff *skbbuf;
     int len;
     int page_num;
     void *packet;
 };
 
-struct amlw_hif_scatter_req {
+struct amlw1u_hif_scatter_req {
 	/* address for the read/write operation */
 	unsigned int addr;
 	/* request flags */
@@ -91,8 +92,8 @@ struct amlw_hif_scatter_req {
 	int result;
 	int scat_count;
 
-	struct scatterlist sgentries[SDIO_MAX_SG_ENTRIES];
-	struct amlw_hif_scatter_item scat_list[SDIO_MAX_SG_ENTRIES];
+	struct scatterlist sgentries[USB_MAX_SG_ENTRIES];
+	struct amlw1u_hif_scatter_item scat_list[USB_MAX_SG_ENTRIES];
 };
 
 struct aml_hwif_usb {
@@ -100,7 +101,7 @@ struct aml_hwif_usb {
     /* protects access to scat_req */
     OS_LOCK scat_lock;
     /* scatter request list head */
-    struct amlw_hif_scatter_req *scat_req;
+    struct amlw1u_hif_scatter_req *scat_req;
 };
 
 
@@ -131,6 +132,8 @@ struct crg_msc_cbw {
     uint8_t lun;
     uint8_t len;
     uint32_t cdb[4];
+    uint8_t reseverd; /* make sure 32 bype alined */
+    uint8_t buf[480]; /* reserved */
 //uint8_t resv;
 }__attribute__ ((packed));
 
@@ -155,12 +158,12 @@ struct auc_hif_ops {
     int (*hi_write_reg32)(unsigned long sram_addr, unsigned long sramdata);
 
     void (*hi_write_cmd)(unsigned long sram_addr, unsigned long sramdata);
-    void (*hi_write_sram)(unsigned char*buf, unsigned char* addr, SYS_TYPE len);
-    void (*hi_read_sram)(unsigned char* buf, unsigned char* addr, SYS_TYPE len);
+    void (*hi_write_sram)(unsigned char*buf, unsigned char* addr, SYS_TYPE_U len);
+    void (*hi_read_sram)(unsigned char* buf, unsigned char* addr, SYS_TYPE_U len);
     void (*hi_write_word)(unsigned int addr,unsigned int data);
     unsigned int (*hi_read_word)(unsigned int addr);
 
-    void (*hi_rcv_frame)(unsigned char* buf, unsigned char* addr, SYS_TYPE len);
+    void (*hi_rcv_frame)(unsigned char* buf, unsigned char* addr, SYS_TYPE_U len);
 
     int (*hi_enable_scat)(void);
     void (*hi_cleanup_scat)(void);
@@ -170,8 +173,8 @@ struct auc_hif_ops {
     int (*hi_send_frame)(struct amlw_hif_scatter_req *scat_req);
 
     /*bt use*/
-    void (*bt_hi_write_sram)(unsigned char* buf, unsigned char* addr, SYS_TYPE len);
-    void (*bt_hi_read_sram)(unsigned char* buf, unsigned char* addr, SYS_TYPE len);
+    void (*bt_hi_write_sram)(unsigned char* buf, unsigned char* addr, SYS_TYPE_U len);
+    void (*bt_hi_read_sram)(unsigned char* buf, unsigned char* addr, SYS_TYPE_U len);
     void (*bt_hi_write_word)(unsigned int addr,unsigned int data);
     unsigned int (*bt_hi_read_word)(unsigned int addr);
 
@@ -182,4 +185,6 @@ struct auc_hif_ops {
     int (*hif_suspend)(unsigned int suspend_enable);
 };
 
+int aml_usb_insmod(void);
+void aml_usb_rmmod(void);
 

@@ -1,6 +1,8 @@
 #ifndef __PLATFORM_WIFI_AML__
 #define __PLATFORM_WIFI_AML__
 
+#include <linux/usb.h>
+#include <linux/firmware.h>
 
 
 #ifdef HAL_FPGA_VER
@@ -34,13 +36,16 @@ unsigned char hal_set_sys_clk_for_fpga(void);
 void wifi_cpu_clk_switch(unsigned int clk_cfg);
 #endif
 #define IS_APSTA_CONCURRENT(x) ((x & (1 << WIFINET_M_STA)) && (x & (1 << WIFINET_M_HOSTAP)))
+#define WIFI_FW_NAME "wifi_fw_w1u.bin"
+
 extern unsigned char aml_bus_type;
 
 unsigned char hal_set_sys_clk(int clockdiv);
 unsigned char hal_set_sys_clk_Core(unsigned int addr, unsigned int value);
-unsigned char hal_download_wifi_fw_img(void);
+int hal_download_wifi_fw_img(void);
 unsigned int bbpll_init(void);
 unsigned int bbpll_start (void);
+int aml_usb_ctlread_complete(struct urb *urb);
 
 extern void aml_wifi_set_mac_addr(void);
 extern char * aml_wifi_get_country_code(void);
@@ -51,6 +56,8 @@ extern int aml_wifi_get_vif1_opmode(void);
 extern unsigned int aml_wifi_get_con_mode(void);
 extern unsigned int aml_wifi_get_platform_verid(void);
 extern char *aml_wifi_get_bus_type(void);
+extern char *aml_wifi_get_fw_type(void);
 extern unsigned int aml_wifi_is_enable_rf_test(void);
+extern void aml_w1_fw_recovery(void);
 
 #endif

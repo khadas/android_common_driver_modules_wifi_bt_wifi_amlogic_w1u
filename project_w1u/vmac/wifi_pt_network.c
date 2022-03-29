@@ -297,7 +297,7 @@ void Net_Send( unsigned char type, unsigned char* input)
         B2b_Net_WriteSimcheck( cursor,gB2BTestCasePacket.pkt_length,TrcConfMib.tid );
         cursor = buffer + gB2BTestCasePacket.pkt_length;
 
-        //printk( "---aml debug--: pkt len: %d.\n",pkt_len);
+        //AML_OUTPUT( "---aml debug--: pkt len: %d.\n",pkt_len);
         //dump_memory_internel(buffer,48);
         B2B_Net_RequestTransmit(skb,cursor-buffer,TrcConfMib.tid);
         //Net_RequestTransmit(buffer,pkt_len,TrcConfMib.tid);
@@ -306,7 +306,7 @@ void Net_Send( unsigned char type, unsigned char* input)
     else {
         my_network.tx_pool_error_count++;
         ASSERT(0);
-        printk( "NULL TxBuffer_Create\n" );
+        AML_OUTPUT( "NULL TxBuffer_Create\n" );
     }
     DBG_HAL_THR_EXIT();
 }
@@ -495,11 +495,11 @@ void prepare_test_hal_layer_thr_init(int usrtesttype)
     DBG_HAL_THR_ENTER();
     if ( usrtesttype > 11 || usrtesttype < 1 )
     {
-        printk("Warning: Not supported testing type.\n");
+        AML_OUTPUT("Warning: Not supported testing type.\n");
         return;
     }
 
-    printk("b2b_init: test type 0x%08x\n", usrtesttype);
+    AML_OUTPUT("b2b_init: test type 0x%08x\n", usrtesttype);
 
     Task_Schedule(usrtesttype);
 

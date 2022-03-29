@@ -73,10 +73,10 @@ static void sts_chk_idx_val(unsigned int  *idx_val)
 
     for (i = 0; i < sts_hst_sw_max_idx; i++)
         {
-           //printk("idx[%d] -->val 0x%x \n", i, sts_sys_idx_val[i]);
+           //AML_OUTPUT("idx[%d] -->val 0x%x \n", i, sts_sys_idx_val[i]);
             for (j = i+1; j < sts_hst_sw_max_idx; j++)
                 {
-                    //printk("val1 0x%x, val2 0x%x \n", sts_sys_idx_val[i], sts_sys_idx_val[j]);
+                    //AML_OUTPUT("val1 0x%x, val2 0x%x \n", sts_sys_idx_val[i], sts_sys_idx_val[j]);
                     if(idx_val[i] == idx_val[j])
                         {
                            rpt = 1;
@@ -90,7 +90,7 @@ static void sts_chk_idx_val(unsigned int  *idx_val)
 
             if(rpt == 1)
                 {
-                    printk("mapping err !the repeat val is 0x%x, i %d, j %d\n", idx_val[i], i, j);
+                    AML_OUTPUT("mapping err !the repeat val is 0x%x, i %d, j %d\n", idx_val[i], i, j);
                     break;
                 }
         }
@@ -447,7 +447,7 @@ it is used to get the tag information for log showing, indexed by the address
             break;
 
         default:
-            printk("%s,%d, statistic address 0x%x not supported\n", __func__, __LINE__, addr);
+            AML_OUTPUT("statistic address 0x%x not supported\n", addr);
             break;
 
     }
@@ -473,7 +473,7 @@ unsigned int val_to_idx(unsigned int idx_val[], unsigned int val)
             if(idx_val[i] == val)
             {
                 ret =  i;
-                //printk("idx_val[%d] is 0x%x, val is 0x%x\n", i, idx_val[i], val);
+                //AML_OUTPUT("idx_val[%d] is 0x%x, val is 0x%x\n", i, idx_val[i], val);
                 break;
             }
             else
@@ -484,7 +484,7 @@ unsigned int val_to_idx(unsigned int idx_val[], unsigned int val)
 
       if(i ==  sts_hst_sw_max_idx)
         {
-            printk("%s,%d: no find the item in statistic system: val = 0x%x max i = %d \n", __func__, __LINE__, val, i);
+            AML_OUTPUT("no find the item in statistic system: val = 0x%x max i = %d \n", val, i);
         }
       return ret;
 }
@@ -540,13 +540,13 @@ void sts_default_cfg(struct sts_cfg_data* cfg_data, unsigned char sts_sys_type)
 
     for(i = 0 ; i < sizeof(sts_man) / sizeof(char*) ; i++)
     {
-        printk("%s\n",sts_man[i]);
+        AML_OUTPUT("%s\n",sts_man[i]);
     }
 
-    printk("-----------the default configuration is-----------\n");
+    AML_OUTPUT("-----------the default configuration is-----------\n");
     for(i = 0; i<apd_idx; i++)
     {
-        printk("addr 0x%4x: data_0 0x%x data_1 0x%x data_2 0x%x data_3 0x%x\n",
+        AML_OUTPUT("addr 0x%4x: data_0 0x%x data_1 0x%x data_2 0x%x data_3 0x%x\n",
             cfg_data->addr[i],
             cfg_data->cfg_ie[i].x&0xff, (cfg_data->cfg_ie[i].x>>8)&0xff,(cfg_data->cfg_ie[i].x>>16)&0xff,(cfg_data->cfg_ie[i].x>>24)&0xff
             );
@@ -575,19 +575,19 @@ void sts_update_cfg(struct sts_cfg_data* cfg_data, const char* data,unsigned int
     ASSERT(cfg_data)
     ASSERT(len != 0);
 
-    printk("input: \n");
+    AML_OUTPUT("input: \n");
     for (i = 0; i< len; i++)
         {
-            printk ("0x%x ",*(data+i));
+            AML_OUTPUT ("0x%x \n",*(data+i));
         }
-    printk(" \n");
+    AML_OUTPUT(" \n");
 
     iw_cfg_if = (struct sts_iw_if*)data;
 
     iw_cfg_if->addr = ntohs(iw_cfg_if->addr);
     iw_cfg_if->val = ntohl(iw_cfg_if->val);
 
-    printk("addr: 0x%4x val: 0x%x \n",  iw_cfg_if->addr, iw_cfg_if->val);
+    AML_OUTPUT("addr: 0x%4x val: 0x%x \n",  iw_cfg_if->addr, iw_cfg_if->val);
 
     /*avoid the error address to result in system crash*/
     for(i = 0; i < sizeof(sts_reg_chk_pool)/sizeof(sts_reg_chk_pool[0]); i++)
@@ -604,14 +604,14 @@ void sts_update_cfg(struct sts_cfg_data* cfg_data, const char* data,unsigned int
 
         if(i == sizeof(sts_reg_chk_pool)/sizeof(sts_reg_chk_pool[0]))
         {
-            printk("%s,%d: the statistic address 0x%x error, check it please...\n", __func__, __LINE__, iw_cfg_if->addr);
+            AML_OUTPUT("the statistic address 0x%x error, check it please...\n", iw_cfg_if->addr);
             return;
         }
 
-       printk("-----------the previous configuration is-----------\n");
+       AML_OUTPUT("-----------the previous configuration is-----------\n");
        for(i = 0; i<apd_idx; i++)
         {
-            printk("addr 0x%4x: data_0 0x%x data_1 0x%x data_2 0x%x data_3 0x%x\n",
+            AML_OUTPUT("addr 0x%4x: data_0 0x%x data_1 0x%x data_2 0x%x data_3 0x%x\n",
                 cfg_data->addr[i],
                 cfg_data->cfg_ie[i].x&0xff,(cfg_data->cfg_ie[i].x>>8)&0xff,(cfg_data->cfg_ie[i].x>>16)&0xff,(cfg_data->cfg_ie[i].x>>24)&0xff
                 );
@@ -637,10 +637,10 @@ void sts_update_cfg(struct sts_cfg_data* cfg_data, const char* data,unsigned int
         cfg_data->cfg_num++;
     }
 
-    printk("-----------the current configuration is-----------\n");
+    AML_OUTPUT("-----------the current configuration is-----------\n");
    for(i = 0; i<apd_idx; i++)
     {
-        printk("addr 0x%4x: data_0 0x%x data_1 0x%x data_2 0x%x data_3 0x%x\n",
+        AML_OUTPUT("addr 0x%4x: data_0 0x%x data_1 0x%x data_2 0x%x data_3 0x%x\n",
             cfg_data->addr[i],
             cfg_data->cfg_ie[i].x&0xff,
             (cfg_data->cfg_ie[i].x>>8)&0xff,
@@ -738,7 +738,7 @@ void sts_clr_cnt(unsigned int addr)
             break;
 
         default:
-            printk("%s,%d, statistic address 0x%x not supported\n", __func__, __LINE__, addr);
+            AML_OUTPUT("statistic address 0x%x not supported\n", addr);
             break;
    }
 
@@ -826,7 +826,7 @@ void sts_start_cnt(unsigned int addr,
             break;
 
         default:
-            printk("%s,%d: statistic address 0x%x not supported\n", __func__, __LINE__,addr);
+            AML_OUTPUT("statistic address 0x%x not supported\n",addr);
             break;
     }
 
@@ -934,10 +934,10 @@ void sts_prt_agc_field(unsigned int addr,
                  prt_idx2 = val_to_idx(sts_sys_idx_val,addr << 16 | sts_cca_cnd23_cond3_idx);
                     break;
                 default:
-                    printk("%s,%d agc addr 0x%x err:\n", __func__, __LINE__, addr);
+                    AML_OUTPUT("agc addr 0x%x err:\n", addr);
                     return;
             }
-     printk("[%s]: %s=%d, %s=%d\n",
+     AML_OUTPUT("[%s]: %s=%d, %s=%d\n",
      func_code==SYS_STS_STOP ? sts_tag[SYS_STS_STOP]:sts_tag[SYS_STS_READ],
      sts_info[prt_idx1], agc_rd1,sts_info[prt_idx2], agc_rd2);
 
@@ -959,7 +959,7 @@ void sts_gen_prt_info(unsigned short addr,
 
                 if(sts_info[prt_idx] != NULL)
                     {
-                         printk("[%s]: %s=%d \n",
+                         AML_OUTPUT("[%s]: %s=%d \n",
                          func_code==SYS_STS_STOP ?  sts_tag[SYS_STS_STOP]: sts_tag[SYS_STS_READ],
                          sts_info[prt_idx] ,hal_priv->sts_hst_sw[i].cnt);
                     }
@@ -1023,7 +1023,7 @@ void sts_read_cnt(unsigned int addr,
             sts_read_reg_array(&rd_data0,&rd_data1,&rd_data2,&rd_data3,
                 RG_MAC_IRQ_STATUS_CNT0,RG_MAC_IRQ_STATUS_CNT1,RG_MAC_IRQ_STATUS_CNT2,RG_MAC_IRQ_STATUS_CNT3);
 
-             printk("[%s]: %s=%8d,%s=%8d,%s=%8d,%s=%8d\n",
+             AML_OUTPUT("[%s]: %s=%8d,%s=%8d,%s=%8d,%s=%8d\n",
                 func_code==SYS_STS_STOP ? sts_tag[SYS_STS_STOP]:sts_tag[SYS_STS_READ],
                 sts_info[prt_idx0],rd_data0,
                 sts_info[prt_idx1],rd_data1,
@@ -1043,7 +1043,7 @@ void sts_read_cnt(unsigned int addr,
              sts_read_reg_array(&rd_data0,&rd_data1,&rd_data2,&rd_data3,
                 RG_MAC_FRM_TYPE_CNT0,RG_MAC_FRM_TYPE_CNT1,RG_MAC_FRM_TYPE_CNT2,RG_MAC_FRM_TYPE_CNT3);
 
-            printk("[%s]: %s=%8d,%s=%8d,%s=%8d,%s=%8d\n",
+            AML_OUTPUT("[%s]: %s=%8d,%s=%8d,%s=%8d,%s=%8d\n",
             func_code==SYS_STS_STOP ? sts_tag[SYS_STS_STOP]:sts_tag[SYS_STS_READ],
             sts_info[prt_idx0],rd_data0,
             sts_info[prt_idx1],rd_data1,
@@ -1062,7 +1062,7 @@ void sts_read_cnt(unsigned int addr,
 
              rd_data0 = hif->hif_ops.hi_read_word(addr);
 
-             printk("[%s]: %s=%8d\n",
+             AML_OUTPUT("[%s]: %s=%8d\n",
              func_code==SYS_STS_STOP ? sts_tag[SYS_STS_STOP]:sts_tag[SYS_STS_READ],
              sts_info[prt_idx0 ],(rd_data0 << 6 ) >> 6);
         break;
@@ -1081,12 +1081,12 @@ void sts_read_cnt(unsigned int addr,
                 rd_show = (rd_data0 << 2 ) >> 2;
             }
 
-             printk("[%s]: %s=%8d\n",
+             AML_OUTPUT("[%s]: %s=%8d\n",
              func_code==SYS_STS_STOP ? sts_tag[SYS_STS_STOP]:sts_tag[SYS_STS_READ],
              sts_info[prt_idx0],rd_show);
             break;
         default:
-             printk("%s,%d, statistic address 0x%x not supported\n", __func__, __LINE__, addr);
+             AML_OUTPUT("statistic address 0x%x not supported\n", addr);
             break;
     }
 
@@ -1168,7 +1168,7 @@ void sts_stop_cnt(unsigned int addr)
             break;
 
         default:
-            printk("%s,%d: statistic address 0x%x not supported\n", __func__, __LINE__, addr);
+            AML_OUTPUT("statistic address 0x%x not supported\n", addr);
             break;
 
     }
@@ -1188,10 +1188,10 @@ void sts_stop_cnt(unsigned int addr)
 void sts_show_cfg(  struct sts_cfg_data* cfg_data)
 {
     int i = 0;
-    printk("-----------the current configuration is-----------\n");
+    AML_OUTPUT("-----------the current configuration is-----------\n");
    for(i = 0; i<cfg_data->cfg_num; i++)
     {
-        printk("addr 0x%4x: data_a 0x%x data_b 0x%x data_c 0x%x data_d 0x%x\n",
+        AML_OUTPUT("addr 0x%4x: data_a 0x%x data_b 0x%x data_c 0x%x data_d 0x%x\n",
             cfg_data->addr[i],
             cfg_data->cfg_ie[i].x&0xff,(cfg_data->cfg_ie[i].x>>8)&0xff,(cfg_data->cfg_ie[i].x>>16)&0xff,(cfg_data->cfg_ie[i].x>>24)&0xff
             );
@@ -1210,7 +1210,7 @@ void sts_opt_by_cfg(struct sts_cfg_data* cfg_data, unsigned  char func_code)
     unsigned int i = 0;
     char **tag ;
     char **info;
-    printk("%s\n--------function code is 0x%x--------\n", func_prt_info[func_code], func_code);
+    AML_OUTPUT("%s\n--------function code is 0x%x--------\n", func_prt_info[func_code], func_code);
 
    if(func_code == SYS_STS_SHOW_CFG )
     {
@@ -1249,7 +1249,7 @@ void sts_opt_by_cfg(struct sts_cfg_data* cfg_data, unsigned  char func_code)
                     }
                     else
                         {
-                            printk("%s, %d: ptr err: tag %p info %p\n", __func__, __LINE__, tag, info);
+                            AML_OUTPUT("ptr err: tag %p info %p\n", tag, info);
                         }
                 break;
                 default :

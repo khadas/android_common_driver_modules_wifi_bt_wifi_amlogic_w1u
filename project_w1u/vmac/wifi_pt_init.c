@@ -289,7 +289,7 @@ Do_HI_AGG_TxDP(struct _HI_AGG_TxDescripter_chain  *HI_AGG_chain,
             ERROR_DEBUG_OUT("not support, bw in flag 0x%x\n", (HI_AGG_TxDP->FLAG >> 8) & 0x3);
      }
 
-    //printk("%s (%d) bw in flag 0x%x\n",__func__, __LINE__, (HI_AGG_TxDP->FLAG >> 8) & 0x3);
+    //AML_OUTPUT("bw in flag 0x%x\n", (HI_AGG_TxDP->FLAG >> 8) & 0x3);
 
     HI_AGG_TxDP->FLAG2  = TrcConfMib.dot11RDSupport ? TX_DESCRIPTER_RD_SUPPORT : 0;
     HI_AGG_TxDP->FLAG2 |= TrcConfMib.dot11RDSupport ? TX_DESCRIPTER_HTC : 0;
@@ -340,7 +340,7 @@ Do_HI_AGG_TxDP(struct _HI_AGG_TxDescripter_chain  *HI_AGG_chain,
         for (i = 0; i< MpduNum-1; i++) {
             HI_AGG_TxDP->AGGR_len += ALIGN(length[i]+exlen,4)+4+4+0;
             HI_AGG_TxDP->aggr_page_num += howmanypage(length[i]+FW_TXDESC_DATAOFFSET, hif->CommStaticParam.tx_page_len);
-            //printk("HI_AGG_TxDP->AGGR_len 0x%x ,length[%d] 0x%x\n",HI_AGG_TxDP->AGGR_len,i,length[i]);
+            //AML_OUTPUT("HI_AGG_TxDP->AGGR_len 0x%x ,length[%d] 0x%x\n",HI_AGG_TxDP->AGGR_len,i,length[i]);
         }
 
         if (IS_VHT_RATE(HI_AGG_TxDP->CurrentRate)) {
@@ -352,7 +352,7 @@ Do_HI_AGG_TxDP(struct _HI_AGG_TxDescripter_chain  *HI_AGG_chain,
         }
 
         HI_AGG_TxDP->aggr_page_num += howmanypage(length[i]+FW_TXDESC_DATAOFFSET, hif->CommStaticParam.tx_page_len);
-        //printk("current vht rate 0x%x\n",HI_AGG_TxDP->CurrentRate);
+        //AML_OUTPUT("current vht rate 0x%x\n",HI_AGG_TxDP->CurrentRate);
     }
     else {
         HI_AGG_TxDP->AGGR_len += exlen;
@@ -366,10 +366,10 @@ Do_HI_AGG_TxDP(struct _HI_AGG_TxDescripter_chain  *HI_AGG_chain,
             HI_TxPriv[i]->HI_TxPriv.MPDULEN -= DP_SEC_TKIP_MIC_LEN;
         }
     }
-    // printk("HI_AGG_TxDP->AGGR_len %x ,MPDULEN %x\n",HI_AGG_TxDP->AGGR_len,HI_TxPriv[0]->HI_TxPriv.MPDULEN);
-    // printk("---xman debug---: Before OS_ADD_TAIL, HI_TxPrivNum: %d.\n",HI_TxPrivNum);
+    // AML_OUTPUT("HI_AGG_TxDP->AGGR_len %x ,MPDULEN %x\n",HI_AGG_TxDP->AGGR_len,HI_TxPriv[0]->HI_TxPriv.MPDULEN);
+    // AML_OUTPUT("---xman debug---: Before OS_ADD_TAIL, HI_TxPrivNum: %d.\n",HI_TxPrivNum);
     for (i = 0; i < HI_TxPrivNum ; i ++) {
-        // printk(" Do_HI_AGG_TxDP +HI_TxPriv =%p DMAADDR =%x\n",HI_TxPriv[i],HI_TxPriv[i]->HI_TxPriv.DMAADDR);
+        // AML_OUTPUT(" Do_HI_AGG_TxDP +HI_TxPriv =%p DMAADDR =%x\n",HI_TxPriv[i],HI_TxPriv[i]->HI_TxPriv.DMAADDR);
         //OS_ADD_TAIL(&HI_TxPriv[i]->workList,&HI_AGG_chain->workList);
         thr_list_add(&HI_TxPriv[i]->workList,(&HI_AGG_chain->workList)->prev,&HI_AGG_chain->workList);
     }
@@ -412,7 +412,7 @@ int HostSendTYPE_AMPDU(unsigned char* buffer[],int length[],
         struct _HI_TxPrivDescripter_chain **HI_TxPriv = NULL;
         int privnum = packetNum;
         if (!Driver_IsTxPrivEnough(packetNum)) {
-                printk("warning: no tx desc\n");
+                AML_OUTPUT("warning: no tx desc\n");
                 return 0;
         }
         Hi_TxAgg = Driver_GetAGG();
@@ -494,7 +494,7 @@ void HostSendDataPacket(int type, int packetNum, unsigned short FLAG)
             }
             packetNum = i;
             if (packetNum ==0) {
-                printk(" HostSendDataPacket packetNum=0\n");
+                AML_OUTPUT(" HostSendDataPacket packetNum=0\n");
                 goto end;
             }
         }
@@ -509,7 +509,7 @@ void HostSendDataPacket(int type, int packetNum, unsigned short FLAG)
                     goto end;
                 //if (TrcConfMib.dot11FragmentationThreshold < descriptor1->len )
                  //       FLAG = WIFI_IS_FRAGMENT;
-                //printk("---b2b debug ---Common type before HostSendTYPE_COMMO, FLAG is : %d\n", FLAG);
+                //AML_OUTPUT("---b2b debug ---Common type before HostSendTYPE_COMMO, FLAG is : %d\n", FLAG);
                 HostSendTYPE_COMMO((unsigned char *)descriptor1->skb,descriptor1->len, descriptor1->Tid,FLAG);
                 TxDescriptor_Destroy(descriptor1);
                 break;
@@ -521,17 +521,17 @@ void HostSendDataPacket(int type, int packetNum, unsigned short FLAG)
                     goto end;
                 //if (TrcConfMib.dot11FragmentationThreshold < descriptor1->len )
                  //       FLAG = WIFI_IS_FRAGMENT;
-                //printk("---b2b debug ---Common type before HostSendTYPE_COMMO, FLAG is : %d\n", FLAG);
+                //AML_OUTPUT("---b2b debug ---Common type before HostSendTYPE_COMMO, FLAG is : %d\n", FLAG);
                 HostSendTYPE_COMMO((unsigned char *)descriptor1->skb,descriptor1->len, descriptor1->Tid,FLAG);
                 TxDescriptor_Destroy(descriptor1);
                 break;
         case TYPE_AMPDU:
-                //printk("----length: %d, packetNum: %d, TID: %d, FLAG: %d.\n",*length,packetNum, TID, FLAG);
+                //AML_OUTPUT("----length: %d, packetNum: %d, TID: %d, FLAG: %d.\n",*length,packetNum, TID, FLAG);
                 FLAG |= WIFI_IS_AGGR;
                 HostSendTYPE_AMPDU( buffer,length,packetNum, TID, FLAG);
                 break;
         case TYPE_AMSDU:
-                printk("\n---xman debug---,length:%d, packetNum:%d, TID: %d, FLAG:%x.\n",*length,packetNum, TID, FLAG);
+                AML_OUTPUT("\n---xman debug---,length:%d, packetNum:%d, TID: %d, FLAG:%x.\n",*length,packetNum, TID, FLAG);
                 HostSendTYPE_AMSDU(buffer,length,packetNum, TID, FLAG);
                 break;
         case  TYPE_AMSDU_AMPDU:
@@ -573,7 +573,7 @@ static int b2b_tx_thread_function(void *param)
         }
 
         hal_full = 0;
-        printk("pt max tx: %d\n", gB2BTestCasePacket.send_frame_num);
+        AML_OUTPUT("pt max tx: %d\n", gB2BTestCasePacket.send_frame_num);
 
         TrcConfMib.tid = STA2_VMAC1_SEND_TID;
         loop = 0;
@@ -582,14 +582,14 @@ static int b2b_tx_thread_function(void *param)
             if(gB2BTestCasePacket.send_frame_num > loop)
             {
                 if (FiOpt2Driver->hal_get_priv_cnt == NULL) {
-                    printk("===>>> %s ==>> hal_get_priv_cnt is NULL\n", __func__);
+                    AML_OUTPUT("===>>> ==>> hal_get_priv_cnt is NULL\n");
                     break;
                 }
                 if ((FiOpt2Driver->hal_get_priv_cnt(TrcConfMib.tid) < TrcConfMib.testmpdunum ))//+1
                 {
                     if(hal_full == 0)
                     {
-                        printk("%s %d: hal buffer full.\n", __func__, __LINE__);
+                        AML_OUTPUT("hal buffer full.\n");
                         hal_full = 1;
                     }
                     msleep(10);
@@ -597,20 +597,20 @@ static int b2b_tx_thread_function(void *param)
                 }
 
                 HostSendDataPacket(TrcConfMib.testtype,TrcConfMib.testmpdunum,TrcConfMib.testflag);
-                //printk("test flag = 0x%x bw =0x%x\n", TrcConfMib.testflag, (TrcConfMib.testflag >>WIFI_CHANNEL_BW_OFFSET) & 0x3 );
+                //AML_OUTPUT("test flag = 0x%x bw =0x%x\n", TrcConfMib.testflag, (TrcConfMib.testflag >>WIFI_CHANNEL_BW_OFFSET) & 0x3 );
                 loop++;
             }//tx max pkt
             else
             {
-                printk("**** pt send pkt %d done  ***", loop);
+                AML_OUTPUT("**** pt send pkt %d done  ***\n", loop);
                 break; // quite into to thread to sleep
             }
         }// start/stop loop
-        printk("**** stop : when pt send pkt %d done ***", loop);
+        AML_OUTPUT("**** stop : when pt send pkt %d done ***\n", loop);
     }// thread loop
 
     complete_and_exit(&b2b_tx_struct.b2b_thread_cmplt, 0);
-    printk("**** exit b2b_tx_thread_function ***");
+    AML_OUTPUT("**** exit b2b_tx_thread_function ***\n");
     return 0;
 }
 
@@ -688,14 +688,14 @@ void Task_Schedule(int usrtesttype)
         // 8
         case TYPE_STOP_TX:
             TrcConfMib.testtype=TYPE_STOP_TX;
-            printk("send stop!\n");
+            AML_OUTPUT("send stop!\n");
             break;
         default:
             break;
     }
 
-     printk("%s(%d) test flag =0x%x, test type = 0x%x\n",
-                    __func__, __LINE__, TrcConfMib.testflag, usrtesttype);
+     AML_OUTPUT("test flag =0x%x, test type = 0x%x\n",
+                    TrcConfMib.testflag, usrtesttype);
 
     DBG_HAL_THR_EXIT();
 
@@ -712,7 +712,7 @@ void b2b_tx_thread_remove(void)
             wait_for_completion(&b2b_tx_struct.b2b_thread_cmplt);
             b2b_tx_struct.b2b_tx_thread =NULL;
     /*
-        printk("======> Remove b2b tx thread\n");
+        AML_OUTPUT("======> Remove b2b tx thread\n");
         b2b_tx_struct.b2b_tx_quit = 1;
         kthread_stop(b2b_tx_struct.b2b_tx_thread);
         b2b_tx_struct.b2b_tx_thread = NULL;
@@ -740,7 +740,7 @@ int b2b_compare_local_and_bssid(void)
     {
         if ( TrcConfMib.the_bssid[i] != TrcConfMib.the_mac_address[i] )
         {
-            printk("\n\nb2b_compare_local_and_bssid: NOT the same\n");
+            AML_OUTPUT("\n\nb2b_compare_local_and_bssid: NOT the same\n");
             ret = 1;
             break;
         }
@@ -755,7 +755,7 @@ void driver_open(void)
     DBG_HAL_THR_ENTER();
 
 
-    printk("********* b2b debug enter driver_open ***************\n");
+    AML_OUTPUT("********* b2b debug enter driver_open ***************\n");
 
     callback.mic_error_event = Driver_mic_error_event;
     callback.intr_tx_handle = Driver_intr_tx_handle;
@@ -807,7 +807,7 @@ void driver_open(void)
 
     if ( 0 != b2b_compare_local_and_bssid() )//Tx side
     {
-        printk("\n---B2B debug---: Tx side\n");
+        AML_OUTPUT("\n---B2B debug---: Tx side\n");
         TrcConfMib.dot11EncryptType = gB2BTestCasePacket.encryp_type;
         TrcConfMib.dot11EncryptLen = STA1_VMAC0_KEY_LEN;
         if(STA1_VMAC0_IBSS)
@@ -831,7 +831,7 @@ void driver_open(void)
     }
     else
     {
-        printk("\n---B2B debug---: Rx side\n");
+        AML_OUTPUT("\n---B2B debug---: Rx side\n");
         TrcConfMib.dot11EncryptType = gB2BTestCasePacket.encryp_type;
         TrcConfMib.dot11EncryptLen = STA1_VMAC0_KEY_LEN;
         if(STA1_VMAC0_IBSS)
@@ -860,18 +860,18 @@ void driver_open(void)
 
     if(BSS_BW_80M == 2)
     {
-        printk("\n---B2B debug---: 80M bw\n");
+        AML_OUTPUT("\n---B2B debug---: 80M bw\n");
         //amlhal_SetChannel_BW(SW_CBW80,SW_COFF_U30M);
     }
     else if(BSS_BW_40M == 1)
     {
         //amlhal_SetChannel_BW(SW_CBW40,SW_HI_CH_OFF_20U);
-        printk("\n---B2B debug---: 40M bw\n");
+        AML_OUTPUT("\n---B2B debug---: 40M bw\n");
         //PhySetChanSupportType(WIFINET_BW_40PLUS);
     }
     else
     {
-        printk("\n---B2B debug---: 20M bw\n");
+        AML_OUTPUT("\n---B2B debug---: 20M bw\n");
         //amlhal_SetChannel_BW(SW_CBW20,SW_HI_CH_OFF_20);
         //PhySetChanSupportType(WIFINET_BW_20);
     }
@@ -887,11 +887,11 @@ void driver_open(void)
 
     if (IS_ERR(b2b_tx_struct.b2b_tx_thread)) {
         b2b_tx_struct.b2b_tx_thread = NULL;
-        printk(KERN_INFO "B2B: Create b2b tx task failed!\n");
+        AML_OUTPUT(KERN_INFO "B2B: Create b2b tx task failed!\n");
         goto b2b_tx_thread_create_fail;
     }
     else {
-        printk(KERN_INFO "B2B: Create b2b tx task success!\n");
+        AML_OUTPUT(KERN_INFO "B2B: Create b2b tx task success!\n");
         return;
     }
 

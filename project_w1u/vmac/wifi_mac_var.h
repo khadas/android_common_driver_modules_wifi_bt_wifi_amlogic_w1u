@@ -134,7 +134,7 @@ struct vm_wlan_net_vif_params
 #define DEFAULT_P2P_ACTION_RETRY_TIMES 5
 #define DEFAULT_MGMT_RETRY_INTERVAL 100
 #define DEFAULT_P2P_ACTION_RETRY_INTERVAL 50
-#define FIRST_AUTH_RETRY_INTERVAL_DUE_TO_CHANNEL_SWITCH 500
+#define DEFAULT_AUTH_RETRY_INTERVAL 512
 
 #define WIFINET_PS_MAX_QUEUE  100
 
@@ -428,6 +428,7 @@ struct wifi_mac
     struct _wifi_mac_country_iso wm_country;
     struct wifi_mac_country_ie* wm_11dinfo;
 
+    unsigned char scan_available;
     unsigned char scan_gain_thresh_unconnect;
     unsigned char scan_gain_thresh_connect;
     unsigned char scan_max_gain_thresh;
@@ -440,6 +441,7 @@ struct wifi_mac
     unsigned char wm_rx_streams;
 
     struct list_head wm_amsdu_txq;
+    struct list_head free_amsdu_list;
     struct os_timer_ext wm_amsdu_flush_timer;
     spinlock_t wm_amsdu_txq_lock;
     /*buffered msdu num of per tid*/
@@ -450,7 +452,6 @@ struct wifi_mac
     unsigned long wm_p2p_connection_protect_period;
     unsigned char is_miracast_connect;
     unsigned char vsdb_mode_set_noa_enable;
-
 
     struct drv_txdesc *txdesc_bufptr;/* TX descriptors buffer point*/
     struct list_head txdesc_freequeue;/* transmit buffer */
@@ -467,6 +468,9 @@ struct wifi_mac
     wait_queue_head_t wm_suspend_wq;
     unsigned char wm_esco_en;
     unsigned char wm_bt_en;
+    enum wifi_mac_recovery_state recovery_stat;
+    struct os_timer_ext wm_monitor_fw;
+    spinlock_t fw_stat_lock;
 
 #if defined(SU_BF) || defined(MU_BF)
     int max_spatial;
@@ -566,7 +570,7 @@ struct wlan_net_vif
     struct conn_chan_list vm_connchan;
     enum wifi_mac_bwc_width vm_bandwidth;
     unsigned char vm_scan_before_connect_flag;
-    unsigned char vm_phase; // 1: connecting; 2: disconnecting
+    unsigned char vm_phase_flags; // bit0: connecting; bit1: disconnecting; bit2:flush_tx_buff_q
     int vm_scanchan_rssi;
     struct scaninfo_entry vm_connect_scan_entry;
     unsigned char vm_chan_simulate_scan_flag;
@@ -629,10 +633,12 @@ struct wlan_net_vif
     struct wifi_mac_wmm_tspec_element tspecs[WME_AC_NUM][TS_DIR_IDX_COUNT];
     struct wifi_mac_app_ie_t app_ie[WIFINET_APPIE_NUM_OF_FRAME];
     struct wifi_mac_app_ie_t assocrsp_ie;
+    struct wifi_mac_app_ie_t assocreq_ie;
     struct wifi_mac_pwrsave_t vm_pwrsave;
     unsigned char vm_ht40_intolerant;
 
     struct sk_buff_head vm_tx_buffer_queue;
+
     unsigned short vm_pstxqueue_flags;
     unsigned short vm_legacyps_txframes;
 
