@@ -703,6 +703,56 @@ static void drv_tx_lower_rate_when_signal_weak(struct wlan_net_vif *wnet_vif, st
     }
 }
 
+unsigned char legacy_select_rate_accord_rssi(int power, struct wlan_net_vif *wnet_vif, struct wifi_station *sta)
+{
+    unsigned char rate = 0;
+
+    if ((wnet_vif->vm_curchan != WIFINET_CHAN_ERR) && (WIFINET_IS_CHAN_2GHZ(wnet_vif->vm_curchan)) &&
+        sta->sta_chbw == WIFINET_BWC_WIDTH20) {
+        rate = (power + 76 > 0) ? 0x16 : (power + 78 > 0) ? 0x0b : (power + 80 > 0) ? 0x04 : 0x02;
+    } else {
+        rate = 0x02;
+    }
+
+    return rate;
+}
+
+static int need_set_legacy_rate(struct wlan_net_vif *wnet_vif, struct drv_private *drv_priv,struct wifi_station *sta)
+{
+    struct wifi_mac *wifimac = drv_priv->wmac;
+    static int old_status_amsdu = 0;
+    static int old_status_ampdu = 0;
+    int is_legacy = 0;
+
+    if (wnet_vif->vm_mainsta->sta_avg_bcn_rssi > LEGACY_RATE_BACKUP_TH_RSSI)
+        sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy = false;
+
+    if (sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy)
+    {
+        wnet_vif->vm_fixed_rate.rateinfo = legacy_select_rate_accord_rssi(wnet_vif->vm_mainsta->sta_avg_bcn_rssi, wnet_vif, sta);
+        wnet_vif->vm_fixed_rate.mode = WIFINET_FIXED_RATE_MCS;
+        if (drv_priv->drv_config.cfg_txamsdu) {
+            old_status_amsdu = drv_priv->drv_config.cfg_txamsdu;
+            wifi_mac_config(wifimac, CHIP_PARAM_AMSDU_ENABLE, 0);
+        }
+        if (drv_priv->drv_config.cfg_txaggr) {
+            old_status_ampdu = drv_priv->drv_config.cfg_txaggr;
+            wifi_mac_config(wifimac, CHIP_PARAM_AMPDU, 0);
+        }
+        is_legacy = 1;
+    } else{
+        sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy = false;
+        wnet_vif->vm_fixed_rate.rateinfo = 0;
+        wnet_vif->vm_fixed_rate.mode = WIFINET_FIXED_RATE_NONE;
+        if (old_status_amsdu && !drv_priv->drv_config.cfg_txamsdu)
+            wifi_mac_config(wifimac, CHIP_PARAM_AMSDU_ENABLE, 1);
+        if(old_status_ampdu && !drv_priv->drv_config.cfg_txaggr)
+            wifi_mac_config(wifimac, CHIP_PARAM_AMPDU, 1);
+        is_legacy = 0;
+    }
+    return is_legacy;
+}
+
 static int drv_tx_prepare(struct drv_private *drv_priv, struct sk_buff *skbbuf,struct drv_txdesc *ptxdesc)
 {
     struct wifi_frame *wh;
@@ -736,8 +786,14 @@ static int drv_tx_prepare(struct drv_private *drv_priv, struct sk_buff *skbbuf,s
             struct drv_tx_scoreboard *tid;
             tid = DRV_GET_TIDTXINFO((struct aml_driver_nsta *)(sta->drv_sta), txinfo->tid_index);
 
+            if ((wnet_vif->vm_opmode == WIFINET_M_STA) && wnet_vif->vm_change_rate_enable && sta->sta_chbw == WIFINET_BWC_WIDTH20
+                && (wnet_vif->vm_curchan != WIFINET_CHAN_ERR) && (WIFINET_IS_CHAN_2GHZ(wnet_vif->vm_curchan))) {
+                if(need_set_legacy_rate(wnet_vif, drv_priv,sta) == 1)
+                    txinfo->b_Ampdu = 0;
+            }
+
             if (ptxdesc->rate_valid == 0) {
-                if (!drv_lookup_rate(drv_priv, sta->drv_sta, ratectrl)) {
+                if (!drv_lookup_rate(drv_priv, sta->drv_sta, ratectrl, txinfo->b_amsdu)) {
                     return 0;
                 }
             }
@@ -1304,22 +1360,27 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
 
     if (ptxdesc->txdesc_frame_flag == TX_MGMT_DEAUTH && txok
         && sta->sta_wnet_vif->vm_opmode == WIFINET_M_STA) {
-        wifi_mac_add_work_task(wnet_vif->vm_wmac, wifi_mac_sm_switch, NULL, (SYS_TYPE)wnet_vif, WIFINET_S_SCAN, 0, 0, 0);
+        if (wnet_vif->vm_state != WIFINET_S_SCAN) {
+            wifi_mac_add_work_task(wnet_vif->vm_wmac, wifi_mac_sm_switch, NULL, (SYS_TYPE)wnet_vif, WIFINET_S_SCAN, 0, 0, 0);
+        }
         deauth_fail_time = 0;
     }
 
     if (ptxdesc->txdesc_frame_flag == TX_MGMT_DEAUTH && !txok
-        && sta->sta_wnet_vif->vm_opmode == WIFINET_M_STA) {
+        && sta->sta_wnet_vif->vm_opmode == WIFINET_M_STA
+        && wnet_vif->vm_state == WIFINET_S_CONNECTED) {
         deauth_fail_time ++;
     }
 
-    if (deauth_fail_time == 1) {
+    if(deauth_fail_time == 1) {
         mgmt_arg = WIFINET_REASON_AUTH_LEAVE;
         wifi_mac_send_mgmt(wnet_vif->vm_mainsta, WIFINET_FC0_SUBTYPE_DEAUTH, (void *)&mgmt_arg);
     }
 
-    if (deauth_fail_time == 2) {
-        wifi_mac_add_work_task(wnet_vif->vm_wmac, wifi_mac_sm_switch, NULL, (SYS_TYPE)wnet_vif, WIFINET_S_SCAN, 0, 0, 0);
+    if(deauth_fail_time == 2) {
+        if (wnet_vif->vm_state != WIFINET_S_SCAN) {
+            wifi_mac_add_work_task(wnet_vif->vm_wmac, wifi_mac_sm_switch, NULL, (SYS_TYPE)wnet_vif, WIFINET_S_SCAN, 0, 0, 0);
+        }
         deauth_fail_time = 0;
     }
 
@@ -1614,6 +1675,9 @@ void drv_tx_irq_tasklet(void *drv_priv_s, struct txdonestatus *tx_done_status,
         DRV_TXQ_UNLOCK(txlist);
 
         drv_tx_complete_task(drv_priv, txlist, ptxdesc, tx_done_status->txstatus, tx_done_status->txretrynum, tx_done_status->ack_rssi);
+        if (tx_done_status->txstatus == TX_DESCRIPTOR_STATUS_SUCCESS) {
+            ptxdesc->txdesc_sta = NULL;
+        }
         qqcnt += drv_txlist_all_qcnt(drv_priv, queue_id);
     }
 
@@ -1647,11 +1711,10 @@ static void drv_txlist_free_all_by_vid(struct drv_private *drv_priv, struct drv_
         list_del_init(&ptxdesc->txdesc_queue);
         desc_sta = ptxdesc->txdesc_sta;
         if ((ptxdesc->txinfo->wnet_vif_id == vid) || (vid == 3)) {
-            ptxdesc->txdesc_sta = NULL;
-
             DRV_TXQ_UNLOCK(txlist);
             pTxDPape = (struct hi_tx_desc *)os_skb_data(ptxdesc->txdesc_mpdu);
             if (pTxDPape && !pTxDPape->TxOption.pkt_position) {
+                ptxdesc->txdesc_sta = NULL;
                 tid = DRV_GET_TIDTXINFO((struct aml_driver_nsta *)desc_sta, ptxdesc->txinfo->tid_index);
                 if (tid != NULL && ptxdesc->txinfo->b_Ampdu) {
                     drv_tx_update_ba_win(drv_priv, tid, ptxdesc->txinfo->seqnum, txlist);
@@ -1662,7 +1725,9 @@ static void drv_txlist_free_all_by_vid(struct drv_private *drv_priv, struct drv_
             }
             DRV_TXQ_LOCK(txlist);
 
-        } else {
+        }
+
+        if (ptxdesc->txdesc_sta != NULL) {
             list_add_tail(&ptxdesc->txdesc_queue, &txdesc_list_head_not_free);
         }
     }
@@ -2501,7 +2566,8 @@ static int drv_tx_send_ampdu(struct drv_private *drv_priv, struct drv_txlist *tx
     return 0;
 }
 
-unsigned int drv_lookup_rate(struct drv_private *drv_priv, struct aml_driver_nsta *drv_sta,   struct aml_ratecontrol *txdesc_rateinfo)
+unsigned int drv_lookup_rate(struct drv_private *drv_priv, struct aml_driver_nsta *drv_sta,   struct aml_ratecontrol *txdesc_rateinfo,
+    unsigned char is_amsdu)
 {
     unsigned char i;
     unsigned short maxampdu;
@@ -2527,7 +2593,7 @@ unsigned int drv_lookup_rate(struct drv_private *drv_priv, struct aml_driver_nst
         return 0;
     }
     DRV_MINSTREL_LOCK(drv_priv);
-    if (!drv_priv->ratctrl_ops->rate_findrate(txdesc_rateinfo, sta)) {
+    if (!drv_priv->ratctrl_ops->rate_findrate(txdesc_rateinfo, sta, is_amsdu)) {
         ERROR_DEBUG_OUT("get rate error, drop\n");
         DRV_MINSTREL_UNLOCK(drv_priv);
         return 0;
@@ -2658,7 +2724,7 @@ drv_txampdu_build(struct drv_private *drv_priv, struct drv_tx_scoreboard *tid,
     }
 
     if (bf_first->rate_valid == 0) {
-        aggr_limit = drv_lookup_rate(drv_priv,  tid->drv_sta, (bf_first->txdesc_rateinfo));
+        aggr_limit = drv_lookup_rate(drv_priv,  tid->drv_sta, (bf_first->txdesc_rateinfo), bf_first->txinfo->b_amsdu);
 
     } else if(bf_first->rate_valid == 1) {
         aggr_limit = MIN(bf_first->txdesc_rateinfo[0].maxampdulen, bf_first->txdesc_rateinfo[1].maxampdulen);

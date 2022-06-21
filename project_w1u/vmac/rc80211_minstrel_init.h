@@ -97,7 +97,8 @@ unsigned char minstrel_find_rate(
 #ifndef AUTO_RATE_SIM
 ,
    void *p_sta
-#endif 
+#endif
+,  unsigned char is_amsdu
 );
 void minstrel_tx_complete( 
     struct aml_ratecontrol *rc

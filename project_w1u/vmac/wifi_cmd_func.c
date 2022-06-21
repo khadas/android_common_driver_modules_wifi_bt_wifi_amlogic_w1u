@@ -98,6 +98,8 @@ cmd_to_func_table_t cmd_to_func[] =
     {"set_tpc_hang", aml_wpa_set_tx_power_change_hang},
     {"set_tx_pw_plan", aml_set_tx_power_plan},
     {"set_debug", aml_wpa_set_debug},
+    {"set_efuse", aml_wpa_set_efuse},
+    {"get_efuse", aml_wpa_get_efuse},
     {"", NULL},
 };
 
@@ -200,6 +202,56 @@ int aml_get_chip_id(struct wlan_net_vif *wnet_vif, char* buf, int len)
     }
 
     return 0;
+}
+
+int aml_wpa_set_efuse(struct wlan_net_vif *wnet_vif, char* buf, int len)
+{
+    char **arg;
+    int i,cmd_arg;
+    char sep = ' ';
+
+    arg = aml_cmd_char_prase(sep, buf, &cmd_arg);
+    if (arg) {
+        if (arg[1] && arg[2]) {
+            for (i = 0; i < 32; i++) {
+                if (simple_strtoul(arg[2],NULL,16) & (1 << i)) {
+                    efuse_manual_write(i, simple_strtoul(arg[1],NULL,16));
+                }
+            }
+            printk("write addr is :%x, data :%08x\n", simple_strtoul(arg[1],NULL,16),
+                simple_strtoul(arg[2],NULL,16));
+        } else {
+            printk("data error: %s", __func__);
+        }
+    }
+    FREE(arg, "cmd_arg");
+
+    return 0;
+
+}
+
+int aml_wpa_get_efuse(struct wlan_net_vif *wnet_vif, char* buf, int len)
+{
+    char **arg;
+    int cmd_arg;
+    char sep = ' ';
+    unsigned int efuse_data = 0;
+
+    arg = aml_cmd_char_prase(sep, buf, &cmd_arg);
+    if (arg) {
+        if (arg[1]) {
+            efuse_data = efuse_manual_read(simple_strtoul(arg[1],NULL,16));
+
+            printk("efuse addr:%x, data is :%08x\n", simple_strtoul(arg[1],NULL,16), efuse_data);
+
+        } else {
+            printk("data error: %s", __func__);
+        }
+    }
+    FREE(arg, "cmd_arg");
+
+    return 0;
+
 }
 
 int aml_set_mac_addr(struct wlan_net_vif *wnet_vif, char* buf, int len)

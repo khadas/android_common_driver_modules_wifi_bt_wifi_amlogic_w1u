@@ -112,6 +112,11 @@ struct hw_interface;
 //sdio manufacturer info, usually product ID
 #define PRODUCT_AMLOGIC_EFUSE (0x9007)
 
+#define W1u_VENDOR_AMLOGIC_EFUSE  0x1B8E
+#define W1us_B_PRODUCT_AMLOGIC_EFUSE  0x0500
+#define W1us_A_PRODUCT_AMLOGIC_EFUSE  0x04C0
+#define W1us_PRODUCT_AMLOGIC_EFUSE  0x0440
+
 #define SWITCH_CLK_WAIT_US (10)
 #define UART_BAUD_RATE (115200)
 /***aml hw cmd***/
@@ -966,6 +971,8 @@ struct hal_layer_ops
     struct Tx_FrameDesc tx_frames[WIFI_MAX_TXFRAME];
     unsigned long tx_frames_map[BITS_TO_LONGS(WIFI_MAX_TXFRAME)];
     unsigned int txPageFreeNum;  //the num of free tx pages
+    unsigned int fwRecoveryCnt;
+    unsigned long fwRecoveryStamp;
     struct unicastReplayCnt  uRepCnt[WIFI_MAX_VID][WIFI_MAX_STA];
     struct multicastReplayCnt mRepCnt[WIFI_MAX_VID];
 
@@ -1360,9 +1367,9 @@ struct aml_hal_call_backs
     void (*intr_tx_ok_timeout)(void *drv_prv);
     void (*intr_tx_pkt_clear)(void *drv_prv);
     void (*intr_rx_handle)(void *drv_prv,struct sk_buff *skb,unsigned char Rssi,unsigned char RxRate,
-        unsigned char channel,  unsigned char aggr, unsigned char wnet_vif_id,unsigned char keyid);
+        unsigned char channel,  unsigned char aggr, unsigned char wnet_vif_id,unsigned char keyid, unsigned int channel_bw, unsigned int rx_sgi);
     int (*pmf_encrypt_pkt_handle)(void *drv_prv, struct sk_buff *skb, unsigned char rssi, unsigned char RxRate,
-        unsigned char channel,  unsigned char aggr, unsigned char wnet_vif_id,unsigned char keyid);
+        unsigned char channel,  unsigned char aggr, unsigned char wnet_vif_id,unsigned char keyid, unsigned int channel_bw, unsigned int rx_sgi);
     void (*intr_bcn_send)(void *  drv_prv,unsigned char wnet_vif_id);
     void (*intr_dtim_send)(void *  drv_prv,unsigned char wnet_vif_id);
     void (*intr_ba_recv)(void *  drv_prv,unsigned char wnet_vif_id);

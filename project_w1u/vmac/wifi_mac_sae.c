@@ -21,9 +21,9 @@ void wifi_mac_pmkid_detach(struct wlan_net_vif *wnet_vif) {
 int aml_cfg80211_set_pmksa(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_pmksa *pmksa)
 {
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)(((struct vm_wdev_priv *)wiphy_priv(wiphy))->wnet_vif);
-    int i;
     unsigned char zero_mac[6] = { 0x00 };
     unsigned char find_entry = 0;
+    int pmkid_index;
 
     if ((pmksa->bssid != NULL) && memcmp((unsigned char *)pmksa->bssid, zero_mac, MAC_ADDR_LEN)) {
         DPRINTF(AML_DEBUG_CFG80211, "%s BSSID:%02x:%02x:%02x:%02x:%02x:%02x\n", __func__, pmksa->bssid[0],
@@ -33,29 +33,27 @@ int aml_cfg80211_set_pmksa(struct wiphy *wiphy, struct net_device *dev, struct c
         ERROR_DEBUG_OUT( "bssid wrong\n");
         return -EINVAL;
     }
-
-    for (i = 0; i < WL_NUM_PMKIDS_MAX; i++) {
-        if (!memcmp(pmksa->bssid, &wnet_vif->pmk_list->pmkid_cache[i].bssid, MAC_ADDR_LEN)) {
-            DPRINTF(AML_DEBUG_CFG80211, "find the bssid in pmkid_cache index:%d, and renew the pmkid\n", i);
-
-            memcpy(wnet_vif->pmk_list->pmkid_cache[i].pmkid, pmksa->pmkid, WLAN_PMKID_LEN);
-            wnet_vif->pmk_list->pmkid_cache[i].in_use = 1;
-            wnet_vif->pmk_list->pmkid_count = i + 1;
-            find_entry = 1;
-            break;
-        }
-    }
+    pmkid_index = aml_pmkid_cache_index(wnet_vif, (unsigned char *)pmksa->bssid);
+    if (pmkid_index != -1) {
+        DPRINTF(AML_DEBUG_CFG80211, "find the bssid in pmkid_cache index:%d, and renew the pmkid\n", pmkid_index);
+        memcpy(wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, pmksa->pmkid, WPA_PMKID_LEN);
+        wnet_vif->pmk_list->pmkid_cache[pmkid_index].in_use = 1;
+        find_entry = 1;
+    } 
 
     if (!find_entry) {
-        DPRINTF(AML_DEBUG_CFG80211, "use new entry index:%d\n", wnet_vif->pmk_list->pmkid_count);
+        DPRINTF(AML_DEBUG_CFG80211, "use new entry index:%d,pmkid count:%d\n", wnet_vif->pmk_list->pmkid_index,wnet_vif->pmk_list->pmkid_cnt);
 
-        memcpy(wnet_vif->pmk_list->pmkid_cache[wnet_vif->pmk_list->pmkid_count].bssid, pmksa->bssid, ETH_ALEN);
-        memcpy(wnet_vif->pmk_list->pmkid_cache[wnet_vif->pmk_list->pmkid_count].pmkid, pmksa->pmkid, WLAN_PMKID_LEN);
+        memcpy(wnet_vif->pmk_list->pmkid_cache[wnet_vif->pmk_list->pmkid_index].bssid, pmksa->bssid, MAC_ADDR_LEN);
+        memcpy(wnet_vif->pmk_list->pmkid_cache[wnet_vif->pmk_list->pmkid_index].pmkid, pmksa->pmkid, WPA_PMKID_LEN);
 
-        wnet_vif->pmk_list->pmkid_cache[wnet_vif->pmk_list->pmkid_count].in_use = 1;
-        wnet_vif->pmk_list->pmkid_count++ ;
-        if (wnet_vif->pmk_list->pmkid_count == 16)
-            wnet_vif->pmk_list->pmkid_count = 0;
+        wnet_vif->pmk_list->pmkid_cache[wnet_vif->pmk_list->pmkid_index].in_use = 1;
+        if (wnet_vif->pmk_list->pmkid_cnt < MAXPMKID) {
+            wnet_vif->pmk_list->pmkid_cnt++;
+        }
+        wnet_vif->pmk_list->pmkid_index++ ;
+        if (wnet_vif->pmk_list->pmkid_index == MAXPMKID)
+            wnet_vif->pmk_list->pmkid_index = 0;
     }
 
     return 0;
@@ -73,6 +71,10 @@ int aml_pmkid_cache_index(struct wlan_net_vif *wnet_vif, const unsigned char *bs
     }
 
     if (!memcmp(bssid, zero_mac, MAC_ADDR_LEN)) {
+        goto not_found;
+    }
+
+    if (!wnet_vif->pmk_list->pmkid_cnt) {
         goto not_found;
     }
 
@@ -94,13 +96,34 @@ not_found:
     return -1;
 }
 
+void wifi_mac_move_pmk_list(int index,  struct aml_pmk_list *pmk_list)
+{
+    if (pmk_list == NULL) {
+        ERROR_DEBUG_OUT("pmk_list NULL\n");
+        return;
+    }
+    if ((index < 0) || (index >= pmk_list->pmkid_cnt)) {
+        ERROR_DEBUG_OUT("index wrong:%d\n",index);
+        return;
+    }
+    if (index != pmk_list->pmkid_cnt - 1) {
+        /*not the last index*/
+        memcpy((unsigned char *)&(pmk_list->pmkid_cache[index]),(unsigned char *)&(pmk_list->pmkid_cache[index+1]), (pmk_list->pmkid_cnt - index - 1) * sizeof(aml_pmkid_cache));
+    }
+    /*clear the last one */
+    memset(pmk_list->pmkid_cache[pmk_list->pmkid_cnt - 1].bssid, 0, MAC_ADDR_LEN);
+    memset(pmk_list->pmkid_cache[pmk_list->pmkid_cnt - 1].pmkid, 0, sizeof(char)*WPA_PMKID_LEN);
+    pmk_list->pmkid_cache[pmk_list->pmkid_cnt - 1].in_use = 0;
+
+    pmk_list->pmkid_cnt--;
+    pmk_list->pmkid_index = pmk_list->pmkid_cnt;
+}
+
 int aml_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_pmksa *pmksa)
 {
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)(((struct vm_wdev_priv*)wiphy_priv(wiphy))->wnet_vif);
-    int i;
     unsigned char zero_mac[6] = { 0x00 };
-    int npmkids = wnet_vif->pmk_list->pmkid_count;
-    unsigned char find_entry = 0;
+    int npmkids = wnet_vif->pmk_list->pmkid_cnt;
 
     if (!pmksa) {
         ERROR_DEBUG_OUT("pmksa is not initialized\n");
@@ -122,21 +145,7 @@ int aml_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *dev, struct c
         return -EINVAL;
     }
 
-    for (i = 0; i < WL_NUM_PMKIDS_MAX; i++) {
-        if (!memcmp(pmksa->bssid, &wnet_vif->pmk_list->pmkid_cache[i].bssid, MAC_ADDR_LEN)) {
-            DPRINTF(AML_DEBUG_CFG80211, "%s i:%d, BSSID:%02x:%02x:%02x:%02x:%02x:%02x\n", __func__, i, wnet_vif->pmk_list->pmkid_cache[i].bssid[0],
-                wnet_vif->pmk_list->pmkid_cache[i].bssid[1], wnet_vif->pmk_list->pmkid_cache[i].bssid[2], wnet_vif->pmk_list->pmkid_cache[i].bssid[3],
-                wnet_vif->pmk_list->pmkid_cache[i].bssid[4], wnet_vif->pmk_list->pmkid_cache[i].bssid[5]);
-
-            memset(wnet_vif->pmk_list->pmkid_cache[i].bssid, 0, ETH_ALEN);
-            memset(wnet_vif->pmk_list->pmkid_cache[i].pmkid, 0, WLAN_PMKID_LEN);
-            wnet_vif->pmk_list->pmkid_cache[i].in_use = 0;
-            find_entry = 1;
-            break;
-        }
-    }
-
-    if (find_entry) {
+    if (aml_del_pmksa_by_index(wnet_vif, (unsigned char *)pmksa->bssid) == 0) {
         return 0;
 
     } else {
@@ -144,20 +153,20 @@ int aml_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *dev, struct c
     }
 }
 
-void aml_del_pmksa_by_index(struct wlan_net_vif *wnet_vif, const unsigned char *bssid)
+int aml_del_pmksa_by_index(struct wlan_net_vif *wnet_vif, const unsigned char *bssid)
 {
     int pmkid_index;
 
     pmkid_index = aml_pmkid_cache_index(wnet_vif, bssid);
     if (pmkid_index == -1) {
-        return;
+        return -1;
 
     } else {
-        memset(wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, 0, sizeof(char)*16);
-        wnet_vif->pmk_list->pmkid_count--;
+        wifi_mac_move_pmk_list(pmkid_index,wnet_vif->pmk_list);
+        AML_OUTPUT("pmk_list:cnt=%d,index=%d\n",wnet_vif->pmk_list->pmkid_cnt,pmkid_index);
     }
 
-    return;
+    return 0;
 }
 
 int aml_cfg80211_flush_pmksa(struct wiphy *wiphy, struct net_device *dev)

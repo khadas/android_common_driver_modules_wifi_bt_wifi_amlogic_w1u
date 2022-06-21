@@ -108,6 +108,10 @@ enum
 #define OFDM_SYMBOL_TIME    4
 #define DELT (0)
 
+#define LEGACY_RATE_SET_TH_RSSI          -76
+#define LEGACY_RATE_BACKUP_TH_RSSI       -74
+
+
 // rate control modules
 struct ratecontrol_ops
 {
@@ -116,7 +120,7 @@ struct ratecontrol_ops
     void (*rate_detach)(void);
     void (*rate_newassoc)(void *p_sta);
     void (*rate_disassoc)(void *p_sta);
-    unsigned char (*rate_findrate)(struct aml_ratecontrol ratectrl[], void *p_sta);
+    unsigned char (*rate_findrate)(struct aml_ratecontrol ratectrl[], void *p_sta, unsigned char is_amsdu);
     void (*rate_tx_complete)(struct aml_ratecontrol *rc, void *p_sta);
 };
 

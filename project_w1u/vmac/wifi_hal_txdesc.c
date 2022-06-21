@@ -602,7 +602,11 @@ unsigned short hal_tx_desc_get_len(unsigned char rate ,unsigned short pktlen,
 
 unsigned short Hal_TxDescriptor_GetAckTimeout( unsigned char data_rate,unsigned char preambletype)
 {
-    return 20+PHY_TEST;
+    if (IS_HT_RATE(data_rate) || IS_VHT_RATE(data_rate)) {
+        return 380 + PHY_TEST;
+    } else {
+        return 20 + PHY_TEST;
+    }
 }
 
 /*+SIGNAL_EXTENSION_VALUE+TXTIME(pclp+data+signalextension)*/
@@ -1006,7 +1010,7 @@ void hal_tx_desc_build_sub(struct hi_tx_priv_hdr* HI_TxPriv,
     pTxDPape->MPDUBufFlag = HW_FIRST_MPDUBUF_FLAG|HW_LAST_MPDUBUF_FLAG;
     pTxDPape->MPDUBufFlag |= HW_MPDU_LEN_SET(HI_TxPriv->MPDULEN);
     pTxDPape->MPDUBufFlag |= HW_BUFFER_LEN_SET(HI_TxPriv->Delimiter);
-    if ((HI_TxPriv->Flag & WIFI_MORE_AGG) == 0) {
+    if ((HI_TxPriv->Flag & WIFI_MORE_AGG)==0) {
         pTxDPape->MPDUBufFlag |= HW_LAST_AGG_FLAG;
     }
     if (pTxDPape->TxPriv.PageNum == 1) {

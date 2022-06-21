@@ -134,6 +134,7 @@ struct wifi_mac_fixed_rate
     enum wifi_mac_fixed_rate_mode    mode;
     unsigned int         rateinfo;
     unsigned int         retrynum;
+    bool                 need_set_legacy;
 };
 
 enum wifi_mac_protmode
@@ -300,9 +301,10 @@ enum wifi_mac_connect_state
     WIFINET_CON_MAX,
 };
 
-#define PHASE_CONNECTING 1
-#define PHASE_DISCONNECTING 2
-#define PHASE_TX_BUFF_QUEUE 4
+#define PHASE_CONNECTING BIT(0)
+#define PHASE_DISCONNECTING BIT(1)
+#define PHASE_TX_BUFF_QUEUE BIT(2)
+#define PHASE_WAIT_DISCONNECT_RESULT BIT(3)
 
 enum wifi_mac_recovery_state
 {
@@ -734,6 +736,15 @@ enum ts_dir_idx {
 
     TS_DIR_IDX_COUNT
 };
+
+#define SDIO_HIF_TYPE    0
+#define USB_HIF_TYPE     1
+
+#define SDIO_CLK_SWITCH_TH 230
+#define USB_CLK_SWITCH_TH  150
+
+#define WIFI_CPU_CLK_REG_80    0x4f770033
+#define WIFI_CPU_CLK_REG_160   0x4f730033
 
 
 #define WMM_OUI_TYPE 2

@@ -47,10 +47,13 @@ extern unsigned char *g_buffer;
 int aml_usb_ctlread_complete(struct urb *urb)
 {
     struct hal_private *hal_priv = hal_get_priv();
+    static unsigned int print_cnt = 0;
 
     if (hal_priv->bhalOpen == 0) {
         hi_supplement_usb_buffer();
-        AML_OUTPUT("aml_usb_ctlread_complete, bhalOpen:%d\n", hal_priv->bhalOpen);
+        if (!(print_cnt++ % 1000)) {
+            AML_OUTPUT("aml_usb_ctlread_complete, bhalOpen:%d\n", hal_priv->bhalOpen);
+        }
         goto exit;
     }
 #if defined (HAL_FPGA_VER)
@@ -668,7 +671,7 @@ int hal_download_wifi_fw_img(void)
 
     do {
         databyte = (len > SRAM_MAX_LEN) ? SRAM_MAX_LEN : len;
-        if ((offset + databyte) >= MAX_OFFSET) {
+        if((offset + databyte) >= MAX_OFFSET) {
             offset_base += offset;
             hif->hif_ops.hi_write_reg32(RG_SCFG_SRAM_FUNC, MAC_ICCM_AHB_BASE + offset_base);
             offset = 0;
@@ -690,7 +693,7 @@ int hal_download_wifi_fw_img(void)
     do {
         databyte = (len > SRAM_MAX_LEN) ? SRAM_MAX_LEN : len;
 
-        if ((offset + SRAM_MAX_LEN) >= MAX_OFFSET) {
+        if((offset + SRAM_MAX_LEN) >= MAX_OFFSET) {
             offset_base += offset;
             hif->hif_ops.hi_write_reg32(RG_SCFG_SRAM_FUNC, MAC_ICCM_AHB_BASE + offset_base);
             offset = 0;
@@ -842,7 +845,7 @@ static char * country_code = "WW";
 unsigned short dhcp_offload = 0;
 static int sdblksize = BLKSIZE;
 unsigned char aml_insmod_flag = 0;
-char *hif_type = "SDIO";
+char *bus_type = "sdio";
 
 #ifdef DEBUG_MALLOC
     int kmalloc_count = 0;
@@ -951,7 +954,12 @@ unsigned int aml_wifi_get_con_mode(void)
 
 char * aml_wifi_get_bus_type(void)
 {
-    return hif_type;
+   char *ch[] = {"usb","sdio"};
+   if(aml_bus_type) {
+       return ch[0];
+   } else {
+       return ch[1];
+   }
 }
 
 char * aml_wifi_get_fw_type(void)
@@ -1022,7 +1030,7 @@ static int aml_insmod(void)
     memset(hif, 0, sizeof(struct hw_interface));
 
     //dma interface or sdio interface init
-    if (aml_bus_type == 1) {
+    if(aml_bus_type == 1) {
         AML_OUTPUT("bus interface is USB!!!!!\n");
         ret = aml_usb_init();
     } else if(aml_bus_type == 0) {
@@ -1030,11 +1038,11 @@ static int aml_insmod(void)
         ret = aml_sdio_init();
      }
 #if 0
-    if(strncmp(hif_type,"USB",3) == 0) {
+    if (strncmp(bus_type,"usb",3) == 0) {
         AML_OUTPUT("bus interface is USB!!!!!\n");
         aml_bus_type = 1;
         ret = aml_usb_init();
-    } else if(strncmp(hif_type,"SDIO",4) == 0) {
+    } else if (strncmp(bus_type,"sdio",4) == 0) {
         AML_OUTPUT("bus interface is SDIO!!!!!\n");
         aml_bus_type = 0;
         ret = aml_sdio_init();
@@ -1116,8 +1124,8 @@ MODULE_PARM_DESC(dhcp_offload,"A short variable to control dhcp offload function
 module_param(country_code,charp,0644);
 MODULE_PARM_DESC(country_code,"A string variable to discribe country code");
 
-module_param(hif_type, charp,S_IRUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(hif_type,"A string variable to adjust sdio or usb bus interface");
+module_param(bus_type, charp,S_IRUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(bus_type,"A string variable to adjust sdio or usb bus interface");
 
 #endif
 

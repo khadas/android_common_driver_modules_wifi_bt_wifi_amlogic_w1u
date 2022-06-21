@@ -20,6 +20,8 @@ namespace FW_NAME
 
 #include "wifi_hal.h"
 #include "wifi_hif.h"
+#include "wifi_mac_if.h"
+#include "wifi_mac.h"
 
 #if defined (HAL_SIM_VER)
 #include <unistd.h>
@@ -83,6 +85,7 @@ void hif_init_ops(void)
     ops->bt_hi_read_word = aml_bt_hi_read_word;
     ops->hif_suspend = aml_sdio_suspend;
 #endif
+    ops->hi_read_efuse = efuse_manual_read;
     ops->hi_send_frame = aml_sdio_scat_req_rw;
     ops->hif_get_sts = hif_get_sts;
     ops->hif_pt_rx_start = hif_pt_rx_start;
@@ -431,7 +434,7 @@ void hi_rx_fifo_init(void)
 
     hif->rx_fifo.FDH = 0;
     hif->rx_fifo.FDT = 0;
-    if (!aml_bus_type) {
+    if(!aml_bus_type) {
         hif->rx_fifo.FDN = RX_FIFO_SIZE;
     } else {
         hif->rx_fifo.FDN = USB_RX_FIFO_SIZE;
@@ -659,6 +662,7 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
 {
     struct hal_private * hal_priv = hal_get_priv();
     struct hw_interface* hif = hif_get_hw_interface();
+    struct wifi_mac *wifimac = wifi_mac_get_mac_handle();
     FIFO_SHARE_CTRL *pCmdDownFifo = &hif->CmdDownFifo;
     unsigned int loop = 0;
     PowerSaveCmd pscmd = *(PowerSaveCmd *)pdata;
@@ -695,6 +699,10 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
     {
         if (loop++>10000)
         {
+            if (os_timer_ex_active(&wifimac->wm_monitor_fw) && wifimac->recovery_stat == WIFINET_RECOVERY_END) {
+                wifimac->wm_recovery_req = 1;
+                AML_OUTPUT("request recovery due to the fifo is always full\n");
+            }
             AML_OUTPUT("err-> f_fdh: %d, f_fdt: %d, d_fdh %d \n", hif->hif_ops.hi_read_word(0x00a10038),
             hif->hif_ops.hi_read_word(0x00a1003c), pCmdDownFifo->FDH);
             PRINT("hi_set_cmd err, cmd=0x%x, vid=0x%x\n", pdata[0], pdata[3]);
@@ -714,8 +722,8 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
         OS_UDELAY(20);
 #endif
     }
-
-    if (!aml_bus_type)
+	
+    if(!aml_bus_type)
     {
         aml_wifi_sdio_power_lock();
     }
@@ -724,8 +732,7 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
         || ((hal_priv->powersave_init_flag == 0) && (suspend_cmd.Cmd == WoW_Enable_Cmd) && (suspend_cmd.enable == 1)))
     {
         unsigned int tmpreg = 0;
-        if (!aml_bus_type)
-        {
+        if(!aml_bus_type){
             tmpreg = hif->hif_ops.hi_bottom_read8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ);
             // set host sleep req
             tmpreg |= HOST_SLEEP_REQ;
@@ -735,7 +742,7 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
 
     hal_priv->hal_drv_ps_status &= ~HAL_DRV_IN_ACTIVE;
     POWER_END_LOCK();
-    if (!aml_bus_type)
+    if(!aml_bus_type)
     {
         aml_wifi_sdio_power_unlock();
     }
@@ -1195,10 +1202,8 @@ void hi_irq_task(struct hal_private *hal_priv)
 #ifdef POWER_SAVE_NO_SDIO
     unsigned int ptr = 0;
 #endif
-    if (aml_bus_type)
-    {
-        if (atomic_read(&hal_priv->usb_isr_done) == 0)
-        {
+    if(aml_bus_type) {
+        if(atomic_read(&hal_priv->usb_isr_done) == 0) {
             AML_TXLOCK_LOCK();
             hal_tx_frame();
             AML_TXLOCK_UNLOCK();
@@ -1210,8 +1215,7 @@ void hi_irq_task(struct hal_private *hal_priv)
 #if 1
     if (hal_priv->ps_host_state == 3)
     {
-        if (aml_bus_type)
-        {
+        if(aml_bus_type) {
             atomic_set(&hal_priv->usb_isr_done, 0);
             usb_submit_urb(g_urb, GFP_ATOMIC);
         }
@@ -1220,8 +1224,7 @@ void hi_irq_task(struct hal_private *hal_priv)
 #endif
     if (atomic_read(&hal_priv->drv_suspend_cnt) != 0)
     {
-        if (aml_bus_type)
-        {
+        if(aml_bus_type) {
             atomic_set(&hal_priv->usb_isr_done, 0);
             usb_submit_urb(g_urb, GFP_ATOMIC);
         }
@@ -1229,8 +1232,7 @@ void hi_irq_task(struct hal_private *hal_priv)
     }
 
 //int_loop:
-    if (aml_bus_type)
-    {
+    if(aml_bus_type) {
         intr_status = hal_priv->int_status_copy;
         memset(g_buffer, 0, 2*sizeof(int));
     } else {
@@ -1387,7 +1389,7 @@ void hi_irq_task(struct hal_private *hal_priv)
 
     if (loop_count > int_loop_num)
     {
-        if (!aml_bus_type) {
+        if(!aml_bus_type) {
             /*Enable Interrupt. */
             gpio_en = SDIO_FW2HOST_GPIO_EN;
             hi_clear_irq_status(SDIO_FW2HOST_EN);
@@ -1828,7 +1830,7 @@ void hif_get_sts(unsigned int op_code, unsigned int ctrl_code)
         {
             AML_OUTPUT("rx_fifo: head %ld, tail %ld, totoal %ld\n",
                 hif->rx_fifo.FDH, hif->rx_fifo.FDT, hif->rx_fifo.FDN);
-            if (aml_bus_type) {
+            if(aml_bus_type) {
                 AML_OUTPUT("rx by word: free %d, fw_to_do %d, sdio_to_mv %d, buf_rd_ptr 0x%x, mac_wt_ptr 0x%x, fw_rd_ptr 0x%x, sdio_rd_ptr 0x%x \n",
                 CIRCLE_Subtract2(sdio_rd, mac_wt, USB_DEFAULT_RXPAGENUM*PAGE_LEN/4),
                 CIRCLE_Subtract2(mac_wt, fw_rd, USB_DEFAULT_RXPAGENUM*PAGE_LEN/4),

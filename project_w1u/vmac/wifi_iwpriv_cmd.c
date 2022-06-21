@@ -20,6 +20,8 @@ extern int vm_cfg80211_set_bitrate_mask(struct wiphy *wiphy, struct net_device *
     const unsigned char *peer, const struct cfg80211_bitrate_mask *mask);
 void wifi_mac_pwrsave_set_inactime(struct wlan_net_vif *wnet_vif, unsigned int time);
 
+unsigned char g_iwpriv_get_spec_regs_flag = 0;
+
 struct wlan_net_vif *aml_iwpriv_get_vif(char *name)
 {
     struct wlan_net_vif *wnet_vif = NULL;
@@ -152,6 +154,114 @@ unsigned int set_reg(struct wlan_net_vif *wnet_vif, unsigned int set1, unsigned 
     return 0;
 }
 
+reg_addr_attr_t reg_addr_attr[DUMP_REG_SEQ_MAX] =
+{
+    {RF_TOP_ADDR_START, RF_TOP_ADDR_END, RF_TOP_ADDR_NUM},
+    {RF_SX_ADDR_START, RF_SX_ADDR_EDN, RF_SX_ADDR_NUM},
+    {RF_TX_ADDR_START, RF_TX_ADDR_END, RF_TX_ADDR_NUM},
+    {RF_RX_ADDR_START, RF_RX_ADDR_END, RF_RX_ADDR_NUM},
+    {ADDA_CORE_ADDR_START, ADDA_CORE_ADDR_END, ADDA_CORE_ADDR_NUM},
+    {ADDA_XMIT_ADDR_START, ADDA_XMIT_ADDR_END, ADDA_XMIT_ADDR_NUM},
+    {ADDA_RECV_ADDR_START, ADDA_RECV_ADDR_END, ADDA_RECV_ADDR_NUM},
+    {ADDA_ESTI_ADDR_START, ADDA_ESTI_ADDR_END, ADDA_ESTI_ADDR_NUM},
+    {AGC_ADDR_START, AGC_ADDR_END, AGC_ADDR_NUM},
+    {OFDM_ADDR_START, OFDM_ADDR_END, OFDM_ADDR_NUM},
+    {PHY_ADDR_START, PHY_ADDR_END, PHY_ADDR_NUM},
+    {AON_REG_ADDR_START, AON_REG_ADDR_END, AON_REG_ADDR_NUM},
+};
+
+void dump_spec_regs_val(struct wlan_net_vif *wnet_vif, int reg_domain)
+{
+    int i, j, reg_addr, reg_val;
+    for(i = 0; i <= reg_domain; i++)
+    {
+        for(j = 0; j < reg_addr_attr[i].num; j++)
+        {
+            reg_addr = reg_addr_attr[i].addr_start + j*4;
+            if (((reg_addr >> 24) & 0xff) == 0xff )
+            {
+#ifdef USE_T902X_RF
+                reg_val = rf_i2c_read(reg_addr & 0x00ffffff);
+#endif
+            }
+            else if (((reg_addr >> 24) & 0xf0) == 0xf0 )
+            {
+#ifdef USE_T902X_RF
+                reg_val = rf_i2c_read(reg_addr & 0xffffffff);
+#endif
+            }
+            else
+            {
+                reg_val = wnet_vif->vif_ops.read_word(reg_addr);
+            }
+            printk("reg_addr:0x%08x, reg_val:0x%08x\n", reg_addr, reg_val);
+        }
+    }
+}
+
+int aml_iwpriv_get_spec_regs(struct wlan_net_vif *wnet_vif, int addr_range)
+{
+    int reg_domain = -1;
+
+    AML_OUTPUT("addr_range:%d \n", addr_range);
+
+    switch (addr_range) {
+        case 1:
+            reg_domain = RF_RX_SEQ;
+            break;
+        case 2:
+            reg_domain = ADDA_ESTI_SEQ;
+            break;
+        case 3:
+            reg_domain = PHY_SEQ;
+            break;
+        case 4:
+            reg_domain = AON_SEQ;
+            break;
+        case 5:
+            g_iwpriv_get_spec_regs_flag = 1;
+            break;
+        case 6:
+            g_iwpriv_get_spec_regs_flag = 0;
+            break;
+        default:
+            reg_domain = -1;
+            AML_OUTPUT("input para invalid, addr_range:%d \n", addr_range);
+    }
+
+    dump_spec_regs_val(wnet_vif, reg_domain);
+
+    return 0;
+}
+
+int aml_iwpriv_set_efuse(int addr, int value)
+{
+    int i = 0;
+
+    for (i = 0; i < 32; i++) {
+        if (value & (1 << i)) {
+            efuse_manual_write(i, addr);
+        }
+    }
+    printk("write efuse addr is :0x%x, data :0x%08x\n", addr, value);
+
+    return 0;
+
+}
+
+int aml_iwpriv_get_efuse(int addr)
+{
+    unsigned int efuse_data = 0;
+
+    efuse_data = efuse_manual_read(addr);
+
+    printk("get efuse addr:0x%x, data is :0x%08x\n", addr, efuse_data);
+
+
+    return 0;
+
+}
+
 unsigned int get_latest_tx_status(struct wifi_mac *wifimac)
 {
     unsigned int addr = 0x00000038;
@@ -190,14 +300,28 @@ int aml_beacon_intvl_set(struct wlan_net_vif *wnet_vif, unsigned int set)
     return 0;
 }
 
-static void aml_iwpriv_enable_fw_log(struct wlan_net_vif *wnet_vif)
+static void aml_iwpriv_enable_fw_log(struct wlan_net_vif *wnet_vif, unsigned int set)
 {
-    AML_OUTPUT("fw log enabled from iwpriv cmd\n");
-    set_reg(wnet_vif, 0x00f00004, 0x0ffbf0ff);
-    msleep(100);
-    set_reg(wnet_vif, 0x00f00008, 0x00040f00);
-    msleep(100);
-    set_reg(wnet_vif, 0x00f00020, 0x00000001);
+    AML_OUTPUT("fw log enabled:%d from iwpriv cmd\n",set);
+
+    if(set > 0)
+    {
+        set_reg(wnet_vif, 0x00f00004, 0x0ffbf0ff);
+        msleep(100);
+        set_reg(wnet_vif, 0x00f00008, 0x00040f00);
+        msleep(100);
+        set_reg(wnet_vif, 0x00f00020, 0x00000001);
+    }
+    else
+    {
+        set_reg(wnet_vif, 0x00f00004, 0x0ffff8ff);
+        msleep(100);
+        set_reg(wnet_vif, 0x00f00008, 0x00000700);
+        msleep(100);
+        set_reg(wnet_vif, 0x00f00020, 0x00000000);
+    }
+
+
 }
 
 int aml_set_ldpc(struct wlan_net_vif *wnet_vif, unsigned int set)
@@ -820,6 +944,19 @@ static int aml_iwpriv_send_para1(struct net_device *dev,
 
             }
             break;
+
+        case AML_IWP_SET_RECOVERY:
+            wifimac->drv_priv->drv_config.cfg_recovery = set;
+            break;
+        case AML_IWP_GET_EFUSE:
+            aml_iwpriv_get_efuse(set);
+            break;
+        case AML_IWP_ENABLE_FW_LOG:
+            aml_iwpriv_enable_fw_log(wnet_vif,set);
+            break;
+        case AML_IWP_GET_SPEC_REGS:
+            aml_iwpriv_get_spec_regs(wnet_vif, set);
+            break;
     }
 
     return 0;
@@ -864,6 +1001,8 @@ static int aml_iwpriv_send_para2(struct net_device *dev,
             aml_set_beamforming(wnet_vif, set1,set2);
             break;
 #endif
+        case AML_IWP_SET_EFUSE:
+            aml_iwpriv_set_efuse(set1,set2);
     }
 
     return 0;
@@ -1023,10 +1162,6 @@ static int aml_iwpriv_get(struct net_device *dev,
 
         case AML_IWP_GET_TX_STATUS:
             get_latest_tx_status(wifimac);
-            break;
-
-        case AML_IWP_ENABLE_FW_LOG:
-            aml_iwpriv_enable_fw_log(wnet_vif);
             break;
 
         case AML_IWP_SET_RATE_AUTO:
@@ -1796,7 +1931,18 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
 {
     AML_IWP_GET_FW_LOG,
     IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "get_fw_log"},
-
+{
+    AML_IWP_SET_RECOVERY,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_recovery"},
+{
+    AML_IWP_GET_EFUSE,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "get_efuse"},
+{
+    AML_IWP_ENABLE_FW_LOG,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_fwlog_en"},
+{
+    AML_IWP_GET_SPEC_REGS,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "get_spec_regs"},
 
 /*iwpriv get command*/
 {
@@ -1851,9 +1997,6 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
     AML_IWP_GET_TX_STATUS,
     0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, "get_tx_stat"},
 {
-    AML_IWP_ENABLE_FW_LOG,
-    0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, "set_fwlog_en"},
-{
     AML_IWP_SET_RATE_AUTO,
     0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, "set_rate_auto"},
 {
@@ -1899,6 +2042,9 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
 {
     AML_IWP_LEGACY_GET_REG,
     IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2, 0, "get_reg_legacy"},
+{
+    AML_IWP_SET_EFUSE,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2, 0, "set_efuse"},
 
 
 

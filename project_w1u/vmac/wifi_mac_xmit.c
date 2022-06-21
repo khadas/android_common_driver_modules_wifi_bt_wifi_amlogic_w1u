@@ -16,6 +16,7 @@
 #include "wifi_mac_action.h"
 #include <linux/inetdevice.h>
 #include "wifi_cmd_func.h"
+#include "chip_bt_pmu_reg.h"
 
 int wifi_mac_classify(struct wifi_station *sta, struct sk_buff *skb)
 {
@@ -163,10 +164,6 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
     unsigned char *dhcp_p;
     unsigned short offset;
     unsigned short offset_max;
-
-    static unsigned char start_flag = 0;
-    static unsigned long in_time;
-    static unsigned long tcp_tx_payload_total = 0;
     unsigned long tcp_tx_payload = 0;
 
     if ((eh->ether_type == __constant_htons(ETHERTYPE_PAE))
@@ -184,8 +181,13 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
                 __constant_htonl(th->seq), __constant_htonl(th->ack_seq));
 
             rtsp = (char *)th + 32;
-            if (rtsp && wifimac->is_miracast_connect) {
+            if (rtsp && sta->sta_wnet_vif->vm_p2p) {
+                unsigned char zero_session[MAC_WFD_SESSION_LEN] = {0};
                 wifi_mac_get_rtsp_session(rtsp, sta->sta_wnet_vif->vm_p2p);
+                if (memcmp(sta->sta_wnet_vif->vm_p2p->wfd_session_id, zero_session, MAC_WFD_SESSION_LEN)) {
+                    wifimac->is_miracast_connect = 1;
+                    AML_OUTPUT("set wifimac->is_miracast_connect=%d\n",wifimac->is_miracast_connect);
+                }
             }
 
             if ((!th->fin) && (!th->syn)) {
@@ -202,19 +204,7 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
                 }
             }
 
-            if (!start_flag) {
-                start_flag = 1;
-                in_time = jiffies;
-            }
-
-            tcp_tx_payload_total += tcp_tx_payload;
-
-            if (time_after(jiffies, in_time + HZ)) {
-                sta->sta_wnet_vif->vm_tx_speed = tcp_tx_payload_total >> 17;
-                start_flag = 0;
-                tcp_tx_payload_total = 0;
-            }
-
+            sta->sta_wnet_vif->txtp_stat.tcp_tx_payload_total += tcp_tx_payload;
             wifimac->drv_priv->drv_config.cfg_ampdu_subframes = DEFAULT_TXAMPDU_SUB_MAX;
 
             mac_pkt_info->tcp_seqnum = th->seq;
@@ -268,7 +258,6 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
     unsigned char tid_index = os_skb_get_tid(skb);
     struct aml_driver_nsta *drv_sta = sta->drv_sta;
     struct drv_tx_scoreboard *tid = DRV_GET_TIDTXINFO(drv_sta, tid_index);
-    struct hal_private * hal_priv = hal_get_priv();
     if (tid->tid_tx_buff_sending) {
         wnet_vif->vm_devstats.tx_dropped++;
         wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[os_skb_get_tid(skb)]++;
@@ -280,10 +269,6 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
         return NETDEV_TX_BUSY;
     }
 
-    if ((aml_bus_type) && (hal_priv->dpd_suspend)) {
-        wnet_vif->vm_devstats.tx_dropped++;
-        return NETDEV_TX_BUSY;
-    }
     /*check the txlist_x threshhold: been sent to hal and to be sent to hal*/
     /* check msdu pending num*/
     if (wifimac->drv_priv->drv_ops.txlist_isfull(wifimac->drv_priv, wifimac->wm_ac2q[os_skb_get_priority(skb)], (skb), sta->drv_sta)
@@ -424,7 +409,7 @@ int wifi_mac_hardstart(struct sk_buff *skb, struct net_device *dev)
 
     // find a sta by mac address
     sta = wifi_mac_find_tx_sta(wnet_vif, eh->ether_dhost);
-    if (sta == NULL) {
+    if ((sta == NULL) || ((wnet_vif->vm_opmode == WIFINET_M_HOSTAP) && (sta->is_disconnecting == 1))) {
         error = 6;
         goto bad;
     }
@@ -748,7 +733,8 @@ int wifi_mac_send_nulldata(struct wifi_station *sta, unsigned char pwr_save,
             ((sta->sta_chbw == WIFINET_BWC_WIDTH40) ? CHAN_BW_40M : CHAN_BW_80M);
     }
 
-    if((sta->sta_flags & WIFINET_NODE_HT) || (sta->sta_flags & WIFINET_NODE_VHT))
+    if((sta->sta_flags & WIFINET_NODE_HT) || (sta->sta_flags & WIFINET_NODE_VHT) ||
+        (WIFINET_IS_CHAN_5GHZ(wnet_vif->vm_curchan)))
     {
         null_data.rate = WIFI_11G_6M;
     }
@@ -3230,22 +3216,28 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
                         addbaresponse->rs_batimeout = htole16(batimeout);
                         addbaresponse->rs_statuscode = htole16(statuscode);
 
-                        if (wifi_mac->wm_bt_en) {
-                            if (wifi_mac->wm_esco_en) {
-                                addbaresponse->rs_baparamset.buffersize = DEFAULT_TXAMPDU_SUB_MAX_COEX_ESCO;
-
-                            } else {
-                                addbaresponse->rs_baparamset.buffersize = DEFAULT_TXAMPDU_SUB_MAX_COEX;
-                            }
-                        }
-
                         //AMSDU is supported on the opposite end
                         if (actionargs->arg2) {
                             addbaresponse->rs_baparamset.buffersize = 16;
+                            AML_OUTPUT("coex change rx_addba_rsp ---> FDD\n");
                             DPRINTF(AML_DEBUG_ADDBA, "%s: ADDBA response. opposite support AMSDU, reduce buffer size to %d\n",
                                 __func__, addbaresponse->rs_baparamset.buffersize);
                         }
 
+                        if (wifi_mac->wm_bt_en) {
+                            if (wifi_mac->wm_esco_en) {
+                                addbaresponse->rs_baparamset.buffersize = DEFAULT_TXAMPDU_SUB_MAX_COEX_ESCO;
+                                AML_OUTPUT("coex change rx_addba_rsp ---> TDD ESCO\n");
+
+                            } else if (wifi_mac->wm_a2dp_en){
+                                addbaresponse->rs_baparamset.buffersize = DEFAULT_TXAMPDU_SUB_MAX_COEX;
+                                AML_OUTPUT("coex change rx_addba_rsp ---> TDD A2DP\n");
+                            }else{
+                                addbaresponse->rs_baparamset.buffersize = 16;
+                                AML_OUTPUT("coex change rx_addba_rsp ---> FDD or BT EN and no connect\n");
+                            }
+                        }
+                        wifi_mac->g_rs_baparamset_buffersize = addbaresponse->rs_baparamset.buffersize;
                         DPRINTF(AML_DEBUG_WARNING, "%s: ADDBA response action mgt frame. TID %d, buffer size %d, status %d \n",
                             __func__, tid_index, baparamset.buffersize, statuscode);
                     } else {
@@ -3405,6 +3397,13 @@ int wifi_mac_send_mgmt(struct wifi_station *sta, int type, void *arg)
     unsigned char retry_count;
 
     KASSERT(sta != NULL, ("null nsta"));
+
+    if (sta->sta_wnet_vif->vm_curchan == NULL) {
+        ERROR_DEBUG_OUT("vm_curchan is NULL, just return\n");
+        ret = EINVAL;
+        return ret;
+    }
+
     switch (type) {
         case WIFINET_FC0_SUBTYPE_PROBE_RESP:
             ret = wifi_mac_send_probe_rsp(wnet_vif,sta,arg);

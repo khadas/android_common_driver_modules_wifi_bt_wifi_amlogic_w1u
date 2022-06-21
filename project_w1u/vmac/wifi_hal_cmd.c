@@ -1549,7 +1549,7 @@ unsigned int hal_set_fwlog_cmd(unsigned char mode)
     {
         fwlog_mode.mode = 0;
         /* reset ram share */
-        if (!aml_bus_type) {
+        if(!aml_bus_type) {
             hif->hif_ops.hi_write_word(0x00a0d0e4, 0x0000007f);
         }
     }
@@ -1559,7 +1559,7 @@ unsigned int hal_set_fwlog_cmd(unsigned char mode)
         if (mode == 1)
         {
             /* set ram share */
-            if (!aml_bus_type) {
+            if(!aml_bus_type) {
                 hif->hif_ops.hi_write_word(0x00a0d0e4, 0x8000007f);
             }
             print_type = 0;
@@ -2077,7 +2077,7 @@ unsigned char get_cali_param(struct patch_Cali_Param *cali_param, struct WF2G_Tx
                 sprintf(chip_id_buf, "%s/aml_wifi_rf_fn_link.txt", conf_path);
                 break;
             default:
-                if (aml_bus_type) {
+                if(aml_bus_type) {
                     sprintf(chip_id_buf, "%s/aml_wifi_rf_usb.txt", conf_path);
                 } else {
                     sprintf(chip_id_buf, "%s/aml_wifi_rf_sdio.txt", conf_path);

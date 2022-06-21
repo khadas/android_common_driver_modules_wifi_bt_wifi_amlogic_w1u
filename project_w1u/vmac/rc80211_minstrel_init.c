@@ -48,16 +48,18 @@ static struct ieee80211_supported_band aml_band_5ghz = {
 };
 
 short rssi_threshold[3][10] = {
-	{555, -60, -65, -68, -73, -76, -83, -85, -87},
-	{-66, -67, -72, -73, -74, -79, -82, -86, -88},
-	{-61, -62, -72, -76, -77, -81, -84, -88, -94},
+    {555, -78, -80, -81, -82, -83, -85, -89, -94},
+    {-66, -67, -72, -73, -74, -79, -82, -86, -88},
+    {-61, -62, -72, -76, -77, -81, -84, -88, -94},
 };
 
 short snr_threshold[3][10] = {
-	{555, 26, 21, 20, 19, 14, 11, 8, 5},
-	{27, 26, 21, 20, 19, 14, 11, 8, 6},
-	{27, 26, 22, 20, 19, 14, 11, 8, 5},
+    {555, 16, 15, 14, 13, 12, 11, 8, 5},
+    {27, 26, 21, 20, 19, 14, 11, 8, 6},
+    {27, 26, 22, 20, 19, 14, 11, 8, 5},
 };
+
+
 
 static struct ieee80211_sta_ht_cap aml_get_ht_cap(struct aml_rate_adaptation_dev *aml_minstrel_dev, struct ieee80211_sta_ht_cap *p_ht_cap)
 {
@@ -336,6 +338,7 @@ unsigned char get_fitable_mcs_rate(struct wifi_station *sta, unsigned char bw) {
     unsigned char max_rate = 0;
     char rssi_offset = 20;
     char snr_offset = 0;
+    static int rssi_offset_last = 0;
 
     if (sta->sta_wnet_vif->vm_opmode == WIFINET_M_HOSTAP)
         avg_rssi = translate_to_dbm(sta->sta_avg_rssi);
@@ -347,6 +350,9 @@ unsigned char get_fitable_mcs_rate(struct wifi_station *sta, unsigned char bw) {
         rssi_offset = 10;
     } else if (sta->sta_avg_bcn_rssi >= sta->sta_avg_data_rssi) {
         rssi_offset = sta->sta_avg_bcn_rssi - sta->sta_avg_data_rssi;
+        rssi_offset_last = rssi_offset;
+    } else {
+        rssi_offset = rssi_offset_last;
     }
 
     if (avg_rssi >= rssi_threshold[bw][0] + rssi_offset) {
@@ -556,7 +562,6 @@ static void rate_control_fill_sta_table(struct ieee80211_sta *sta,
         if ((i < ARRAY_SIZE(info->control.rates)) && (info->control.rates[i].idx >= 0) && info->control.rates[i].count) {
             if (rates != info->control.rates)
                 rates[i] = info->control.rates[i];
-
         } else if (ratetbl) {
             rates[i].idx = ratetbl->rate[i].idx;
             rates[i].flags = ratetbl->rate[i].flags;
@@ -584,6 +589,10 @@ int check_is_rate_fitable(struct wifi_station *sta, struct ieee80211_tx_info *in
     unsigned char fitable_bw = 0;
     unsigned char bw = 0;
     int rate_index = -1;
+    int power = sta->sta_avg_bcn_rssi;
+    struct minstrel_mcs_group_data *mg;
+    struct minstrel_rate_stats *mrs;
+    struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
 
     for (i = 0; i < IEEE80211_TX_RATE_TABLE_SIZE; i++) {
         if ((info->control.rates[i].idx >= 0) && (info->control.rates[i].count)) {
@@ -612,15 +621,28 @@ int check_is_rate_fitable(struct wifi_station *sta, struct ieee80211_tx_info *in
     }
 
     max_rate = get_fitable_mcs_rate(sta, bw);
-    if (max_rate < rate_index) {
-        AML_PRINT(AML_DBG_MODULES_RATE_CTR, "snr or rssi not fit, rssi:%d, snr:%d, max_rate:%d, rate_index:%d\n",
-             sta->sta_avg_bcn_rssi, sta->sta_avg_snr, max_rate, rate_index);
-        minstrel_clear_unfitable_rate_stats(mi, max_rate);
-        return -1;
-
-    } else {
-        return 0;
+    mg = &mi->groups[0];
+    mrs = &mg->rates[0];
+    if(mi->supported[0] && mi->max_tp_rate[0] % MCS_GROUP_RATES == 0 && mrs->attempts > 30 &&
+        (mrs->prob_ewma < MINSTREL_FRAC(30, 100)) && (sta->sta_flags & WIFINET_NODE_HT)
+        && sta->sta_chbw == WIFINET_BWC_WIDTH20 && WIFINET_IS_CHAN_2GHZ(wnet_vif->vm_curchan)
+        && (power < LEGACY_RATE_SET_TH_RSSI)) {
+        sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy = true;
+        AML_OUTPUT("need set legacy rate \n");
     }
+
+    if (max_rate < rate_index || mi->need_clear_rate_index) {
+        if(mi->need_clear_rate_index && mi->need_clear_rate_index < max_rate)
+            max_rate = mi->need_clear_rate_index;
+        mi->need_clear_rate_index = 0;
+        if(sta->sta_wnet_vif->txtp_stat.vm_tx_speed > 0) {
+            minstrel_clear_unfitable_rate_stats(mi, max_rate);
+            AML_PRINT(AML_DBG_MODULES_RATE_CTR, "snr or rssi not fit, rssi:%d, snr:%d, max_rate:%d, rate_index:%d\n",
+                sta->sta_avg_bcn_rssi, sta->sta_avg_snr, max_rate, rate_index);
+            return -1;
+        }
+    } 
+    return 0;
 }
 
 int minstrel_rate_index_to_vendor_rate_code(int minstrel_rate_idx, struct ieee80211_sta *p_ieee80211_sta)
@@ -709,6 +731,7 @@ unsigned char minstrel_find_rate(
 ,
    void *p_sta
 #endif
+,  unsigned char  is_amsdu
 )
 {
     struct ieee80211_tx_info tx_info;
@@ -744,9 +767,10 @@ unsigned char minstrel_find_rate(
     if (sta->sta_wnet_vif->vm_fixed_rate.mode == WIFINET_FIXED_RATE_MCS) {
         if ((sta->sta_wnet_vif->vm_fixed_rate.rateinfo) & 0x80) {
             g_minstel_pri->fixed_rate_idx = sta->sta_wnet_vif->vm_fixed_rate.rateinfo;
-        } else {
+        } else if(!is_amsdu) {
             g_minstel_pri->fixed_rate_idx = protocol_rate_to_vendor_rate(sta->sta_wnet_vif->vm_fixed_rate.rateinfo);
-        }
+        } else
+            g_minstel_pri->fixed_rate_idx = ((u32) -1);
 
     } else {
         g_minstel_pri->fixed_rate_idx = ((u32) -1);
@@ -791,7 +815,6 @@ unsigned char minstrel_find_rate(
     if (priv_sta == NULL) {
         AML_OUTPUT("sta->sta_flags=%08x, sta:%p\n", sta->sta_flags, sta);
     }
-
     p_rate_control_ops->get_rate(g_minstel_pri, p_ieee_sta, priv_sta, info);
     if (mcs_rate && check_is_rate_fitable(sta, info, priv_sta)) {
         memset(&tx_info, 0,sizeof(struct ieee80211_tx_info));

@@ -412,7 +412,7 @@ int wifi_mac_mgmt_validate(struct wifi_station *sta, struct sk_buff *skb, unsign
     data_len = skb->len - hdr_len - iv_len - icv_len;
     mgmt_data = ZMALLOC(data_len, "mgmt_data", GFP_ATOMIC);
     if (mgmt_data == NULL) {
-        ERROR_DEBUG_OUT("mgmt_data alloc fail\n");
+        ERROR_DEBUG_OUT("mgmt_data alloc fail, request data size = %dByte\n", data_len);
         goto fail;
     }
 
@@ -452,6 +452,7 @@ int wifi_mac_mgmt_validate(struct wifi_station *sta, struct sk_buff *skb, unsign
     return 0;
 
 fail:
+    ERROR_DEBUG_OUT("validate mgmt failed: subtype = 0x%x\n", subtype);
     return 1;
 }
 

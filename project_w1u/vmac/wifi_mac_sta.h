@@ -243,6 +243,7 @@ struct wifi_station
     int32_t sta_avg_snr;
     unsigned int sta_last_txrate;  //kbps
     unsigned int sta_last_rxrate;  //kbps
+    unsigned char sta_rxrate_index;
 
     unsigned char sta_maxrate_vht; /* b0-b3: mcs idx; b4-b7: # streams */
     unsigned int sta_vhtcap;        /* VHT capability */
@@ -305,6 +306,7 @@ struct wifi_station
     struct ieee80211_sta ieee_sta;
     unsigned char sta_vendor_bw;
     unsigned char sta_vendor_rate_code;
+    unsigned char is_disconnecting;
 };
 
 #define WDS_AGING_TIME 600

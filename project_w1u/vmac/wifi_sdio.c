@@ -70,6 +70,20 @@ struct sdio_func *aml_priv_to_func(int func_n)
 }
 #endif//HAL_FPGA_VER
 
+
+extern unsigned char set_wifi_bt_sdio_driver_bit(bool is_register, int shift);
+extern void set_usb_bt_power(int is_on);
+extern void set_usb_wifi_power(int is_on);
+extern int  aml_w1_sdio_init(void);
+extern void  aml_w1_sdio_exit(void);
+extern unsigned char  chip_en_access;
+extern unsigned char wifi_sdio_access;
+extern unsigned char w1_sdio_driver_insmoded;
+extern unsigned char w1_sdio_wifi_bt_alive;
+extern unsigned char w1_sdio_after_porbe;
+
+
+
 #ifndef SDIO_BUILD_IN
 #if defined (HAL_FPGA_VER)
 static int _aml_sdio_request_byte(unsigned char   func_num,
@@ -562,7 +576,7 @@ int aml_sdio_scat_rw(struct scatterlist *sg_list, unsigned int sg_num, unsigned 
     sdio_release_host(func);
 
     if (mmc_cmd.error || mmc_dat.error) {
-        AML_OUTPUT("ERROR CMD53 %s cmd_error = %d data_error=%d\n",
+	    AML_OUTPUT("ERROR CMD53 %s cmd_error = %d data_error=%d\n",
 		write ? "write" : "read", mmc_cmd.error, mmc_dat.error);
 	    ret  = mmc_cmd.error;
     }
@@ -1515,11 +1529,53 @@ create_thread_error:
 
 void aml_disable_wifi(void)
 {
+    unsigned char bt_alive = 0;
     wifi_sdio_access = 0;
-    AML_OUTPUT("aml_disable_wifi start sdio access %d\n", wifi_sdio_access);
-    config_pmu_reg(AML_W1_WIFI_POWER_OFF);
-    msleep(50);
+    printk("aml_disable_wifi start sdio access %d, chip en %d\n", wifi_sdio_access, chip_en_access);
+
+    //if (chip_en_access) {
+    if (1) {
+
+        /*1 chip en off and detect sdio card*/
+        set_usb_bt_power(0);
+        msleep(20);
+        set_usb_wifi_power(0);
+        msleep(20);
+
+        /*2 remove sdio drvier*/
+        bt_alive = (w1_sdio_wifi_bt_alive & BIT(0))? 1:0;
+        set_wifi_bt_sdio_driver_bit(0, BT_POWER_CHANGE_SHIFT); 
+        set_wifi_bt_sdio_driver_bit(0, WIFI_POWER_CHANGE_SHIFT);
+        while (w1_sdio_driver_insmoded == 1) {
+            msleep(100);
+        }
+
+
+        /*3 chip en on and detect sdio card*/
+        if (bt_alive) {
+            set_usb_bt_power(1);
+        }
+        set_usb_wifi_power(1);
+        msleep(200);
+
+        /*4 restore sdio flag for BT and WiFi*/
+        if (bt_alive) {
+            set_wifi_bt_sdio_driver_bit(1, BT_POWER_CHANGE_SHIFT);
+        }
+        set_wifi_bt_sdio_driver_bit(1, WIFI_POWER_CHANGE_SHIFT);
+
+        /*5 insmod sdio drvier*/
+        aml_w1_sdio_init();
+        while (w1_sdio_driver_insmoded == 0) {
+            msleep(100);
+        }
+
+    } else {
+        config_pmu_reg(AML_W1_WIFI_POWER_OFF);
+        msleep(50);
+    }
 }
+
 
 
 void aml_enable_wifi(void)
@@ -1787,6 +1843,9 @@ static const struct sdio_device_id aml_devices[] =
 {
     {SDIO_DEVICE(VENDOR_AMLOGIC,PRODUCT_AMLOGIC) },
     {SDIO_DEVICE(VENDOR_AMLOGIC_EFUSE,PRODUCT_AMLOGIC_EFUSE)},
+    {SDIO_DEVICE(W1u_VENDOR_AMLOGIC_EFUSE,W1us_PRODUCT_AMLOGIC_EFUSE)},
+    {SDIO_DEVICE(W1u_VENDOR_AMLOGIC_EFUSE,W1us_A_PRODUCT_AMLOGIC_EFUSE)},
+    {SDIO_DEVICE(W1u_VENDOR_AMLOGIC_EFUSE,W1us_B_PRODUCT_AMLOGIC_EFUSE)},
     {}
 };
 

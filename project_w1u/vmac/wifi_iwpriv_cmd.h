@@ -4,6 +4,67 @@
 
 extern struct iw_handler_def w1_iw_handle;
 
+#define CALI_ADDR_NUM(x1,x2) (((x2) - (x1)) / 4 + 1)
+#define RF_TOP_ADDR_START 0xff000000
+#define RF_TOP_ADDR_END 0xff0000b4
+#define RF_TOP_ADDR_NUM CALI_ADDR_NUM(RF_TOP_ADDR_START, RF_TOP_ADDR_END)
+#define RF_SX_ADDR_START 0xff000400
+#define RF_SX_ADDR_EDN 0xff0004c8
+#define RF_SX_ADDR_NUM CALI_ADDR_NUM(RF_SX_ADDR_START, RF_SX_ADDR_EDN)
+#define RF_TX_ADDR_START 0xff000800
+#define RF_TX_ADDR_END 0xff000838
+#define RF_TX_ADDR_NUM CALI_ADDR_NUM(RF_TX_ADDR_START, RF_TX_ADDR_END)
+#define RF_RX_ADDR_START 0xff000c00
+#define RF_RX_ADDR_END 0xff000d7c
+#define RF_RX_ADDR_NUM CALI_ADDR_NUM(RF_RX_ADDR_START, RF_RX_ADDR_END)
+#define ADDA_CORE_ADDR_START 0x00a0e000
+#define ADDA_CORE_ADDR_END 0x00a0e01c
+#define ADDA_CORE_ADDR_NUM CALI_ADDR_NUM(ADDA_CORE_ADDR_START, ADDA_CORE_ADDR_END)
+#define ADDA_XMIT_ADDR_START 0x00a0e400
+#define ADDA_XMIT_ADDR_END 0x00a0e630
+#define ADDA_XMIT_ADDR_NUM CALI_ADDR_NUM(ADDA_XMIT_ADDR_START, ADDA_XMIT_ADDR_END)
+#define ADDA_RECV_ADDR_START 0x00a0e800
+#define ADDA_RECV_ADDR_END 0x00a0e868
+#define ADDA_RECV_ADDR_NUM CALI_ADDR_NUM(ADDA_RECV_ADDR_START, ADDA_RECV_ADDR_END)
+#define ADDA_ESTI_ADDR_START 0x00a0ec00
+#define ADDA_ESTI_ADDR_END 0x00a0ee64
+#define ADDA_ESTI_ADDR_NUM CALI_ADDR_NUM(ADDA_ESTI_ADDR_START, ADDA_ESTI_ADDR_END)
+#define AGC_ADDR_START 0x00a08000
+#define AGC_ADDR_END 0x00a08300
+#define AGC_ADDR_NUM CALI_ADDR_NUM(AGC_ADDR_START, AGC_ADDR_END)
+#define OFDM_ADDR_START 0x00a09000
+#define OFDM_ADDR_END 0x00a09324
+#define OFDM_ADDR_NUM CALI_ADDR_NUM(OFDM_ADDR_START, OFDM_ADDR_END)
+#define PHY_ADDR_START 0x00a0b000
+#define PHY_ADDR_END 0x00a0b248
+#define PHY_ADDR_NUM CALI_ADDR_NUM(PHY_ADDR_START, PHY_ADDR_END)
+#define AON_REG_ADDR_START 0x00f01000
+#define AON_REG_ADDR_END 0x00f0107c
+#define AON_REG_ADDR_NUM CALI_ADDR_NUM(AON_REG_ADDR_START, AON_REG_ADDR_END)
+enum
+{
+    RF_TOP_SEQ = 0,
+    RF_SX_SEQ,
+    RF_TX_SEQ,
+    RF_RX_SEQ,
+    ADDA_CORE_SEQ,
+    ADDA_XMIT_SEQ,
+    ADDA_RECV_SEQ,
+    ADDA_ESTI_SEQ,
+    AGC_SEQ,
+    OFDM_SEQ,
+    PHY_SEQ,
+    AON_SEQ,
+    DUMP_REG_SEQ_MAX,
+};
+
+typedef struct
+{
+    int addr_start;
+    int addr_end;
+    int num;
+}reg_addr_attr_t;
+
 enum aml_iwpriv_subcmd
 {
     AML_IWP_ADDBA_REQ = 1,
@@ -82,9 +143,15 @@ enum aml_iwpriv_subcmd
     AML_IWP_SET_MAC_MODE = 74,
     AML_IWP_GET_HOST_LOG = 75,
     AML_IWP_GET_FW_LOG = 76,
+    AML_IWP_SET_RECOVERY = 77,
+    AML_IWP_GET_EFUSE = 78,
+    AML_IWP_SET_EFUSE = 79,
+    AML_IWP_GET_SPEC_REGS = 80,
 };
 
+extern void dump_spec_regs_val(struct wlan_net_vif *wnet_vif, int reg_domain);
 extern unsigned char aml_iwpriv_get_band(void);
 int aml_set_debug_modules(char *debug_str);
 
+extern unsigned char g_iwpriv_get_spec_regs_flag;
 #endif

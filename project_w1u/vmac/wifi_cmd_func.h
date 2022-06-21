@@ -135,4 +135,6 @@ extern int aml_wpa_set_initial_gain_change_hang(struct wlan_net_vif *wnet_vif, c
 extern int aml_wpa_set_tx_power_change_hang(struct wlan_net_vif *wnet_vif, char* buf, int len);
 extern int aml_set_tx_power_plan(struct wlan_net_vif *wnet_vif, char* buf, int len);
 extern int aml_wpa_set_debug(struct wlan_net_vif *wnet_vif, char* buf, int len);
+extern int aml_wpa_get_efuse(struct wlan_net_vif *wnet_vif, char* buf, int len);
+extern int aml_wpa_set_efuse(struct wlan_net_vif *wnet_vif, char* buf, int len);
 #endif

@@ -1,7 +1,7 @@
 #include "wifi_hal_com.h"
 
 void print_driver_version(void) {
-    printk("driver compile date:2022-03-10 16:35:22, driver hash: drv_hash:11a766db42cfca37e1c32dec79d5d0b357c16b54\n");
-    printk("fw compile date: 116280 Mar, 10, fw hash: fw_hash:abdfc31482e431327ca9b480e1ad8ef92a8a47e5\n");
-    printk("rf cali: last commit: 2022/Mar/5 20:43:04  hash:f5f8c15835ca5f624174156eaf8edeffbf66a806\n");
+    printk("driver compile date:2022-04-16 21:03:48, driver hash: drv_hash:568ef5bf0b119022cd306edc267b4856c96a10e3\n");
+    printk("fw compile date: 116280 Apr, 16, fw hash: fw_hash:568ef5bf0b119022cd306edc267b4856c96a10e3\n");
+    printk("rf cali: last commit: 2022/Mar/21 15:32:32  hash:c9dea380b8cd1254e423fc2db41acda7d6f593c0\n");
 }

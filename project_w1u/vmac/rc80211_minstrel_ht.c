@@ -567,6 +567,7 @@ void minstrel_init_start_stats(void *priv, void *priv_sta, unsigned char max_rat
 
     mi->sample_init_flag = 1;
     mi->sample_force_counts = 3;
+    mi->need_clear_rate_index = 0;
     for (group = 0; group < ARRAY_SIZE(minstrel_mcs_groups); group++) {
         group_bw = minstrel_mcs_groups[group].flags & IEEE80211_TX_RC_80_MHZ_WIDTH ? BW_80
             : minstrel_mcs_groups[group].flags & IEEE80211_TX_RC_40_MHZ_WIDTH ? BW_40 : BW_20;
@@ -747,7 +748,13 @@ minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
     if (time_after(jiffies, mi->last_stats_update + (mp->update_interval * HZ) * 5 / 1000)) {
         update = true;
         max_rate = get_fitable_mcs_rate(sta, bw);
-        minstrel_clear_unfitable_rate_stats(mi, max_rate);
+        if(mi->need_clear_rate_index && mi->need_clear_rate_index < max_rate) {
+            max_rate = mi->need_clear_rate_index;
+        }
+        mi->need_clear_rate_index = 0;
+        if(sta->sta_wnet_vif->txtp_stat.vm_tx_speed > 0) {
+            minstrel_clear_unfitable_rate_stats(mi, max_rate);
+        }
         minstrel_ht_update_stats(mp, mi);
     }
 
@@ -912,8 +919,16 @@ static int minstrel_check_sample_idx(int tp_rate1_grp, int tp_rate1_idx, unsigne
 {
     struct minstrel_mcs_group_data *mg = &mi->groups[tp_rate1_grp];
     struct minstrel_rate_stats *mrs = &mg->rates[tp_rate1_idx];
+    int tmp_prob_success = 50;
 
-    if ((*sample_idx > tp_rate1_idx) && (mrs->prob_ewma < MINSTREL_FRAC(50, 100))) {
+    if(mrs->prob_ewma < MINSTREL_FRAC(40, 100) && tp_rate1_idx > 1 && mrs->attempts > 30 
+        && tp_rate1_grp < 4) {
+        mi->need_clear_rate_index = tp_rate1_idx - 1;
+    }
+    if((tp_rate1_idx % MCS_GROUP_RATES == 6 || tp_rate1_idx % MCS_GROUP_RATES == 5) && tp_rate1_grp < 4)
+        tmp_prob_success = 90;
+
+    if ((*sample_idx > tp_rate1_idx) && (mrs->prob_ewma < MINSTREL_FRAC(tmp_prob_success, 100))) {
         while (1) {
             *sample_group = mi->sample_group;
             mg = &mi->groups[*sample_group];
@@ -921,7 +936,7 @@ static int minstrel_check_sample_idx(int tp_rate1_grp, int tp_rate1_idx, unsigne
             minstrel_set_next_sample_idx(mi);
 
             if (!(mi->supported[*sample_group] & BIT(*sample_idx))) {
-                return -1;
+                continue ;
             }
 
             if (*sample_idx <= tp_rate1_idx) {
@@ -1217,7 +1232,7 @@ minstrel_ht_update_caps(void *priv, struct ieee80211_supported_band *sband,
 			continue;
 
 		if (gflags & IEEE80211_TX_RC_80_MHZ_WIDTH) {
-			if (((gflags & IEEE80211_TX_RC_SHORT_GI) &&
+			if (((gflags & IEEE80211_TX_RC_SHORT_GI) && 
 				!(vht_cap->cap & IEEE80211_VHT_CAP_SHORT_GI_80))
 				 || sta->bandwidth < IEEE80211_STA_RX_BW_80) {
 				continue;

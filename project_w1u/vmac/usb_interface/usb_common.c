@@ -365,6 +365,8 @@ static int auc_resume(struct usb_interface *interface)
 static const struct usb_device_id auc_devices[] =
 {
     {USB_DEVICE(W1u_VENDOR,W1u_PRODUCT)},
+    {USB_DEVICE(W1u_VENDOR_AMLOGIC_EFUSE,W1uu_A_PRODUCT_AMLOGIC_EFUSE)},
+    {USB_DEVICE(W1u_VENDOR_AMLOGIC_EFUSE,W1uu_B_PRODUCT_AMLOGIC_EFUSE)},
     {}
 };
 

@@ -448,7 +448,7 @@ void Driver_mic_error_event(void *  drv_priv,const void * wh,unsigned char * sa,
 //void Driver_mic_error_event(void *  drv_priv,unsigned char bGroupPacket ,unsigned char *addr,unsigned char vmac_id);
 //void Driver_intr_rx_handle(void *  drv_priv,struct sk_buff *skb,unsigned char Rssi,unsigned char RxRate);
 void Driver_intr_rx_handle(void *  drv_prv,struct sk_buff *skb,unsigned char Rssi,unsigned char RxRate,
-        unsigned char channel,  unsigned char aggr, unsigned char wnet_vif_id,unsigned char keyid);
+        unsigned char channel,  unsigned char aggr, unsigned char wnet_vif_id,unsigned char keyid, unsigned int channel_bw, unsigned int rx_sgi);
 void Driver_intr_dtim_send(void *dev,unsigned char vid);
 void Driver_intr_bcn_send(void *dev,unsigned char vid);
 void Driver_intr_ba_recv(void *dev,unsigned char vid);

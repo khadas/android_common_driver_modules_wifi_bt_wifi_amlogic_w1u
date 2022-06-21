@@ -47,7 +47,7 @@
 #define WF2BT_DCCM_RAM      (0x00400000)  //BT DCCM RAM baseAddr seen from wifi system side
 #define WF2BT_MAC_ARC       (WF2BT_APB_BASE + 0x0c)
 #define RW_OPERTION_SIZE    (4)
-
+    
 //base address
 #define   PRODUCT_AMLOGIC_ADDR  (MAC_SRAM_BASE+0x000000)
 #define   VENDOR_AMLOGIC_ADDR  (MAC_SRAM_BASE+0x000004)

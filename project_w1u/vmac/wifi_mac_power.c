@@ -747,7 +747,12 @@ int wifi_mac_buffer_txq_send(struct sk_buff_head *txqueue)
     struct sk_buff *skb = NULL;
     struct wifi_station *sta;
     struct wifi_mac *wifimac;
-    unsigned int qlen_real = WIFINET_SAVEQ_QLEN(txqueue);
+    unsigned int qlen_real = 0;
+
+    WIFINET_SAVEQ_LOCK(txqueue);
+    qlen_real = WIFINET_SAVEQ_QLEN(txqueue);
+    WIFINET_SAVEQ_UNLOCK(txqueue);
+
     if (qlen_real == 0) {
         return qlen_real;
     }

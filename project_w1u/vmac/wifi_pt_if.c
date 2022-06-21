@@ -73,7 +73,7 @@ void Driver_mic_error_event(void *drv_priv,
 }
 
 void Driver_intr_rx_handle(void *drv_prv,struct sk_buff *skb, unsigned char Rssi, unsigned char RxRate,
-        unsigned char channel, unsigned char aggr, unsigned char wnet_vif_id,unsigned char keyid)
+        unsigned char channel, unsigned char aggr, unsigned char wnet_vif_id,unsigned char keyid, unsigned int channel_bw, unsigned int rx_sgi)
 {
     recv_frame_num++;
 

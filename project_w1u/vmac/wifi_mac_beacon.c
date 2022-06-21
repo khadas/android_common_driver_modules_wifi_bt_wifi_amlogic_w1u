@@ -13,6 +13,7 @@
  */
 
 #include "wifi_mac_com.h"
+#include "wifi_iwpriv_cmd.h"
 
 static unsigned char *
 wifi_mac_beacon_init(struct wifi_station *sta, struct wifi_mac_beacon_offsets *bo, unsigned char *frm)
@@ -819,6 +820,9 @@ void wifi_mac_process_beacon_miss_ex(SYS_TYPE arg)
              && (wnet_vif->vm_bmiss_count >= 2)) {
             AML_OUTPUT("Miss beacon trigger roaming\n");
             wifi_mac_roaming_trigger(wnet_vif);
+            if (g_iwpriv_get_spec_regs_flag) {
+                dump_spec_regs_val(wnet_vif, AON_SEQ);
+            }
          }
         return;
     }

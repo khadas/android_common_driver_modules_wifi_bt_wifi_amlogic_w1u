@@ -252,22 +252,23 @@ struct minstrel_ht_sta {
     u8 sample_all_bw;
     u8 sample_clear_flag;
     u8 sample_clear_bw;
-	u8 sample_wait;
-	u8 sample_tries;
-	u32 sample_count;
-	u8 sample_slow;
+    u8 sample_wait;
+    u8 sample_tries;
+    u32 sample_count;
+    u8 sample_slow;
 
-	/* current MCS group to be sampled */
-	u8 sample_group;
+    /* current MCS group to be sampled */
+    u8 sample_group;
 
-	u8 cck_supported;
-	u8 cck_supported_short;
+    u8 cck_supported;
+    u8 cck_supported_short;
 
-	/* Bitfield of supported MCS rates of all groups */
-	u16 supported[MINSTREL_GROUPS_NB];
+    /* Bitfield of supported MCS rates of all groups */
+    u16 supported[MINSTREL_GROUPS_NB];
 
-	/* MCS rate group info and statistics */
-	struct minstrel_mcs_group_data groups[MINSTREL_GROUPS_NB];
+    /* MCS rate group info and statistics */
+    struct minstrel_mcs_group_data groups[MINSTREL_GROUPS_NB];
+    unsigned char need_clear_rate_index;
 };
 
 struct minstrel_ht_sta_priv {

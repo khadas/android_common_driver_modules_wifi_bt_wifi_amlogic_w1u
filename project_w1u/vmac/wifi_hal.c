@@ -236,7 +236,8 @@ void hal_soft_rx_cs(struct hal_private *hal_priv, struct sk_buff *skb)
 
         if (RxPrivHdr_bit->mic_err) {
             pkt_drop = hal_priv->hal_call_back->pmf_encrypt_pkt_handle(hal_priv->drv_priv, skb, RxPrivHdr_bit->RxRSSI_ant0,
-                RxPrivHdr_bit->RxRate, RxPrivHdr_bit->RxChannel, RxPrivHdr_bit->aggregation, wnet_vif_id,RxPrivHdr_bit->key_id);
+                RxPrivHdr_bit->RxRate, RxPrivHdr_bit->RxChannel, RxPrivHdr_bit->aggregation, wnet_vif_id,RxPrivHdr_bit->key_id,
+                RxPrivHdr_bit->Channel_BW, RxPrivHdr_bit->RxShortGI);
 
             hal_priv->hal_call_back->mic_error_event(hal_priv->drv_priv,RxPrivHdr_bit->data,
                 WIFI_ADDR2(RxPrivHdr_bit->data),wnet_vif_id);
@@ -274,7 +275,8 @@ void hal_soft_rx_cs(struct hal_private *hal_priv, struct sk_buff *skb)
 
         // push to upper layer
         hal_priv->hal_call_back->intr_rx_handle(hal_priv->drv_priv, skb, RxPrivHdr_bit->RxRSSI_ant0,
-            RxPrivHdr_bit->RxRate, RxPrivHdr_bit->RxChannel, RxPrivHdr_bit->aggregation, wnet_vif_id,RxPrivHdr_bit->key_id);
+            RxPrivHdr_bit->RxRate, RxPrivHdr_bit->RxChannel, RxPrivHdr_bit->aggregation, wnet_vif_id,RxPrivHdr_bit->key_id,
+            RxPrivHdr_bit->Channel_BW, RxPrivHdr_bit->RxShortGI);
     }
 }
 #elif defined (HAL_SIM_VER)
@@ -382,7 +384,8 @@ void hal_soft_rx_cs(struct hal_private *hal_priv, struct sk_buff *skb)
                                         skb,RxPrivHdr_bit->RxRSSI_ant0,
                                         RxPrivHdr_bit->RxRate,
                                         RxPrivHdr_bit->RxChannel, RxPrivHdr_bit->aggregation,
-                                        RxPrivHdr_bit->RxA1match_id,RxPrivHdr_bit->key_id );
+                                        RxPrivHdr_bit->RxA1match_id,RxPrivHdr_bit->key_id,
+                                        RxPrivHdr_bit->Channel_BW, RxPrivHdr_bit->RxShortGI);
         }
 }
 #endif
@@ -1856,6 +1859,7 @@ void hal_get_sts(unsigned int op_code, unsigned int ctrl_code)
         {
             AML_OUTPUT("en_beacon[0]=%d\nen_beacon[1]=%d\n", hal_priv->sts_en_bcn[0], hal_priv->sts_en_bcn[1]);
             AML_OUTPUT("dis_beacon[0]=%d\ndis_beacon[1]=%d\n", hal_priv->sts_dis_bcn[0], hal_priv->sts_dis_bcn[1]);
+            printk("hal:fw recovery cnt %d last stamp %lu\n", hal_priv->fwRecoveryCnt, hal_priv->fwRecoveryStamp);
 
             AML_OUTPUT("hal:tx_free_page %d \n", hal_priv->txPageFreeNum);
             AML_OUTPUT("hal:tx_ok_num:%d, tx_fail_num:%d\n", hif->HiStatus.tx_ok_num, hif->HiStatus.tx_fail_num);
@@ -1916,13 +1920,11 @@ int cmp_vid(struct drv_private *drv_priv)
     /*add p2p0 interface*/
     wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_P2P_VMAC];
     myaddr[2] += NET80211_P2P_VMAC<<4;
-    if (wnet_vif->vm_opmode == WIFINET_M_P2P_DEV) {
-        drv_add_wnet_vif(drv_priv, NET80211_P2P_VMAC, wnet_vif, wifi_mac_opmode_2_halmode(WIFINET_M_STA),  myaddr, ipv4);
-    } else if (wnet_vif->vm_opmode == WIFINET_M_HOSTAP) {
+    if (wnet_vif->vm_hal_opmode == WIFI_M_HOSTAP) {
         drv_add_wnet_vif(drv_priv, NET80211_P2P_VMAC, wnet_vif, wifi_mac_opmode_2_halmode(WIFINET_M_HOSTAP),  myaddr, ipv4);
+
     } else {
-        //drv_add_wnet_vif(drv_priv, NET80211_MAIN_VMAC, wnet_vif, wifi_mac_opmode_2_halmode(WIFINET_M_STA),  myaddr, ipv4);
-        ERROR_DEBUG_OUT("error opmode %d\n", wnet_vif->vm_opmode);
+        drv_add_wnet_vif(drv_priv, NET80211_P2P_VMAC, wnet_vif, wifi_mac_opmode_2_halmode(WIFINET_M_STA),  myaddr, ipv4);
     }
 
     return 0;
@@ -2029,7 +2031,7 @@ __exit_err:
 }
 
 
-
+extern unsigned char chip_en_access;
 static int hal_get_did(struct hw_interface* hif)
 {
     unsigned int Wifi_DeviceID = hi_get_device_id();
@@ -2037,7 +2039,7 @@ static int hal_get_did(struct hw_interface* hif)
     int ret = false;
 
     PRINT("Wifi_DeviceID = %x\n",Wifi_DeviceID);
-    while ((Wifi_DeviceID != PRODUCT_AMLOGIC) /*&& (delay_ms < HI_FI_SYNC_DELAY_MS) */)
+    while ((Wifi_DeviceID != PRODUCT_AMLOGIC) && (delay_ms < HI_FI_SYNC_DELAY_MS))
     {
         Wifi_DeviceID = hi_get_device_id();
         if(!aml_bus_type) {
@@ -2056,6 +2058,8 @@ static int hal_get_did(struct hw_interface* hif)
     if (Wifi_DeviceID == PRODUCT_AMLOGIC)
     {
         ret = true;
+    } else {
+        chip_en_access = 1;
     }
     hif->Wifi_DeviceID = Wifi_DeviceID;
     return ret;
@@ -2066,7 +2070,7 @@ static int hal_get_vid(struct hw_interface* hif)
     unsigned int Wifi_VendorID = hi_get_vendor_id();
     int delay_ms = 0;
     int ret = false;
-    PRINT("Wifi_DeviceID = %x\n",Wifi_VendorID);
+    PRINT("Wifi_VendorID = %x\n",Wifi_VendorID);
     while ((Wifi_VendorID!=VENDOR_AMLOGIC) && (delay_ms < HI_FI_SYNC_DELAY_MS) )
     {
         Wifi_VendorID = hi_get_vendor_id();
@@ -2093,19 +2097,19 @@ static int hal_get_vid(struct hw_interface* hif)
     return ret;
 }
 
-extern unsigned int efuse_manual_read(unsigned int addr);
 static int hal_get_chip_id(void)
 {
+    struct hw_interface* hif = hif_get_hw_interface();
     int ret = false;
 #ifdef CONFIG_MAC_SUPPORT
     unsigned int chip_id_l = 0;
     unsigned int chip_id_h = 0;
     unsigned char chip_id_buf[23];
 
-    chip_id_l = efuse_manual_read(CHIP_ID_EFUASE_L);
-    AML_OUTPUT("efuse addr:%08x, chip_id is :%08x\n", CHIP_ID_EFUASE_L, chip_id_l);
-    chip_id_h = efuse_manual_read(CHIP_ID_EFUASE_H);
-    AML_OUTPUT("efuse addr:%08x, chip_id is :%08x\n", CHIP_ID_EFUASE_H, chip_id_h);
+    chip_id_l = hif->hif_ops.hi_read_efuse(CHIP_ID_EFUASE_L);
+    AML_OUTPUT("efuse addr:%08x, chip id is:%08x\n", CHIP_ID_EFUASE_L, chip_id_l);
+    chip_id_h = hif->hif_ops.hi_read_efuse(CHIP_ID_EFUASE_H);
+    AML_OUTPUT("efuse addr:%08x, chip id is:%08x\n", CHIP_ID_EFUASE_H, chip_id_h);
 
     sprintf(chip_id_buf, CHIP_ID_F, chip_id_h & 0xffff, chip_id_l);
     if (aml_store_to_file(WIFIMAC_PATH, chip_id_buf, strlen(chip_id_buf)) > 0) {
@@ -3534,6 +3538,7 @@ void hal_dpd_calibration(void)
     struct hw_interface* hif = hif_get_hw_interface();
     struct hal_private * hal_priv = hal_get_priv();
     struct drv_private *drv_priv = drv_get_drv_priv();
+    struct wlan_net_vif *wnet_vif = NULL;
 
     if (aml_bus_type) {
         if (drv_priv->drv_scanning == 1) {
@@ -3541,6 +3546,10 @@ void hal_dpd_calibration(void)
             return;
         }
         hal_priv->dpd_suspend = 1;
+        wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_MAIN_VMAC];
+        if ((wnet_vif != NULL) && (wnet_vif->vm_opmode == WIFINET_M_STA)) {
+            wifi_mac_scan_forbidden(wnet_vif,FORBIDDEN_SCAN_FOR_DPD_RECAIL_TIMEOUT,FORBIDDEN_SCAN_FOR_DPD_RECAIL);
+        }
         if (hif->HiStatus.Tx_Free_num != hif->HiStatus.Tx_Done_num) {
             hal_priv->dpd_wait_pkt_clear = 1;
             return;

@@ -72,6 +72,8 @@
 
 #define DEFAULT_TXAMPDU_EN              1   //default  support Aggr tx : Leagcy & capture mode: AMPDU=0; 
 #define DEFAULT_RXAMPDU_EN              1    //default  support Aggr rx : Leagcy & capture mode: AMPDU=0; 
+#define DEFAULT_SUPPORT_RECOVERY        1
+
 
 
 #define SRAM_16KMODE 0  // 0: normal ; 1: capture 

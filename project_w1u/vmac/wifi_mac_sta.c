@@ -641,11 +641,20 @@ void wifi_mac_sta_leave(struct wifi_station *sta, int reassoc)
         wifimac->drv_priv->drv_ops.drv_set_is_mother_channel(wifimac->drv_priv, wnet_vif->wnet_vif_id, 1);
         wifi_mac_rst_bss(wnet_vif);
         wifi_mac_rst_main_sta(wnet_vif);
+
+        if (wifimac->recovery_stat == WIFINET_RECOVERY_END) {
+            wnet_vif->vm_des_nssid = 0;
+            memset(wnet_vif->vm_des_ssid, 0, IV_SSID_SCAN_AMOUNT*sizeof(struct wifi_mac_ScanSSID));
+        }
+
         wifimac->scan_noisy_status = WIFINET_S_SCAN_ENV_NOISE;
         wifimac->is_connect_set_gain = 1;
         wifimac->drv_priv->drv_ops.set_channel_rssi(wifimac->drv_priv, 174);
     }
-    wnet_vif->vm_phase_flags = 0;
+
+    if ((wnet_vif->vm_phase_flags & PHASE_WAIT_DISCONNECT_RESULT) == 0) {
+        wnet_vif->vm_phase_flags = 0;
+    }
     wifi_mac_scan_access(wnet_vif);
 
     /*
@@ -747,6 +756,8 @@ alloc_sta_node(struct wifi_station_tbl *nt,struct wlan_net_vif *wnet_vif)
     sta->sta_last_txrate = 1000; /*1M*/
     sta->sta_last_rxrate = 1000; /*1M*/
     sta->minstrel_init_flag = 0;
+    sta->is_disconnecting = 0;
+    sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy = false;
 
     sta->drv_sta = wifimac->drv_priv->drv_ops.alloc_nsta(wifimac->drv_priv, wnet_vif->wnet_vif_id, sta);
 
@@ -1000,8 +1011,7 @@ static struct wifi_station *wifi_mac_find_sta(struct wifi_station_tbl *nt,
     hash = WIFINET_NODE_HASH(macaddr);
     WIFINET_NODE_LOCK(nt);
     list_for_each_entry_safe(sta, sta_next, &nt->nt_nsta, sta_list) {
-        if((WIFINET_ADDR_EQ(sta->sta_macaddr, macaddr))&&(sta->wnet_vif_id == wnet_vif_id))
-        {
+        if((WIFINET_ADDR_EQ(sta->sta_macaddr, macaddr))&&(sta->wnet_vif_id == wnet_vif_id))  {
             WIFINET_NODE_UNLOCK(nt);
             return sta;
         }
@@ -1697,7 +1707,7 @@ void wifi_mac_func_to_task_cb(SYS_TYPE param1, SYS_TYPE param2, SYS_TYPE param3,
 
 void wifi_mac_sta_disassoc(void *arg, struct wifi_station *sta)
 {
-    struct wlan_net_vif *wnet_vif = arg;
+    struct wlan_net_vif *wnet_vif = arg;	
     struct wifi_station_tbl *nt = &(wnet_vif->vm_sta_tbl);
     int mgmt_arg = WIFINET_REASON_ASSOC_LEAVE;
 
@@ -1969,10 +1979,18 @@ void wifi_mac_sta_connect(struct wifi_station *sta, int resp)
 
         arg = WIFINET_STATUS_SUCCESS;
         para = (void *)&arg;
-        wifi_mac_send_mgmt(sta, resp, para);
+        if(wifi_mac_send_mgmt(sta, resp, para) != 0) {
+            wifi_mac_sta_disconnect_from_ap(sta);
+            return;
+        }
     }
     wifi_mac_new_assoc(sta, newassoc);
     wifi_mac_notify_nsta_connect(sta, newassoc);
+
+    if(wnet_vif->vm_curchan == WIFINET_CHAN_ERR) {
+        wifi_mac_sta_disconnect_from_ap(sta);
+        return;
+    }
 
     AML_OUTPUT("****************************************************\n");
     AML_OUTPUT("sta associated!!! STA CHANNEL:%d, BW:%d, SSID:%s, BSSID:%02x:%02x:%02x:%02x:%02x:%02x\n",

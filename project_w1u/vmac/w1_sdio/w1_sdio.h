@@ -56,6 +56,11 @@ extern void set_usb_bt_power(int is_on);
 #define W1_PRODUCT_AMLOGIC  0x8888
 #define W1_VENDOR_AMLOGIC  0x8888
 
+#define W1u_VENDOR_AMLOGIC_EFUSE  0x1B8E
+#define W1us_B_PRODUCT_AMLOGIC_EFUSE  0x0500
+#define W1us_A_PRODUCT_AMLOGIC_EFUSE  0x04C0
+#define W1us_PRODUCT_AMLOGIC_EFUSE  0x0440
+
 //sdio manufacturer code, usually vendor ID, 'a'=0x61, 'm'=0x6d
 #define W1_VENDOR_AMLOGIC_EFUSE ('a'|('m'<<8))
 //sdio manufacturer info, usually product ID

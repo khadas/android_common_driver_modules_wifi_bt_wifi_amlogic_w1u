@@ -17,16 +17,18 @@ my $date   =  "$year-$mon-$day $hour:$min:$sec";
 
 chdir($dirname);
 
-my $FW_FILE_INFO = `ls -al ../firmware/bin_rom/wifi_fw_w1u.bin`;
-
 my $drv_hash    = "";
 my $fw_hash     = "";
 my $rf_hash     = "";
 my $drv_commit  = `git log -1`;
 my $fw_commit   = `git log -1 ../firmware`;
 my $rf_commit   = `git log -1 ../firmware/wifi_cali`;
-my @FW_FILE_TIME = split / /, $FW_FILE_INFO;
-my @rf_date = split / /, $rf_commit;
+my $fw_size   = `stat ../firmware/bin_rom/wifi_fw_w1u.bin | grep -w "Size" | awk '{print \$2}'`;
+$fw_size=~s/[\n\r]+$//;
+my $fw_date   = `stat ../firmware/bin_rom/wifi_fw_w1u.bin | grep -w "Modify" | awk '{print \$2 " " \$3}' | cut -d . -f 1`;
+$fw_date=~s/[\n\r]+$//;
+my $rf_date = `git log --date=iso -1 ../firmware/wifi_cali | sed -n '3p' | awk '{print \$2 " " \$3}'`;
+$rf_date=~s/[\n\r]+$//;
 
 if ($drv_commit =~ m/commit (.*)/){
   $drv_hash = $1;
@@ -44,9 +46,9 @@ open OUTPUT, ">", "$output" or die "open $output fail";
 
 print OUTPUT "#include \"wifi_hal_com.h\"\n\n";
 print OUTPUT "void print_driver_version(void) {\n";
-print OUTPUT "    printk(\"driver compile date:$date, driver hash: drv_hash:$drv_hash\\n\");\n";
-print OUTPUT "    printk(\"fw compile date: $FW_FILE_TIME[4] $FW_FILE_TIME[5], $FW_FILE_TIME[6], fw hash: fw_hash:$fw_hash\\n\");\n";
-print OUTPUT "    printk(\"rf cali: last commit: $rf_date[10]/$rf_date[7]/$rf_date[8] $rf_date[9]  hash:$rf_hash\\n\");\n";
+print OUTPUT "    printk(\"driver compile date: $date,driver hash: $drv_hash\\n\");\n";
+print OUTPUT "    printk(\"fw compile date: $fw_date,fw hash: $fw_hash,fw size: $fw_size\\n\");\n";
+print OUTPUT "    printk(\"rf cali: last commit: $rf_date hash:$rf_hash\\n\");\n";
 print OUTPUT "}\n";
 
 close OUTPUT;

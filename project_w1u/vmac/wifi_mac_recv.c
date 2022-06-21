@@ -400,8 +400,8 @@ int wifi_mac_input(void *station, struct sk_buff *skb, struct wifi_mac_rx_status
                         WIFINET_DPRINTF( AML_DEBUG_RECV,"data %s", "unknown src");
                         if  (wnet_vif->vm_state == WIFINET_S_CONNECTED)
                         {
-                            // AML_OUTPUT("<running> \n");
-                            wifi_mac_send_error(sta, wh->i_addr2, WIFINET_FC0_SUBTYPE_DEAUTH, WIFINET_REASON_NOT_AUTHED);
+                            //AML_OUTPUT("<running> \n");
+                            //wifi_mac_send_error(sta, wh->i_addr2, WIFINET_FC0_SUBTYPE_DEAUTH, WIFINET_REASON_NOT_AUTHED);
                         }
                         wnet_vif->vif_sts.sts_rx_not_assoc++;
                         goto err;
@@ -1195,6 +1195,8 @@ static void wifi_mac_auth_sae(struct wifi_station *sta, struct sk_buff *skb,
 
             if (status != 0) {
                 WIFINET_DPRINTF_STA(AML_DEBUG_WARNING, sta, "sae auth failed (reason %d)", status);
+                vm_cfg80211_indicate_disconnect(wnet_vif);
+                wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
             }
 
             vm_cfg80211_notify_mgmt_rx(wnet_vif, channel, os_skb_data(skb),os_skb_get_pktlen(skb));
@@ -3702,6 +3704,9 @@ static void wifi_mac_recv_auth(struct wlan_net_vif *wnet_vif,
 
     if ((sta->sta_associd) && (wnet_vif->vm_opmode == WIFINET_M_HOSTAP)) {
         AML_OUTPUT("sta try connect, but associd:%d not zero\n", sta->sta_associd);
+        if (sta->is_disconnecting == 1) {
+            return;
+        }
         wifi_mac_sta_disconnect_from_ap(sta);
         return;
     }
@@ -4334,7 +4339,8 @@ void wifi_mac_recv_deauth(struct wlan_net_vif *wnet_vif,
     subtype = wh->i_fc[0] & WIFINET_FC0_SUBTYPE_MASK;
 
     {
-        if ((wnet_vif->vm_opmode == WIFINET_M_STA) && (wnet_vif->vm_phase_flags & PHASE_DISCONNECTING)) {
+        if (((wnet_vif->vm_opmode == WIFINET_M_STA) && (wnet_vif->vm_phase_flags & PHASE_DISCONNECTING))
+            || ((wnet_vif->vm_opmode == WIFINET_M_HOSTAP) && (sta->is_disconnecting == 1))) {
             AML_OUTPUT("ignor rx deauth because we send first\n");
             return;
         }
@@ -4569,8 +4575,8 @@ void wifi_mac_recv_action(struct wlan_net_vif *wnet_vif, struct wifi_station *st
                         *(unsigned short *)&delbaparamset= le16toh(*(unsigned short *)&delba->dl_delbaparamset);
                         reasoncode = le16toh(delba->dl_reasoncode);
                         wifi_mac_delba(sta, &delbaparamset, reasoncode);
-                        DPRINTF(AML_DEBUG_ADDBA, "%s: DELBA  . TID %d, initiator %d, reason code %d vm_state %d\n",
-                            __func__, delbaparamset.tid, delbaparamset.initiator, reasoncode, wnet_vif->vm_state);
+                        AML_OUTPUT("delba, tid:%d, initiator:%d, reason_code:%d, vm_state:%d\n",
+                            delbaparamset.tid, delbaparamset.initiator, reasoncode, wnet_vif->vm_state);
                         break;
 
                     default:

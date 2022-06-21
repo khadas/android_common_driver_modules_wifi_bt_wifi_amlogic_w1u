@@ -135,6 +135,7 @@ struct vm_wlan_net_vif_params
 #define DEFAULT_MGMT_RETRY_INTERVAL 100
 #define DEFAULT_P2P_ACTION_RETRY_INTERVAL 50
 #define DEFAULT_AUTH_RETRY_INTERVAL 512
+#define DEFAULT_DEAUTH_TOT 5000
 
 #define WIFINET_PS_MAX_QUEUE  100
 
@@ -462,14 +463,18 @@ struct wifi_mac
     int wm_noqos_legacy_qid;
     int wm_mng_qid;
     int wm_mcast_qnum;
+    int g_rs_baparamset_buffersize;
 
     /* suspend for all vif, so wifimac maintains suspend mode */
     unsigned int wm_suspend_mode;
     wait_queue_head_t wm_suspend_wq;
     unsigned char wm_esco_en;
     unsigned char wm_bt_en;
+    unsigned char wm_a2dp_en;
+    unsigned char wm_recovery_req;
     enum wifi_mac_recovery_state recovery_stat;
     struct os_timer_ext wm_monitor_fw;
+    struct os_timer_ext wm_tp_rate;
     spinlock_t fw_stat_lock;
 
 #if defined(SU_BF) || defined(MU_BF)
@@ -537,6 +542,13 @@ struct wifi_mac_wmm_ac_params
     unsigned int burst_size;
     unsigned int delay_bound;
 };
+
+struct wlan_tp_stat
+{
+    unsigned short vm_tx_speed;
+    unsigned long tcp_tx_payload_total;
+};
+
 
 struct wlan_net_vif
 {
@@ -684,7 +696,7 @@ struct wlan_net_vif
     /* VHT Basic MCS set */
     unsigned short vm_vhtop_basic_mcs;
 
-    unsigned short vm_tx_speed;
+    struct wlan_tp_stat txtp_stat;
     unsigned short vm_rx_speed;
     unsigned char vm_change_rate_enable;
     unsigned long long pn_window[2][2];

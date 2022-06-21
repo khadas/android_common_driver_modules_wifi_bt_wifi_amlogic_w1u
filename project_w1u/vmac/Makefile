@@ -16,6 +16,10 @@ ifeq ($(PROJ_NAME),p-amlogic)
 SRCTOP ?= /proj/vlsi.wifi/p-amlogic
 KERNELDIR ?= $(SRCTOP)/out/target/product/newton/obj/KERNEL_OBJ
 EXTRA_CFLAGS += -DSYSTEM64
+else ifeq ($(PROJ_NAME),t920l)
+SRCTOP ?= /proj/vlsi.wifi/t920l
+KERNELDIR ?= $(SRCTOP)/out/target/product/txhd_t920l_r341/obj/KERNEL_OBJ
+EXTRA_CFLAGS += -DSYSTEM64
 endif
 
 CC        = $(CROSS_COMPILE)gcc
@@ -83,8 +87,8 @@ endif
 
 ifneq ($(KERNELRELEASE),)
 
-obj-m += aml_com.o
-aml_com-objs:=\
+obj-m += w1u_comm.o
+w1u_comm-objs:=\
 	aml_bus/aml_phy.o\
 	w1_sdio/w1_sdio.o\
 	usb_interface/usb_common.o

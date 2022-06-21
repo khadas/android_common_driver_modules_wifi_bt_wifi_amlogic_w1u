@@ -10,6 +10,10 @@
 #define W1u_PRODUCT  0x4c55
 #define W1u_VENDOR  0x414D
 
+#define W1u_VENDOR_AMLOGIC_EFUSE  0x1B8E
+#define W1uu_B_PRODUCT_AMLOGIC_EFUSE  0x0501
+#define W1uu_A_PRODUCT_AMLOGIC_EFUSE  0x04C1
+
 /*Macro for Write/Read reg via endpoin 0*/
 //#define REG_CTRL_EP0
 
@@ -53,6 +57,7 @@ enum wifi_cmd {
     CMD_DOWNLOAD_BT,
     CMD_OTHER_CMD,
     CMD_USB_IRQ,
+    CMD_READ_EFUSE = 0xCD,
 };
 
 enum usb_endpoint_num{

@@ -9,6 +9,10 @@ struct wifi_mac_rx_status
     int rs_wnet_vif_id;
     int rs_channel;
     int rs_keyid;
+    int rs_rate_index;
+    unsigned int channle_bw;
+    unsigned int rs_sgi;
+    unsigned char rs_vendor_rate_code;
 
     union
     {

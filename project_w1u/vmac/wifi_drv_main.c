@@ -651,8 +651,7 @@ void drv_get_sts( struct drv_private *drv_priv,
     struct aml_driver_nsta *drv_sta = NULL;
     struct wlan_net_vif *connect_wnet = wifi_mac_running_wnet_vif(wifimac);
 
-    if (connect_wnet != NULL)
-    {
+    if (connect_wnet != NULL){
         sta = connect_wnet->vm_mainsta;
         drv_sta = sta->drv_sta;
         AML_OUTPUT("\n--------drv statistic--------\n");
@@ -1471,6 +1470,7 @@ int aml_driv_attach( struct drv_private *drv_priv, struct wifi_mac* wmac)
     drv_priv->drv_config.cfg_mfp = DEFAULT_MFP_EN;//support mfp
     drv_priv->drv_config.cfg_mac_mode = DEFAULT_AUTO;
     drv_priv->drv_config.cfg_band = DEFAULT_BAND_ALL;
+    drv_priv->drv_config.cfg_recovery = DEFAULT_SUPPORT_RECOVERY;
     if (!aml_bus_type) {
         drv_priv->drv_config.cfg_checksumoffload    = DEFAULT_HW_CSUM;
     } else {
@@ -1608,7 +1608,7 @@ static void drv_tx_pkt_clear(void *drv_priv)
 
 static void
 drv_intr_rx_ok(void * dpriv,struct sk_buff *skb, unsigned char Rssi,unsigned char vendor_rate_code,
-    unsigned char channel, unsigned char aggr, unsigned char wnet_vif_id, unsigned char keyid)
+    unsigned char channel, unsigned char aggr, unsigned char wnet_vif_id, unsigned char keyid, unsigned int channel_bw, unsigned int rx_sgi)
 {
     struct wifi_mac *wifimac;
     struct drv_private *drv_priv = (struct drv_private *)dpriv;
@@ -1616,20 +1616,17 @@ drv_intr_rx_ok(void * dpriv,struct sk_buff *skb, unsigned char Rssi,unsigned cha
     struct sk_buff *skbbuf = (struct sk_buff *)skb;
     struct wifi_frame *wh;
     struct wifi_mac_rx_status rxstatus;
-    int rate_index =0;
-
     wifimac = drv_priv->wmac;
-
-    rate_index= drv_rate_findindex_from_ratecode(drv_priv->drv_currratetable, vendor_rate_code);
 
     rxstatus.rs_flags = aggr;
     rxstatus.rs_channel = channel;
     rxstatus.rs_rssi = Rssi;
-    rxstatus.rs_datarate = drv_priv->drv_currratetable->info[rate_index].rateKbps;
     rxstatus.rs_tstamp.tsf = jiffies;
     rxstatus.rs_wnet_vif_id = wnet_vif_id;
-    rxstatus.rs_keyid = keyid ;
-
+    rxstatus.rs_keyid = keyid;
+    rxstatus.rs_vendor_rate_code = vendor_rate_code;
+    rxstatus.channle_bw = channel_bw;
+    rxstatus.rs_sgi = rx_sgi;
 
     wh = (struct wifi_frame *)os_skb_data(skb);
     if (!list_empty(&wifimac->wm_wnet_vifs))
@@ -1645,7 +1642,8 @@ drv_intr_rx_ok(void * dpriv,struct sk_buff *skb, unsigned char Rssi,unsigned cha
 }
 
 static int pmf_encrypt_pkt_handle(void *dpriv, struct sk_buff *skb, unsigned char rssi,
-    unsigned char vendor_rate_code, unsigned char channel, unsigned char aggr, unsigned char wnet_vif_id, unsigned char keyid)
+    unsigned char vendor_rate_code, unsigned char channel, unsigned char aggr, unsigned char wnet_vif_id, unsigned char keyid,
+    unsigned int channel_bw, unsigned int rx_sgi)
 {
 
     struct wifi_mac *wifimac;
@@ -1653,7 +1651,6 @@ static int pmf_encrypt_pkt_handle(void *dpriv, struct sk_buff *skb, unsigned cha
     struct sk_buff *skbbuf = ( struct sk_buff *)skb;
     struct wifi_frame *wh;
     struct wifi_mac_rx_status rxstatus;
-    int rate_index = 0;
     unsigned char pkt_type;
     unsigned char is_protect;
 
@@ -1676,15 +1673,15 @@ static int pmf_encrypt_pkt_handle(void *dpriv, struct sk_buff *skb, unsigned cha
     }
 
     wifimac = drv_priv->wmac;
-    rate_index = drv_rate_findindex_from_ratecode(drv_priv->drv_currratetable, vendor_rate_code);
-
     rxstatus.rs_flags = aggr;
     rxstatus.rs_channel = channel;
     rxstatus.rs_rssi = rssi;
-    rxstatus.rs_datarate = drv_priv->drv_currratetable->info[rate_index].rateKbps;
     rxstatus.rs_tstamp.tsf = jiffies;
     rxstatus.rs_wnet_vif_id = wnet_vif_id;
     rxstatus.rs_keyid = keyid ;
+    rxstatus.rs_vendor_rate_code = vendor_rate_code;
+    rxstatus.channle_bw = channel_bw;
+    rxstatus.rs_sgi = rx_sgi;
 
     if (!list_empty(&wifimac->wm_wnet_vifs)) {
         drv_priv->drv_stats.rx_indicate_cnt++;
@@ -2167,6 +2164,9 @@ static void drv_intr_fw_event(void *dpriv, void *event)
             } else {
                 if (aml_bus_type) {
                     hal_priv->dpd_suspend = 0;
+                    if (wnet_vif->vm_opmode == WIFINET_M_STA) {
+                        wifi_mac_scan_access(wnet_vif);
+                    }
                 }
             }
             break;
@@ -2243,17 +2243,19 @@ static void drv_trigger_send_delba(SYS_TYPE param1,
     struct wifi_station* sta_next = NULL;
     struct aml_driver_nsta *drv_sta  = NULL;
     unsigned int reg_val = 0;
+    unsigned int reg_val2 = 0;
+    unsigned int reg_val3 = 0;
     struct wifi_mac_action_mgt_args actionargs;
     //struct hal_private *hal_priv = hal_get_priv();
     struct wifi_mac* wifi_mac =  wifi_mac_get_mac_handle();
     unsigned int tid_index = 0;
     struct drv_rx_scoreboard *RxTidState = NULL;
     struct wifi_station_tbl *vm_sta_tbl = &(wnet_vif->vm_sta_tbl);
-    unsigned int i = 0;
     unsigned int j = 0;
 
     memset(&actionargs, 0, sizeof( struct wifi_mac_action_mgt_args));
 
+#if 0
     reg_val = hif->hif_ops.hi_read_word(RG_COEX_BT_LOGIC_INFO);
     if (reg_val & COEX_EN_ESCO) {
         drv_priv->drv_config.cfg_ampdu_subframes = DEFAULT_TXAMPDU_SUB_MAX_COEX_ESCO;
@@ -2263,40 +2265,64 @@ static void drv_trigger_send_delba(SYS_TYPE param1,
         drv_priv->drv_config.cfg_ampdu_subframes = DEFAULT_TXAMPDU_SUB_MAX_COEX;
         wifi_mac->wm_esco_en = 0;
     }
+#endif
+
+#if 1
+    reg_val3 = hif->hif_ops.hi_read_word(RG_PMU_A16);
+    reg_val2 = hif->hif_ops.hi_read_word(RG_BT_PMU_A16);
+    reg_val = hif->hif_ops.hi_read_word(RG_COEX_BT_LOGIC_INFO);
+    if ((reg_val2 & BIT(31)) && (reg_val3 & BIT(31)))
+    {
+        wifi_mac->wm_bt_en = 1;
+        if (reg_val & COEX_EN_ESCO) {
+            drv_priv->drv_config.cfg_ampdu_subframes = DEFAULT_TXAMPDU_SUB_MAX_COEX_ESCO;
+            wifi_mac->wm_esco_en =1;
+            AML_OUTPUT("delba:coex change to work TDD ESCO\n");
+        } else if (reg_val2 & BIT(24)){
+            drv_priv->drv_config.cfg_ampdu_subframes = DEFAULT_TXAMPDU_SUB_MAX_COEX;
+            wifi_mac->wm_esco_en = 0;
+            AML_OUTPUT("delba:coex change to work TDD A2DP\n");
+        }
+    }
+    else
+    {
+        wifi_mac->wm_bt_en = 0;
+        wifi_mac->wm_esco_en = 0;
+        drv_priv->drv_config.cfg_ampdu_subframes = DEFAULT_TXAMPDU_SUB_MAX;
+        AML_OUTPUT("delba:coex change to not work\n");
+    }
+#endif
 
    /*two vid need consider*/
    for (j = 0; j < 2; ++j) {
       vm_sta_tbl = &drv_priv->drv_wnet_vif_table[j]->vm_sta_tbl;
 
-       /*traverse all hash value*/
-       for (i = 0; i < WIFINET_NODE_HASHSIZE; i++) {
-            /*traverse all staion in  one hash value*/
-            WIFINET_NODE_LOCK(vm_sta_tbl);
-            list_for_each_entry_safe(sta, sta_next, &vm_sta_tbl->nt_nsta, sta_list) {
-                drv_sta = DRIVER_NODE(sta->drv_sta);
+        /*traverse all staion in  one hash value*/
+        WIFINET_NODE_LOCK(vm_sta_tbl);
+        list_for_each_entry_safe(sta, sta_next, &vm_sta_tbl->nt_nsta, sta_list) {
+            drv_sta = DRIVER_NODE(sta->drv_sta);
 
-                /*traverse all tid */
-                for (tid_index = 0; tid_index < WME_NUM_TID; tid_index++) {
-                    RxTidState = &drv_sta->rx_scb[tid_index];
+            /*traverse all tid */
+            for (tid_index = 0; tid_index < WME_NUM_TID; tid_index++) {
+                RxTidState = &drv_sta->rx_scb[tid_index];
 
-                    if (RxTidState->rx_addba_exchangecomplete) {
-                        actionargs.category = AML_CATEGORY_BACK;
-                        actionargs.action = WIFINET_ACTION_BA_DELBA;
-                        actionargs.arg1 = tid_index;
-                        /*
-                        The Initiator subfield indicates if the originator or the recipient of the data is sending this frame. It is set to 1
-                        to indicate the originator and is set to 0 to indicate the recipient. The TID subfield indicates the TSID or the
-                        UP for which the block ack has been originally set up.
-                        */
-                        actionargs.arg2 = BA_INITIATOR;  /*reference protocol 802.11-2016.pdf  chapter 9.4.1.16 DELBA Parameter Set field*/
-                        actionargs.arg3 = 1;   /* reference  hornor v9 phone, reference protocol 802.11-2016.pdf  chapter 9.4.1.9 Status Code field*/
-                        wifi_mac_send_action(sta, (void *)&actionargs);
-                        AML_OUTPUT("tid_index %d ->sta_macaddr=%s\n", tid_index, ether_sprintf(sta->sta_macaddr));
-                    }
+                if (RxTidState->rx_addba_exchangecomplete) {
+                    actionargs.category = AML_CATEGORY_BACK;
+                    actionargs.action = WIFINET_ACTION_BA_DELBA;
+                    actionargs.arg1 = tid_index;
+                    /*
+                    The Initiator subfield indicates if the originator or the recipient of the data is sending this frame. It is set to 1
+                    to indicate the originator and is set to 0 to indicate the recipient. The TID subfield indicates the TSID or the
+                    UP for which the block ack has been originally set up.
+                    */
+                    actionargs.arg2 = BA_INITIATOR;  /*reference protocol 802.11-2016.pdf  chapter 9.4.1.16 DELBA Parameter Set field*/
+                    actionargs.arg3 = 1;   /* reference  hornor v9 phone, reference protocol 802.11-2016.pdf  chapter 9.4.1.9 Status Code field*/
+                    wifi_mac_send_action(sta, (void *)&actionargs);
+                    AML_OUTPUT("tid_index %d ->sta_macaddr=%s\n", tid_index, ether_sprintf(sta->sta_macaddr));
                 }
             }
-            WIFINET_NODE_UNLOCK(vm_sta_tbl);
         }
+        WIFINET_NODE_UNLOCK(vm_sta_tbl);
     }
 }
 
@@ -2311,6 +2337,8 @@ static void drv_intr_bt_info_change(void * dpriv, unsigned char wnet_vif_id,unsi
     struct hw_interface* hif = hif_get_hw_interface();
     unsigned int reg_val = 0;
     unsigned int reg_val2 = 0;
+    unsigned int reg_val3 = 0;
+    int agg_num = 0;
     struct wifi_mac* p_wifi_mac =  wifi_mac_get_mac_handle();
 
     wnet_vif = drv_priv->drv_wnet_vif_table[wnet_vif_id];
@@ -2326,12 +2354,59 @@ static void drv_intr_bt_info_change(void * dpriv, unsigned char wnet_vif_id,unsi
     }
 
     if (bt_lk_change == 1) {/*BT link info change*/
-       drv_trigger_send_delba(0, 0, 0, 0, 0);
+        if (wnet_vif->vm_state == WIFINET_S_CONNECTED)
+        {
+            drv_trigger_send_delba(0, 0, 0, 0, 0);
+        }
 
     } else {
          reg_val = hif->hif_ops.hi_read_word(RG_BT_PMU_A16);
          reg_val2 = hif->hif_ops.hi_read_word(RG_PMU_A16);
+         reg_val3 = hif->hif_ops.hi_read_word(RG_COEX_BT_LOGIC_INFO);
+         agg_num = p_wifi_mac->g_rs_baparamset_buffersize;
          AML_OUTPUT("drv_intr_bt_info_change reg addr=0x%x,value=0x%x reg addr=0x%x,value=0x%x \n", RG_BT_PMU_A16, reg_val, RG_PMU_A16, reg_val2);
+         if ((reg_val & BIT(31)) && (reg_val2 & BIT(31)))
+         {
+            p_wifi_mac->wm_bt_en = 1;
+            if (reg_val3 & COEX_EN_ESCO)
+            {
+                p_wifi_mac->wm_esco_en = 1;
+                p_wifi_mac->wm_a2dp_en = 0;
+                agg_num = DEFAULT_TXAMPDU_SUB_MAX_COEX_ESCO;
+                drv_priv->drv_config.cfg_ampdu_subframes = DEFAULT_TXAMPDU_SUB_MAX_COEX_ESCO;
+                AML_OUTPUT("coex change to work TDD ESCO\n");
+            }
+            else if (reg_val & BIT(24))
+            {
+                p_wifi_mac->wm_esco_en = 0;
+                p_wifi_mac->wm_a2dp_en = 1;
+                agg_num = DEFAULT_TXAMPDU_SUB_MAX_COEX;
+                drv_priv->drv_config.cfg_ampdu_subframes = DEFAULT_TXAMPDU_SUB_MAX_COEX;
+                AML_OUTPUT("coex change to work TDD A2DP\n");
+            }
+            else
+            {
+                agg_num = DEFAULT_TXAMPDU_SUB_MAX;
+                AML_OUTPUT("coex change for abnormal case \n");
+            }
+         }
+         else
+         {
+            agg_num = DEFAULT_TXAMPDU_SUB_MAX;
+            drv_priv->drv_config.cfg_ampdu_subframes = DEFAULT_TXAMPDU_SUB_MAX;
+            p_wifi_mac->wm_bt_en = 0;
+            AML_OUTPUT("coex change to not work\n");
+         }
+
+         if ((p_wifi_mac->g_rs_baparamset_buffersize !=  0) && (agg_num != p_wifi_mac->g_rs_baparamset_buffersize))
+         {
+            AML_OUTPUT("delba now:num_now: %d; num_before: %d \n", agg_num, p_wifi_mac->g_rs_baparamset_buffersize);
+            if (wnet_vif->vm_state == WIFINET_S_CONNECTED)
+            {
+                drv_trigger_send_delba(0, 0, 0, 0, 0);
+            }
+         }
+#if 0
          if ((reg_val & BIT(31)) && (reg_val2 & BIT(31))) { /* coex is work */
             drv_priv->drv_config.cfg_ampdu_subframes = DEFAULT_TXAMPDU_SUB_MAX_COEX_ESCO;
             p_wifi_mac->wm_bt_en = 1;
@@ -2342,6 +2417,7 @@ static void drv_intr_bt_info_change(void * dpriv, unsigned char wnet_vif_id,unsi
             p_wifi_mac->wm_bt_en = 0;
             AML_OUTPUT("coex change to not work\n");
          }
+#endif
     }
 }
 

@@ -326,6 +326,7 @@ struct drv_config
     unsigned char cfg_hrtimer_interval;
     unsigned char cfg_mac_mode;
     unsigned char cfg_band;
+    unsigned char cfg_recovery;
 };
 
 /* Reset flag */
