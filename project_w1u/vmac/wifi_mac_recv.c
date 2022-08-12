@@ -3702,11 +3702,12 @@ static void wifi_mac_recv_auth(struct wlan_net_vif *wnet_vif,
     WIFINET_DPRINTF_MACADDR( AML_DEBUG_WARNING, wh->i_addr2,
         "recv auth frame with algorithm %d seq %d", auth_type, seq);
 
-    if ((sta->sta_associd) && (wnet_vif->vm_opmode == WIFINET_M_HOSTAP)) {
+    if ((sta->sta_associd || sta->is_disconnecting) && (wnet_vif->vm_opmode == WIFINET_M_HOSTAP)) {
         AML_OUTPUT("sta try connect, but associd:%d not zero\n", sta->sta_associd);
         if (sta->is_disconnecting == 1) {
             return;
         }
+        wifi_softap_allsta_stopping(wnet_vif,1);
         wifi_mac_sta_disconnect_from_ap(sta);
         return;
     }
@@ -4368,8 +4369,10 @@ void wifi_mac_recv_deauth(struct wlan_net_vif *wnet_vif,
                 break;
 
             case WIFINET_M_HOSTAP:
-                if (sta != wnet_vif->vm_mainsta)
+                if (sta != wnet_vif->vm_mainsta) {
+                    wifi_softap_allsta_stopping(wnet_vif,1);
                     wifi_mac_sta_disconnect_from_ap(sta);
+                }
                 break;
 
             default:
@@ -4433,7 +4436,8 @@ void wifi_mac_recv_disassoc(struct wlan_net_vif *wnet_vif,
 
             case WIFINET_M_HOSTAP:
                 if (sta != wnet_vif->vm_mainsta) {
-                    wifi_mac_sta_disconnect_from_ap(sta);
+                     wifi_softap_allsta_stopping(wnet_vif,1);
+                     wifi_mac_sta_disconnect_from_ap(sta);
                 }
                 break;
 
@@ -4527,7 +4531,7 @@ void wifi_mac_recv_action(struct wlan_net_vif *wnet_vif, struct wifi_station *st
                         DPRINTF(AML_DEBUG_WARNING, "%s: ADDBA request . TID %d, buffer size %d  vm_state %d\n",
                             __func__, baparamset.tid, baparamset.buffersize, wnet_vif->vm_state);
 
-                        if (!WIFINET_NODE_USEAMPDU(sta)) {
+                        if ((!WIFINET_NODE_USEAMPDU(sta)) || (wnet_vif->vm_opmode == WIFINET_M_HOSTAP && softap_get_sta_num(wnet_vif) > 1)) {
                             wifi_mac_addba_set_rsp(sta, baparamset.tid, WIFINET_STATUS_REFUSED);
 
                         } else {

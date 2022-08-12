@@ -147,8 +147,10 @@ extern void amlwifi_set_sdio_host_clk(int clk);
 extern void sdio_reinit(void);
 void aml_sdio_reset(void);
 void aml_sdio_irq_path(unsigned char b_gpio);
+#if (USE_GPIO_IRQ)
 int amlhal_gpio_open(struct hal_private * hal_priv);
 int amlhal_gpio_close(struct hal_private * hal_priv );
+#endif
 
 #elif defined (HAL_SIM_VER)
 

@@ -1308,7 +1308,7 @@ int aml_usb_init(void)
 
     PRINT("%s(%d): sg ops init\n", __func__, __LINE__);
     hif->hif_ops.hi_enable_scat();
-    amlhal_gpio_open(hal_priv);
+
     usb_stor_control_msg((unsigned long)hal_priv);
     hal_priv->hst_if_irq_en = 1;
     PRINT("aml_usb_probe-- ret %d\n", ret);
@@ -1332,7 +1332,6 @@ void aml_usb_exit(void)
     AML_OUTPUT("--------aml_usb:disconnect-------\n");
     hal_priv->powersave_init_flag = 1;
 
-    amlhal_gpio_close(hal_priv);
     hif->hif_ops.hi_write_word(RG_PMU_A22, 0x704);
     hif->hif_ops.hi_write_word(RG_PMU_A16, 0x0);
 
@@ -1437,7 +1436,7 @@ static int aml_usb_probe(struct usb_interface *interface, const struct usb_devic
 
     PRINT("%s(%d): sg ops init\n", __func__, __LINE__);
     hif->hif_ops.hi_enable_scat();
-    amlhal_gpio_open(hal_priv);
+
     hal_priv->hst_if_irq_en = 1;
     usb_stor_control_msg((unsigned long)hal_priv);
     PRINT("aml_usb_probe-- ret %d\n", ret);
@@ -1546,7 +1545,6 @@ void aml_usb_exit(void)
     struct hw_interface * hif = hif_get_hw_interface();
     struct hal_private * hal_priv = hal_get_priv();
 
-    amlhal_gpio_close(hal_priv);
     hif->hif_ops.hi_write_word(RG_PMU_A22, 0x704);
     hif->hif_ops.hi_write_word(RG_PMU_A16, 0x0);
 

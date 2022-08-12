@@ -651,17 +651,17 @@ void drv_get_sts( struct drv_private *drv_priv,
     struct aml_driver_nsta *drv_sta = NULL;
     struct wlan_net_vif *connect_wnet = wifi_mac_running_wnet_vif(wifimac);
 
-    if (connect_wnet != NULL){
+    if(connect_wnet != NULL){
         sta = connect_wnet->vm_mainsta;
         drv_sta = sta->drv_sta;
         AML_OUTPUT("\n--------drv statistic--------\n");
-        for (i=0; i< WME_NUM_AC;i++)
+        for(i=0; i< WME_NUM_AC;i++)
         {
             txlist = drv_txlist_initial(drv_priv,i);
             AML_OUTPUT("queen %d ac_queue_buffer_in_drv %d\n", i, txlist->txds_pending_cnt);
 
         }
-        for (i=0; i< WME_NUM_TID;i++)
+        for(i=0; i< WME_NUM_TID;i++)
         {
             tid = &drv_sta->tx_agg_st.tid[i];
             AML_OUTPUT("tid %d tid_queue_buffer_in_drv %d, msdu_count %d\n", i,WIFINET_SAVEQ_QLEN(&tid->tid_tx_buffer_queue), wifimac->msdu_cnt[i]);
@@ -670,11 +670,11 @@ void drv_get_sts( struct drv_private *drv_priv,
         AML_OUTPUT("tx_buffer_queue_in_drv %d\n",WIFINET_SAVEQ_QLEN(&connect_wnet->vm_tx_buffer_queue));
     }
 
-    if ((ctrl_code & STS_MOD_DRV) == STS_MOD_DRV)
+    if((ctrl_code & STS_MOD_DRV) == STS_MOD_DRV)
     {
         if ((ctrl_code & STS_TYP_TX) == STS_TYP_TX)
         {
-            for (i = 0; i < HAL_NUM_TX_QUEUES; i++)
+            for(i = 0; i < HAL_NUM_TX_QUEUES; i++)
             {
                 AML_OUTPUT("txlist_idx %d,  mpdu_to_hal %d,mpdu_pend %d, "
                         "mpdu_bkup %d,last_time %ld\n",
@@ -2340,6 +2340,9 @@ static void drv_intr_bt_info_change(void * dpriv, unsigned char wnet_vif_id,unsi
     unsigned int reg_val3 = 0;
     int agg_num = 0;
     struct wifi_mac* p_wifi_mac =  wifi_mac_get_mac_handle();
+    reg_val = hif->hif_ops.hi_read_word(RG_BT_PMU_A16);
+    reg_val2 = hif->hif_ops.hi_read_word(RG_PMU_A16);
+    reg_val3 = hif->hif_ops.hi_read_word(RG_COEX_BT_LOGIC_INFO);
 
     wnet_vif = drv_priv->drv_wnet_vif_table[wnet_vif_id];
     AML_OUTPUT("vid %d \n", wnet_vif_id);
@@ -2353,16 +2356,21 @@ static void drv_intr_bt_info_change(void * dpriv, unsigned char wnet_vif_id,unsi
         return;
     }
 
+    if(p_wifi_mac->bt_lk != ((reg_val2 & BIT(31))>>31))
+    {
+         p_wifi_mac->bt_lk = (!((reg_val2 & BIT(31))>>31) && ((reg_val & BIT(24))>>24));
+         wifi_mac_set_channel_rssi(p_wifi_mac, (unsigned char)(wnet_vif->vm_mainsta->sta_avg_bcn_rssi));
+         AML_OUTPUT("p_wifi_mac->bt_lk,value=%d %d %d\n",p_wifi_mac->bt_lk, !((reg_val2 & BIT(31))>>31), ((reg_val & BIT(24))>>24));
+    }
+
     if (bt_lk_change == 1) {/*BT link info change*/
         if (wnet_vif->vm_state == WIFINET_S_CONNECTED)
         {
-            drv_trigger_send_delba(0, 0, 0, 0, 0);
+            //drv_trigger_send_delba(0, 0, 0, 0, 0);
         }
 
     } else {
-         reg_val = hif->hif_ops.hi_read_word(RG_BT_PMU_A16);
-         reg_val2 = hif->hif_ops.hi_read_word(RG_PMU_A16);
-         reg_val3 = hif->hif_ops.hi_read_word(RG_COEX_BT_LOGIC_INFO);
+
          agg_num = p_wifi_mac->g_rs_baparamset_buffersize;
          AML_OUTPUT("drv_intr_bt_info_change reg addr=0x%x,value=0x%x reg addr=0x%x,value=0x%x \n", RG_BT_PMU_A16, reg_val, RG_PMU_A16, reg_val2);
          if ((reg_val & BIT(31)) && (reg_val2 & BIT(31)))
@@ -2403,7 +2411,7 @@ static void drv_intr_bt_info_change(void * dpriv, unsigned char wnet_vif_id,unsi
             AML_OUTPUT("delba now:num_now: %d; num_before: %d \n", agg_num, p_wifi_mac->g_rs_baparamset_buffersize);
             if (wnet_vif->vm_state == WIFINET_S_CONNECTED)
             {
-                drv_trigger_send_delba(0, 0, 0, 0, 0);
+                //drv_trigger_send_delba(0, 0, 0, 0, 0);
             }
          }
 #if 0

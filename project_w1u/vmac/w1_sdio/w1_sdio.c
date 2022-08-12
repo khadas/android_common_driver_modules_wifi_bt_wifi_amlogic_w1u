@@ -19,6 +19,7 @@ unsigned char  wifi_sdio_access = 1;
 unsigned char  chip_en_access = 0;
 unsigned char  wifi_sdio_timeout = 0;
 unsigned char wifi_sdio_shutdown = 0;
+unsigned char wifi_irq_enable = 0;
 unsigned int  shutdown_i = 0;
 #define  I2C_CLK_QTR   0x4
 
@@ -1216,9 +1217,22 @@ void config_pmu_reg_off(void)
     }
 }
 
+extern int wifi_irq_num(void);
 static void aml_sdio_shutdown(struct device *device)
 {
     printk("===>>> enter %s <<<===\n", __func__);
+    if (wifi_irq_enable == 1) {
+#if (USE_SDIO_IRQ==1)
+        struct sdio_func *func = g_w1_hwif_sdio.sdio_func_if[SDIO_FUNC1];
+        sdio_claim_host(func);
+        sdio_release_irq(func);
+        sdio_release_host(func);
+#elif (USE_GPIO_IRQ==1)
+        unsigned int irq_num = wifi_irq_num();
+        disable_irq(irq_num);
+#endif
+        wifi_irq_enable = 0;
+    }
     shutdown_i += 1;
     if (shutdown_i == 1) {
         wifi_sdio_shutdown = 1;
@@ -1388,6 +1402,7 @@ EXPORT_SYMBOL(host_resume_req);
 EXPORT_SYMBOL(wifi_sdio_access);
 EXPORT_SYMBOL(chip_en_access);
 EXPORT_SYMBOL(w1_sdio_wifi_bt_alive);
+EXPORT_SYMBOL(wifi_irq_enable);
 
 EXPORT_SYMBOL(aml_wifi_sdio_power_lock);
 EXPORT_SYMBOL(aml_wifi_sdio_power_unlock);

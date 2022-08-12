@@ -1126,7 +1126,7 @@ void aml_sdio_irq_path(unsigned char b_gpio)
         //hw_if->hif_ops.hi_write_word(RG_WIFI_IF_GPIO_IRQ_CNF, regdata);
     }
 }
-
+#if (USE_GPIO_IRQ==1)
 int amlhal_gpio_open(struct hal_private * hal_priv)
 {
     struct hw_interface* hif = hif_get_hw_interface();
@@ -1195,21 +1195,32 @@ int amlhal_gpio_close(struct hal_private * hal_priv )
 
     return 0;
 }
+#endif //USE_GPIO_IRQ
+void aml_sdio_interrupt(struct sdio_func * func) {
+    struct hal_private *hal_priv = hal_get_priv();
+    if (hal_priv->bhalOpen) {
+        hal_irq_top(0, hal_priv);
+    }
 
+}
+
+extern unsigned char wifi_irq_enable;
 void aml_sdio_enable_irq(int func_n)
 {
-    struct hal_private *hal_priv=NULL;
-    hal_priv = hal_get_priv();
+    struct hal_private *hal_priv = hal_get_priv();
+    if (!hal_priv->hst_if_irq_en) {
 #if (USE_SDIO_IRQ==1)
-    struct sdio_func *func = aml_priv_to_func(func_n);
-    sdio_claim_host(func);
-    sdio_claim_irq(func, aml_sdio_interrupt);
-    sdio_release_host(func);
-    aml_sdio_irq_path(0);
+        struct sdio_func *func = aml_priv_to_func(func_n);
+        sdio_claim_host(func);
+        sdio_claim_irq(func, aml_sdio_interrupt);
+        sdio_release_host(func);
+        aml_sdio_irq_path(0);
 #elif (USE_GPIO_IRQ==1)
-    amlhal_gpio_open(hal_priv);
+        amlhal_gpio_open(hal_priv);
 #endif
-    hal_priv->hst_if_irq_en = 1;
+        wifi_irq_enable = 1;
+        hal_priv->hst_if_irq_en = 1;
+    }
 }
 
 void aml_sdio_disable_irq(int func_n)
@@ -1227,6 +1238,7 @@ void aml_sdio_disable_irq(int func_n)
 #elif (USE_GPIO_IRQ==1)
         amlhal_gpio_close(hal_priv);
 #endif
+        wifi_irq_enable = 0;
         hal_priv->hst_if_irq_en = 0;
     }
 }
@@ -1511,7 +1523,8 @@ int aml_sdio_init(void)
     AML_OUTPUT("sg ops init\n");
     hif->hif_ops.hi_enable_scat();
 
-    aml_sdio_enable_irq(SDIO_FUNC4);
+    aml_sdio_enable_irq(SDIO_FUNC1);
+
     AML_OUTPUT("aml_sdio_probe-- ret %d\n", ret);
 
     if (aml_wifi_is_enable_rf_test()) {
@@ -1536,11 +1549,12 @@ void aml_disable_wifi(void)
     //if (chip_en_access) {
     if (1) {
 
-        /*1 chip en off and detect sdio card*/
+        /*1 chip en off and detect sdio card, disable GPIO/SDIO irq*/
         set_usb_bt_power(0);
         msleep(20);
         set_usb_wifi_power(0);
         msleep(20);
+        aml_sdio_disable_irq(SDIO_FUNC1);
 
         /*2 remove sdio drvier*/
         bt_alive = (w1_sdio_wifi_bt_alive & BIT(0))? 1:0;
@@ -1587,6 +1601,7 @@ void aml_enable_wifi(void)
 
     hal_recovery_init_priv();
     config_pmu_reg(AML_W1_WIFI_POWER_ON);
+    aml_sdio_enable_irq(SDIO_FUNC1);
     wifi_sdio_access = 1;
     AML_OUTPUT("aml_enable_wifi start sdio access %d\n", wifi_sdio_access);
     hal_fw_repair();
@@ -1607,7 +1622,8 @@ void aml_sdio_exit(void) {
     hal_ops_detach();
     aml_customer_gpio_wlan_ctrl(WLAN_POWER_OFF);
 
-    amlhal_gpio_close(hal_priv);
+    aml_sdio_disable_irq(SDIO_FUNC1);
+
     hal_priv->hst_if_irq_en = 0;
     hal_priv->powersave_init_flag = 1;
     hal_free();
@@ -1776,7 +1792,8 @@ int aml_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
     AML_OUTPUT("sg ops init\n");
     hif->hif_ops.hi_enable_scat();
 
-    aml_sdio_enable_irq(SDIO_FUNC4);
+    aml_sdio_enable_irq(SDIO_FUNC1);
+
     AML_OUTPUT("aml_sdio_probe-- ret %d\n", ret);
 
 
@@ -1810,7 +1827,7 @@ static void  aml_sdio_remove(struct sdio_func *func)
     AML_OUTPUT("\n==========================================\n");
     AML_OUTPUT("aml_sdio_remove++ func->num =%d \n",func->num);
     AML_OUTPUT("==========================================\n");
-    aml_sdio_disable_irq(SDIO_FUNC2);
+    aml_sdio_disable_irq(SDIO_FUNC1);
     hal_priv->powersave_init_flag = 1;
     hal_free();
     if (func->num == FUNCNUM_SDIO_LAST)

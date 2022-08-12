@@ -724,18 +724,18 @@ static int need_set_legacy_rate(struct wlan_net_vif *wnet_vif, struct drv_privat
     static int old_status_ampdu = 0;
     int is_legacy = 0;
 
-    if (wnet_vif->vm_mainsta->sta_avg_bcn_rssi > LEGACY_RATE_BACKUP_TH_RSSI)
+    if(wnet_vif->vm_mainsta->sta_avg_bcn_rssi > LEGACY_RATE_BACKUP_TH_RSSI)
         sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy = false;
 
-    if (sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy)
+    if(sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy)
     {
         wnet_vif->vm_fixed_rate.rateinfo = legacy_select_rate_accord_rssi(wnet_vif->vm_mainsta->sta_avg_bcn_rssi, wnet_vif, sta);
         wnet_vif->vm_fixed_rate.mode = WIFINET_FIXED_RATE_MCS;
-        if (drv_priv->drv_config.cfg_txamsdu) {
+        if(drv_priv->drv_config.cfg_txamsdu) {
             old_status_amsdu = drv_priv->drv_config.cfg_txamsdu;
             wifi_mac_config(wifimac, CHIP_PARAM_AMSDU_ENABLE, 0);
         }
-        if (drv_priv->drv_config.cfg_txaggr) {
+        if(drv_priv->drv_config.cfg_txaggr) {
             old_status_ampdu = drv_priv->drv_config.cfg_txaggr;
             wifi_mac_config(wifimac, CHIP_PARAM_AMPDU, 0);
         }
@@ -744,7 +744,7 @@ static int need_set_legacy_rate(struct wlan_net_vif *wnet_vif, struct drv_privat
         sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy = false;
         wnet_vif->vm_fixed_rate.rateinfo = 0;
         wnet_vif->vm_fixed_rate.mode = WIFINET_FIXED_RATE_NONE;
-        if (old_status_amsdu && !drv_priv->drv_config.cfg_txamsdu)
+        if(old_status_amsdu && !drv_priv->drv_config.cfg_txamsdu)
             wifi_mac_config(wifimac, CHIP_PARAM_AMSDU_ENABLE, 1);
         if(old_status_ampdu && !drv_priv->drv_config.cfg_txaggr)
             wifi_mac_config(wifimac, CHIP_PARAM_AMPDU, 1);
@@ -876,13 +876,16 @@ int drv_tx_start( struct drv_private *drv_priv, struct sk_buff *skbbuf)
     unsigned short tail_room = os_skb_get_tailroom(skbbuf);
     unsigned int expand_byte = 0;
 
-    if (!sta) {
-        ERROR_DEBUG_OUT("sta is NULL\n");
+    if (sta)
+        wnet_vif = sta->sta_wnet_vif;
+
+    if (!sta  || wnet_vif == NULL || wnet_vif->vm_wmac == NULL ||
+        (wnet_vif->vm_opmode == WIFINET_M_HOSTAP && sta->is_disconnecting && txinfo->b_datapkt)) {
+        ERROR_DEBUG_OUT("sta is NULL or softap disconnect\n");
         return -1;
     }
 
-    wnet_vif = sta->sta_wnet_vif;
-    if (wnet_vif->vm_wmac->recovery_stat < WIFINET_RECOVERY_VIF_UP) {
+    if (wnet_vif->vm_opmode != WIFINET_M_HOSTAP && wnet_vif->vm_wmac->recovery_stat < WIFINET_RECOVERY_VIF_UP) {
         ERROR_DEBUG_OUT("fw recovery not finish\n");
         return -2;
     }
@@ -1675,9 +1678,7 @@ void drv_tx_irq_tasklet(void *drv_priv_s, struct txdonestatus *tx_done_status,
         DRV_TXQ_UNLOCK(txlist);
 
         drv_tx_complete_task(drv_priv, txlist, ptxdesc, tx_done_status->txstatus, tx_done_status->txretrynum, tx_done_status->ack_rssi);
-        if (tx_done_status->txstatus == TX_DESCRIPTOR_STATUS_SUCCESS) {
-            ptxdesc->txdesc_sta = NULL;
-        }
+
         qqcnt += drv_txlist_all_qcnt(drv_priv, queue_id);
     }
 

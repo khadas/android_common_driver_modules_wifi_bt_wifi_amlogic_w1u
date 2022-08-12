@@ -276,6 +276,9 @@ int drv_rx_input( struct drv_private *drv_priv, void *nsta,
         whqos = (struct wifi_qos_frame *) wh;
         tid = whqos->i_qos[0] & WIFINET_QOS_TID;
     }
+    if (tid >= WME_NUM_TID) {
+        ERROR_DEBUG_OUT("get error tid: %d", tid);
+    }
     RxTidState = &drv_sta->rx_scb[tid];
 
     DRV_RXTID_LOCK_IRQ(RxTidState,lockflags);

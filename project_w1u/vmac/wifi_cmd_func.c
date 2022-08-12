@@ -439,7 +439,7 @@ int aml_get_drv_txaggr_status(struct wlan_net_vif *wnet_vif, char* buf, int len)
             nframes = drv_priv->drv_txlist_table[i].tx_aggr_status[j];
             AML_OUTPUT("Q:%d; aggr %d packets times: %d\n", i, j + 1, nframes);
         }
-        AML_OUTPUT("\n");
+		AML_OUTPUT("\n");
 
     } else {
         //get all statistics

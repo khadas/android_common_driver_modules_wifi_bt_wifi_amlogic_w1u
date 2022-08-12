@@ -258,14 +258,21 @@ void wifi_mac_set_channel_rssi(struct wifi_mac *wifimac, unsigned char rssi)
 {
     unsigned char rssi_set = rssi;
 
-    if (wifimac->is_connect_set_gain) {
-        if (rssi_set > 191) {
-            rssi_set = 191;
-        }
+    if (wifimac->bt_lk) {
+        //for bt wifi coexit need set -50 gian
+        wifimac->drv_priv->drv_ops.set_channel_rssi(wifimac->drv_priv, 226);
 
-        //AML_OUTPUT("connect rssi_set:%d, rssi:%d\n", rssi_set, rssi);
+    } else if (wifimac->is_connect_set_gain ||((wifimac->is_connect_set_gain == 0) && (rssi>191))) {
+        //if (rssi_set > 191) {
+        //    rssi_set = 191;
+        //}
         wifimac->drv_priv->drv_ops.set_channel_rssi(wifimac->drv_priv, rssi_set);
+        AML_OUTPUT("is_connect_set_gain %d-> %d\n",wifimac->is_connect_set_gain,256-rssi_set);
+
+    } else {
+        wifimac->drv_priv->drv_ops.set_channel_rssi(wifimac->drv_priv, 174); //-82 gain
     }
+
 }
 
 int wifi_mac_is_in_noisy_enviroment(struct wifi_mac *wifimac)
@@ -623,9 +630,11 @@ int wifi_mac_build_txinfo(struct wifi_mac *wifimac, struct sk_buff *skbbuf, stru
 void wifi_mac_tx_addba_check(struct wifi_station *sta, unsigned char tid_index)
 {
     struct wifi_mac *wifimac = sta->sta_wmac;
+    struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
 
     if (WIFINET_NODE_USEAMPDU(sta)
-        && wifimac->drv_priv->drv_ops.check_aggr(wifimac->drv_priv, sta->drv_sta, tid_index))
+        && wifimac->drv_priv->drv_ops.check_aggr(wifimac->drv_priv, sta->drv_sta, tid_index)
+        && (wnet_vif->vm_opmode != WIFINET_M_HOSTAP || softap_get_sta_num(wnet_vif) < 2))
     {
         struct wifi_mac_action_mgt_args actionargs;
         DPRINTF(AML_DEBUG_WARNING,"<running> %s %d tid_index = %d \n", __func__,__LINE__,tid_index);
@@ -2817,7 +2826,9 @@ static int wifi_mac_act_tx_timeout(void* arg)
                     wifi_mac_sta_disconnect(sta);
                     wifi_mac_rm_sta_from_wds_by_addr(nt,sta->sta_macaddr);
                     list_del_init(&sta->sta_list);
+                    WIFINET_NODE_UNLOCK(nt);
                     wifi_mac_free_sta(sta);
+                    WIFINET_NODE_LOCK(nt);
                 }
             }
         }
@@ -3187,7 +3198,8 @@ wifi_mac_sub_sm(struct wlan_net_vif *wnet_vif, enum wifi_mac_state nstate, int a
                     wifimac->recovery_stat = WIFINET_RECOVERY_END;
                     wifi_mac_scan_access(wnet_vif);
                 }
-
+                    
+                wifi_mac_set_channel_rssi(wifimac, (unsigned char)(wnet_vif->vm_mainsta->sta_avg_bcn_rssi));
                 AML_OUTPUT("****************************************************\n");
                 AML_OUTPUT("sta connect ok!!! AP CHANNEL:%d, CENTER_CHAN:%d, BW:%d, SSID:%s, BSSID:%02x:%02x:%02x:%02x:%02x:%02x\n",
                     wnet_vif->vm_curchan->chan_pri_num, wifi_mac_Mhz2ieee(wnet_vif->vm_curchan->chan_cfreq1, 0), sta->sta_chbw,

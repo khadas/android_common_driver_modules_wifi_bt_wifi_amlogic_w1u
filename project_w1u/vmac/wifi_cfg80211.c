@@ -419,9 +419,9 @@ drv_opmode_2_nl80211_iftype (enum wifi_mac_opmode drv_type,
     return out;
 }
 
-static int get_cipher_rsn (unsigned int ecipher)
+static unsigned int get_cipher_rsn (unsigned int ecipher)
 {
-    int cipher;
+    unsigned int cipher;
 
     switch (ecipher)
     {
@@ -2319,6 +2319,21 @@ exit:
     return ret;
 }
 
+int softap_get_sta_num(struct wlan_net_vif *wnet_vif)
+{
+    struct wifi_station *sta_next = NULL;
+    struct wifi_station *sta = NULL;
+    int sta_num = 0;
+
+    struct wifi_station_tbl *nt = &wnet_vif->vm_sta_tbl;
+    WIFINET_NODE_LOCK(nt);
+    list_for_each_entry_safe(sta, sta_next, &nt->nt_nsta, sta_list) {
+        sta_num += 1;
+    }
+    WIFINET_NODE_UNLOCK(nt);
+    return sta_num -1;
+}
+
 static  int vm_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev, unsigned char key_index,
     bool pairwise, const unsigned char *mac_addr, struct key_params *params)
 {
@@ -2331,6 +2346,8 @@ static  int vm_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev, uns
     struct wifi_mac_key *wk;
     struct wifi_station *sta;
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+    int total_delay = 0;
+    struct drv_private *drv_priv = wifimac->drv_priv;
 
     DPRINTF(AML_DEBUG_CFG80211, "%s adding key for <%s> vm_state=%d, cipher=0x%x key_len=%d seq_len=%d kid=%d, pariwise:%d\n",
         __func__, dev->name, wnet_vif->vm_state, lparams->cipher, lparams->key_len, lparams->seq_len, kid, pairwise);
@@ -2449,6 +2466,14 @@ static  int vm_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev, uns
     }
 
     wifi_mac_KeyUpdateBegin(wnet_vif);
+    if (wnet_vif->vm_opmode == WIFINET_M_HOSTAP) {
+        wifi_softap_allsta_stopping(wnet_vif, 1);
+        while (total_delay < 1000 && (!drv_priv->hal_priv->hal_ops.hal_tx_empty())) {
+            msleep(10);
+            total_delay += 10;
+        }
+    }
+
     if (wifi_mac_security_req(wnet_vif, kr.ik_type, (kr.ik_flags & WIFINET_KEY_COMMON), wk)) {
         int i;
         wk->wk_keylen = kr.ik_keylen;
@@ -2493,6 +2518,8 @@ static  int vm_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev, uns
 
 new_key_exit:
     wifi_mac_KeyUpdateEnd(wnet_vif);
+    if (wnet_vif->vm_opmode == WIFINET_M_HOSTAP)
+        wifi_softap_allsta_stopping(wnet_vif, 0);
 
 exit:
     DPRINTF(AML_DEBUG_CFG80211, "%s(%d): %d\n", __func__, __LINE__, ret);
@@ -2549,6 +2576,8 @@ static int vm_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev,
 
     while (total_delay < 1000 && ((sta->connect_status != CONNECT_IDLE)
         || (!drv_priv->hal_priv->hal_ops.hal_tx_empty()))) {
+        if (wnet_vif->vm_opmode == WIFINET_M_HOSTAP && sta->is_disconnecting == 0)
+            break;
         msleep(10);
         total_delay += 10;
     }
@@ -4098,6 +4127,20 @@ vm_cfg80211_add_station(
     return 0;
 }
 
+void wifi_softap_allsta_stopping(struct wlan_net_vif *wnet_vif, unsigned char is_disconnecting)
+{
+
+    struct wifi_station *sta_next = NULL;
+    struct wifi_station *sta = NULL;
+
+    struct wifi_station_tbl *nt = &wnet_vif->vm_sta_tbl;
+    WIFINET_NODE_LOCK(nt);
+    list_for_each_entry_safe(sta, sta_next, &nt->nt_nsta, sta_list) {
+        sta->is_disconnecting = is_disconnecting;
+    }
+    WIFINET_NODE_UNLOCK(nt);
+}
+
 static void _del_station(void *arg, struct wifi_station *sta)
 {
     int reason = WLAN_REASON_UNSPECIFIED;
@@ -4108,9 +4151,8 @@ static void _del_station(void *arg, struct wifi_station *sta)
     unsigned short sta_flag = 0;
 
     DPRINTF(AML_DEBUG_CFG80211, "%s sta:%p, sta_associd:%d, sta_flags:0x%x\n", __func__, sta, sta->sta_associd, sta->sta_flags);
-
+    sta->is_disconnecting = 1;
     if (sta->sta_associd != 0) {
-        sta->is_disconnecting = 1;
         sta_flag = sta->sta_flags & WIFINET_NODE_PWR_MGT;
         wifi_mac_pwrsave_state_change(sta, 0);
 
@@ -4125,7 +4167,7 @@ static void _del_station(void *arg, struct wifi_station *sta)
                 wifi_mac_send_mgmt(sta, WIFINET_FC0_SUBTYPE_DEAUTH, (void *)&reason);
             }
             while (total_delay < 1000 && (!drv_priv->hal_priv->hal_ops.hal_tx_empty())) {
-                OS_DELAY(10000);
+                msleep(10);
                 total_delay += 10;
             }
         }
