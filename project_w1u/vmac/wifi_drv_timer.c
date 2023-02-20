@@ -91,6 +91,8 @@ void os_set_timer_period (struct os_timer_ext* timer_object, unsigned int timer_
 /* may lower than timer */
 unsigned char os_timer_ex_start (struct os_timer_ext* timer_object)
 {
+    ASSERT(timer_object != NULL && timer_object->timer_handler != NULL);
+
     // mark timer as active
     timer_object->active_flag = 1;
     timer_object->cancel_flag = 0;
@@ -141,7 +143,7 @@ unsigned char os_timer_ex_cancel (struct os_timer_ext* timer_object, enum timer_
             OS_SLEEP(10);   // sleep; can only be executed at IRQL < DISPATCH_LEVEL
         }
     }
-    //here, normaly, timer_lock should be 1
+    //here, normally, timer_lock should be 1
 
     if (! OS_CANCEL_TIMER(&timer_object->os_timer))
     {

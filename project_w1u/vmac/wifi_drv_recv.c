@@ -262,7 +262,6 @@ int drv_rx_input( struct drv_private *drv_priv, void *nsta,
         subtype != WIFINET_FC0_SUBTYPE_QOS || (b_mcast))
     {
         drv_priv->drv_stats.rx_nonqos_cnt++;
-        
         return drv_priv->net_ops->wifi_mac_input(drv_sta->net_nsta, skbbuf, rs);
     }
 

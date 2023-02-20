@@ -1094,6 +1094,7 @@ enum
     WIFINET_ELEMID_QUIET_CHANNEL = 198,  /* Quiet Channel */
     WIFINET_ELEMID_OP_MODE_NOTIFY = 199,  /* Operating Mode Notification */
     WIFINET_ELEMID_VENDOR = 221,
+    WIFINET_ELEMID_RSNX = 244,
 
 #ifdef CONFIG_WAPI
     WIFINET_ELEMID_WAI = 68,
@@ -1321,7 +1322,7 @@ struct wifi_mac_ie_ext_cap
 #define WIFINET_VHTCAP_MU_BFMEE           0x00100000  /* Bit20 mu beamformee */
 
 #define WIFINET_VHTCAP_BF_MAX_ANT          0x0000E000 /* B13-B15 Compressed steering number of
-                                                         * beacomformer Antennas supported */
+                                                         * beacon former Antennas supported */
 
 #define WIFINET_VHTCAP_SOUND_DIMENSIONS    0x00070000 /* B16-B18 Sounding Dimensions */
 

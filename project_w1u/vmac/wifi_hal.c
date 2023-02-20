@@ -464,7 +464,7 @@ unsigned char hal_wake_fw_req(void)
     if (atomic_read(&halpriv->drv_suspend_cnt) != 0)
     {
         POWER_END_LOCK();
-        AML_OUTPUT("suspending, desn't wake, fw st %d\n",
+        AML_OUTPUT("suspending, does not  wake, fw st %d\n",
             halpriv->hal_fw_ps_status);
         return 0;
     }
@@ -2061,24 +2061,26 @@ static int hal_get_did(struct hw_interface* hif)
     int ret = false;
 
     PRINT("Wifi_DeviceID = %x\n",Wifi_DeviceID);
-    while ((Wifi_DeviceID != PRODUCT_AMLOGIC) && (delay_ms < HI_FI_SYNC_DELAY_MS))
-    {
+    do {
         Wifi_DeviceID = hi_get_device_id();
-        if(!aml_bus_type) {
-            OS_MDELAY( HI_FI_SYNC_DELAY_MS_STEP);
-            delay_ms += HI_FI_SYNC_DELAY_MS_STEP;
-        } else {
+        if (Wifi_DeviceID != PRODUCT_AMLOGIC) {
+            if (!aml_bus_type) {
+                OS_MDELAY( HI_FI_SYNC_DELAY_MS_STEP);
+                delay_ms += HI_FI_SYNC_DELAY_MS_STEP;
+            } else {
 #ifdef HAL_SIM_VER
-            OS_MDELAY(HI_FI_SYNC_DELAY_MS_STEP * 300);
-            delay_ms += HI_FI_SYNC_DELAY_MS_STEP * 300;
+                OS_MDELAY(HI_FI_SYNC_DELAY_MS_STEP * 300);
+                delay_ms += HI_FI_SYNC_DELAY_MS_STEP * 300;
 #else
-            OS_MDELAY( HI_FI_SYNC_DELAY_MS_STEP);
-            delay_ms += HI_FI_SYNC_DELAY_MS_STEP;
+                OS_MDELAY( HI_FI_SYNC_DELAY_MS_STEP);
+                delay_ms += HI_FI_SYNC_DELAY_MS_STEP;
 #endif
+            }
+            AML_OUTPUT("Wifi_DeviceID = %x  already delayed=%dms\n",Wifi_DeviceID, delay_ms);
         }
-    }
-    if (Wifi_DeviceID == PRODUCT_AMLOGIC)
-    {
+    } while ((Wifi_DeviceID != PRODUCT_AMLOGIC) && (delay_ms < HI_FI_SYNC_DELAY_MS));
+    AML_OUTPUT("Wifi_DeviceID = %x\n",Wifi_DeviceID);
+    if (Wifi_DeviceID == PRODUCT_AMLOGIC) {
         ret = true;
     } else {
         chip_en_access = 1;
@@ -2093,26 +2095,26 @@ static int hal_get_vid(struct hw_interface* hif)
     int delay_ms = 0;
     int ret = false;
     PRINT("Wifi_VendorID = %x\n",Wifi_VendorID);
-    while ((Wifi_VendorID!=VENDOR_AMLOGIC) && (delay_ms < HI_FI_SYNC_DELAY_MS) )
-    {
+    do {
         Wifi_VendorID = hi_get_vendor_id();
-        if(!aml_bus_type) {
-            OS_MDELAY( HI_FI_SYNC_DELAY_MS_STEP);
-            delay_ms += HI_FI_SYNC_DELAY_MS_STEP;
-        } else {
+        if (Wifi_VendorID != VENDOR_AMLOGIC) {
+            if (!aml_bus_type) {
+                OS_MDELAY( HI_FI_SYNC_DELAY_MS_STEP);
+                delay_ms += HI_FI_SYNC_DELAY_MS_STEP;
+            } else {
 #ifdef HAL_SIM_VER
-            OS_MDELAY(HI_FI_SYNC_DELAY_MS_STEP * 300);
-            delay_ms += HI_FI_SYNC_DELAY_MS_STEP * 300;
+                OS_MDELAY(HI_FI_SYNC_DELAY_MS_STEP * 300);
+                delay_ms += HI_FI_SYNC_DELAY_MS_STEP * 300;
 #else
-            OS_MDELAY( HI_FI_SYNC_DELAY_MS_STEP);
-            delay_ms += HI_FI_SYNC_DELAY_MS_STEP;
+                OS_MDELAY( HI_FI_SYNC_DELAY_MS_STEP);
+                delay_ms += HI_FI_SYNC_DELAY_MS_STEP;
 #endif
+            }
+            AML_OUTPUT("Wifi_VendorID = %x  already delayed=%dms\n",Wifi_VendorID, delay_ms);
         }
-
-        PRINT("Wifi_DeviceID = %x  already delayed=%dms\n",Wifi_VendorID, delay_ms);
-    }
-    if (Wifi_VendorID == VENDOR_AMLOGIC)
-    {
+    } while ((Wifi_VendorID!=VENDOR_AMLOGIC) && (delay_ms < HI_FI_SYNC_DELAY_MS) );
+    AML_OUTPUT("Wifi_VendorID = %x  already delayed=%dms\n",Wifi_VendorID, delay_ms);
+    if (Wifi_VendorID == VENDOR_AMLOGIC) {
         ret = true;
     }
     hif->Wifi_VendorID = Wifi_VendorID;
@@ -2382,7 +2384,7 @@ int hal_init_priv(void)
 
     //fw event buffer allocation
     hal_alloc_fw_event_buf(hal_priv);
-    //phyical layer parameters setting functions
+    //physical layer parameters setting functions
     hal_ops_attach();
     /* register hal layer callback */
     hal_priv->hal_call_back = get_hal_call_back_table();
@@ -2448,7 +2450,7 @@ void hal_exit_priv(void)
         return;
     }
 
-    /*switch rf to SX mode or sleep mode,beacuae of interfence BT*/
+    /*switch rf to SX mode or sleep mode,because of interfence BT*/
     reg_val = rf_read_register(RG_TOP_A2);
     reg_val = reg_val &(~0x1f);
     /*RF enter sx mode*/
@@ -2612,7 +2614,7 @@ int hal_work_thread(void *param)
     struct sched_param sch_param;
     int  i = 0;
 
-    PRINT("%s(%d)  =====creat thread hal_worl_thread<=====\n",__func__,__LINE__);
+    PRINT("%s(%d)  =====creat thread hal_world_thread<=====\n",__func__,__LINE__);
 
     sch_param.sched_priority = 91;
     sched_setscheduler(current, SCHED_RR, &sch_param);
@@ -2730,7 +2732,7 @@ int hal_txok_thread(void *param)
                     txok_status_node = NULL;
                     continue;
                 }
-                /* to procesess drv_intr_tx_ok*/
+                /* to process drv_intr_tx_ok*/
                 if (hal_priv->hal_call_back != NULL) {
                     hal_priv->hal_call_back->intr_tx_handle(hal_priv->drv_priv, txstatus, callback, queue_id);
                 }

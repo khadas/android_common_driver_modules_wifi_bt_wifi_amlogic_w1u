@@ -15,6 +15,10 @@
 #include <linux/namei.h>
 #include "wifi_common.h"
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
+#endif
+
 static int openFile(struct file **fpp, const char *path, int flag, int mode)
 {
     struct file *fp;
@@ -105,7 +109,7 @@ static int writeFile(struct file *fp, char *buf, int len)
 }
 
 /*
-* Test if the specifi @param path is a file and readable
+* Test if the specific @param path is a file and readable
 * If readable, @param sz is got
 * @param path the path of the file to test
 * @return Linux specific error code
@@ -114,20 +118,23 @@ int isFileReadable(const char *path, u32 *sz)
 {
     struct file *fp;
     int ret = 0;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     mm_segment_t oldfs;
+#endif
     char buf;
 
     fp = filp_open(path, O_RDONLY, 0);
     if (IS_ERR(fp)) {
         ret = PTR_ERR(fp);
     } else {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
         oldfs = get_fs();
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
         set_fs(KERNEL_DS);
 #else
         set_fs(get_ds());
 #endif
-
+#endif //5.15
         if (1 != readFile(fp, &buf, 1)) {
             ret = PTR_ERR(fp);
         }
@@ -139,8 +146,9 @@ int isFileReadable(const char *path, u32 *sz)
             *sz = i_size_read(fp->f_dentry->d_inode);
 #endif
         }
-
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
         set_fs(oldfs);
+#endif
         filp_close(fp, NULL);
     }
     return ret;
@@ -156,7 +164,9 @@ int isFileReadable(const char *path, u32 *sz)
 static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 {
     int ret = -1;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     mm_segment_t oldfs;
+#endif
     struct file *fp;
 
     if (path && buf) {
@@ -164,14 +174,18 @@ static int retriveFromFile(const char *path, u8 *buf, u32 sz)
         if (0 == ret) {
             AML_OUTPUT("openFile path:%s fp=%p\n", path , fp);
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
             oldfs = get_fs();
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
             set_fs(KERNEL_DS);
 #else
             set_fs(get_ds());
 #endif
+#endif // 5.15
             ret = readFile(fp, buf, sz);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
             set_fs(oldfs);
+#endif
             closeFile(fp);
 
             AML_OUTPUT("readFile, ret:%d\n", ret);
@@ -186,7 +200,7 @@ static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 }
 
 /*
-* Open the file with @param path and wirte @param sz byte of data starting from @param buf into the file
+* Open the file with @param path and write @param sz byte of data starting from @param buf into the file
 * @param path the path of the file to open and write
 * @param buf the starting address of the data to write into file
 * @param sz how many bytes to write at most
@@ -195,7 +209,9 @@ static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 static int storeToFile(const char *path, u8 *buf, u32 sz)
 {
     int ret = 0;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     mm_segment_t oldfs;
+#endif
     struct file *fp;
 
 
@@ -203,14 +219,18 @@ static int storeToFile(const char *path, u8 *buf, u32 sz)
         ret = openFile(&fp, path, O_CREAT | O_WRONLY, 0666);
         if (0 == ret) {
             AML_OUTPUT("openFile path:%s fp=%p\n", path , fp);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
             oldfs = get_fs();
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
             set_fs(KERNEL_DS);
 #else
             set_fs(get_ds());
 #endif
+#endif//5.15
             ret = writeFile(fp, buf, sz);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
             set_fs(oldfs);
+#endif
             closeFile(fp);
             AML_OUTPUT("writeFile, ret:%d\n", ret);
         } else {
@@ -224,7 +244,7 @@ static int storeToFile(const char *path, u8 *buf, u32 sz)
 }
 
 /*
-* Test if the specifi @param path is a file and readable
+* Test if the specific @param path is a file and readable
 * @param path the path of the file to test
 * @return true or false
 */
@@ -238,7 +258,7 @@ int aml_is_file_readable(const char *path)
 }
 
 /*
-* Test if the specifi @param path is a file and readable.
+* Test if the specific @param path is a file and readable.
 * If readable, @param sz is got
 * @param path the path of the file to test
 * @return _TRUE or _FALSE
@@ -253,7 +273,7 @@ int aml_is_file_readable_with_size(const char *path, u32 *sz)
 }
 
 /*
-* Test if the specifi @param path is a readable file with valid size.
+* Test if the specific @param path is a readable file with valid size.
 * If readable, @param sz is got
 * @param path the path of the file to test
 * @return _TRUE or _FALSE
@@ -287,7 +307,7 @@ int aml_retrieve_from_file(const char *path, u8 *buf, u32 sz)
 }
 
 /*
-* Open the file with @param path and wirte @param sz byte of data starting from @param buf into the file
+* Open the file with @param path and write @param sz byte of data starting from @param buf into the file
 * @param path the path of the file to open and write
 * @param buf the starting address of the data to write into file
 * @param sz how many bytes to write at most

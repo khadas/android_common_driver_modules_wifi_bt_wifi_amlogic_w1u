@@ -110,10 +110,17 @@ wifi_mac_start_bss_ex(unsigned long arg)
         if (WIFINET_M_IBSS == wnet_vif->vm_opmode) {
             copy_bss(wnet_vif->vm_mainsta, obss);
         }
+
+        if (WIFINET_M_STA == wnet_vif->vm_opmode) {
+            memcpy(wnet_vif->vm_mainsta->sta_txseqs, obss->sta_txseqs, sizeof(obss->sta_txseqs));
+        }
+
         wifi_mac_rm_sta_from_wds_by_sta(&wnet_vif->vm_sta_tbl, obss);
 
         AML_OUTPUT("obss:%p\n", obss);
+        WIFINET_VMACS_UNLOCK(wifimac);
         wifi_mac_free_sta_from_list(obss);
+        WIFINET_VMACS_LOCK(wifimac);
     }
 
      WIFINET_VMACS_UNLOCK(wifimac);
@@ -645,6 +652,8 @@ void wifi_mac_sta_leave(struct wifi_station *sta, int reassoc)
         wifimac->drv_priv->drv_ops.drv_set_is_mother_channel(wifimac->drv_priv, wnet_vif->wnet_vif_id, 1);
         wifi_mac_rst_bss(wnet_vif);
         wifi_mac_rst_main_sta(wnet_vif);
+        wifi_mac_config(wifimac, CHIP_PARAM_AMSDU_ENABLE, DEFAULT_TXAMSDU_EN);
+        wifi_mac_config(wifimac, CHIP_PARAM_AMPDU, DEFAULT_RXAMPDU_EN);
 
         if (wifimac->recovery_stat == WIFINET_RECOVERY_END) {
             wnet_vif->vm_des_nssid = 0;
@@ -776,7 +785,7 @@ alloc_sta_node(struct wifi_station_tbl *nt,struct wlan_net_vif *wnet_vif)
     return sta;
 }
 
-//if sta node is in the table, get it when addr and mac macth
+//if sta node is in the table, get it when addr and mac match
 //if the sta node is not in the table, allocate one and append the queue, and get it
 struct wifi_station *wifi_mac_get_new_sta_node(struct wifi_station_tbl *nt,
     struct wlan_net_vif *wnet_vif, const unsigned char *macaddr)
@@ -788,7 +797,7 @@ struct wifi_station *wifi_mac_get_new_sta_node(struct wifi_station_tbl *nt,
     sta = alloc_sta_node(nt,wnet_vif);
     if (sta == NULL) {
         wnet_vif->vif_sts.sts_rx_sta_all_fail++;
-        DPRINTF(AML_DEBUG_NODE, "WARNNING:%s %d \n", __func__, __LINE__);
+        DPRINTF(AML_DEBUG_NODE, "WARNING:%s %d \n", __func__, __LINE__);
         return NULL;
     }
     sta->sta_tmp_nsta = 0;
@@ -844,7 +853,7 @@ struct wifi_station *wifi_mac_get_sta_node(struct wifi_station_tbl *nt,
     sta = wifi_mac_get_new_sta_node(nt, wnet_vif, macaddr);
     if (sta == NULL) {
         wnet_vif->vif_sts.sts_rx_sta_all_fail++;
-        DPRINTF(AML_DEBUG_NODE, "WARNNING:%s %d \n",__func__,__LINE__);
+        DPRINTF(AML_DEBUG_NODE, "WARNING:%s %d \n",__func__,__LINE__);
         return NULL;
     }
 
@@ -861,7 +870,7 @@ int wifi_mac_add_wds_addr(struct wifi_station_tbl *nt,
         GFP_KERNEL, "wifi_mac_add_wds_addr.wds");
 
     if (wds == NULL) {
-        DPRINTF(AML_DEBUG_NODE, "WARNNING:%s %d \n",__func__,__LINE__);
+        DPRINTF(AML_DEBUG_NODE, "WARNING:%s %d \n",__func__,__LINE__);
         return 1;
     }
 
@@ -980,7 +989,7 @@ wifi_mac_tmp_nsta(struct wlan_net_vif *wnet_vif, const unsigned char *macaddr)
         WIFINET_SAVEQ_INIT(&(sta->sta_pstxqueue), "unknown");
 
     } else {
-        DPRINTF(AML_DEBUG_NODE, "WARNNING:%s %d \n",__func__,__LINE__);
+        DPRINTF(AML_DEBUG_NODE, "WARNING:%s %d \n",__func__,__LINE__);
         wnet_vif->vif_sts.sts_rx_sta_all_fail++;
     }
 
@@ -1503,7 +1512,7 @@ static void wifi_mac_TimeoutStations(struct wifi_station_tbl *nt)
             wnet_vif = sta->sta_wnet_vif;
             WIFINET_NODE_UNLOCK(nt);
             wifi_softap_allsta_stopping(wnet_vif,1);
-            wifi_mac_sta_disconnect_from_ap(sta);
+            wifi_mac_notify_nsta_disconnect(sta,0);
             WIFINET_NODE_LOCK(nt);
         }
     }
@@ -2138,6 +2147,7 @@ void wifi_mac_sta_vdetach(struct wlan_net_vif *wnet_vif)
 {
     AML_OUTPUT("vm_mainsta:%p\n", wnet_vif->vm_mainsta);
     wifi_mac_sta_table_rst(&wnet_vif->vm_sta_tbl, wnet_vif);
+    wifi_mac_clear_sta_table(&wnet_vif->vm_sta_tbl);
 }
 
 void wifi_mac_sta_attach(struct wifi_mac *wifimac)
@@ -2157,14 +2167,6 @@ void wifi_mac_sta_attach(struct wifi_mac *wifimac)
 void
 wifi_mac_StationDetach(struct wifi_mac *wifimac)
 {
-    struct wlan_net_vif *wnet_vif = NULL;
-
-    DPRINTF(AML_DEBUG_WARNING, "wifi_mac_StationDetach++ \n");
-
-    list_for_each_entry(wnet_vif, &wifimac->wm_wnet_vifs, vm_next)
-    {
-        wifi_mac_clear_sta_table(&wnet_vif->vm_sta_tbl);
-    }
     wifi_mac_free_sta_now(wifimac);
     os_timer_ex_del(&wifimac->wm_free_timer, CANCEL_SLEEP);
     os_timer_ex_del(&wifimac->wm_inact_timer, CANCEL_SLEEP);

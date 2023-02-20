@@ -301,12 +301,12 @@ void set_wifi_baudrate (unsigned int apb_clk)
 
 /*
 All valid bits are R/W, the default value is 32h8000_0003
-[0]: soft resetn0, which reset the whole MAC. Its set by software,auto cleaned by
+[0]: soft reset 0, which reset the whole MAC. Its set by software,auto cleaned by
     hardware when soft reset timer0 times out. Active low.
-[1]: soft resetn1, which reset MAC except sd2wifi sub-module.
+[1]: soft reset 1, which reset MAC except sd2wifi sub-module.
 Its set by software, auto cleaned by hardware when soft reset timer1 times out. Active low.
 [30:2]: reserved
-[31]: soft_arc_resetn, which reset ARC625 core and arc_11n_ram_loader sub-module.
+[31]: soft_arc_reset, which reset ARC625 core and arc_11n_ram_loader sub-module.
     Its set and cleaned both by software. Active low.
 */
 int amlhal_resetmac(void)
@@ -394,8 +394,7 @@ unsigned char hal_set_sys_clk(int clockdiv)
     AON_WR_REG(RG_DPLL_A3, (tmp | BIT(0)));
     OS_MDELAY(10);
     AON_WR_REG(RG_DPLL_A3, (tmp & ~BIT(0)));
-
-    //select CPU clock by digitl divider for 80MHz
+    //select CPU clock by digital divider for 80MHz
 #ifdef TX_TIMEOUT_ERR
     hal_set_sys_clk_Core(RG_INTF_CPU_CLK,TEST_CPU_CLOCK);
 #else
@@ -403,7 +402,7 @@ unsigned char hal_set_sys_clk(int clockdiv)
     hal_set_sys_clk_Core(RG_INTF_CPU_CLK,0x4f670031);
     //arc, cpu clock 0x4f070031
 #endif
-    //select BTCPU clock by digitl divider for 48MHz
+    //select BTCPU clock by digital divider for 48MHz
     hal_set_sys_clk_Core(RG_INTF_BTCPU_CLK,0x940011);
 
     //config mactxdelay
@@ -591,6 +590,7 @@ void wifi_cpu_clk_switch(unsigned int clk_cfg)
 #endif
 
 extern unsigned char wifi_in_insmod;
+extern unsigned char wifi_in_rmmod;
 #ifdef ICCM_CHECK
 unsigned char buf_iccm_rd[ICCM_BUFFER_RD_LEN];
 #endif
@@ -764,7 +764,7 @@ int hal_download_wifi_fw_img(void)
         //cpu select arc
         //enable cpu
         regdata = hif->hif_ops.hi_read_word(RG_WIFI_MAC_ARC_CTRL);
-        /* start frimware chip cpu */
+        /* start firmware chip cpu */
         regdata |= CPU_RUN;
         hif->hif_ops.hi_write_word(RG_WIFI_MAC_ARC_CTRL, regdata);
     } else {
@@ -1001,6 +1001,7 @@ unsigned int aml_wifi_is_enable_rf_test(void)
 }
 
 extern unsigned char wifi_in_insmod;
+extern unsigned char wifi_in_rmmod;
 extern unsigned char aml_bus_type;
 
 static int aml_insmod(void)
@@ -1075,7 +1076,9 @@ static void aml_rmmod(void)
 #ifdef DEBUG_MALLOC
     unsigned char i;
 #endif
-
+#ifdef SDIO_BUILD_IN
+    wifi_in_rmmod = 1;
+#endif
     AML_OUTPUT("===================aml_rmmod start====================\n");
     hal_exit_priv();
     AML_OUTPUT("===================aml_rmmod end====================\n");
@@ -1091,6 +1094,9 @@ static void aml_rmmod(void)
     for (i = 0; i < kfree_count; ++i) {
         AML_OUTPUT("free name:%s, count:%d\n", f_pn_buf[i].name, f_pn_buf[i].count);
     }
+#endif
+#ifdef SDIO_BUILD_IN
+    wifi_in_rmmod = 0;
 #endif
 }
 
@@ -1114,7 +1120,7 @@ module_param(en_rf_test, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
  *Default: 00:01:02:58:00:12
 */
 module_param(mac_addr,charp,0644);
-MODULE_PARM_DESC(mac_addr,"A string variable to discribe wifi mac address");
+MODULE_PARM_DESC(mac_addr,"A string variable to describe wifi mac address");
 
 module_param(dhcp_offload, ushort, S_IRUGO);
 MODULE_PARM_DESC(dhcp_offload,"A short variable to control dhcp offload function");
@@ -1122,7 +1128,7 @@ MODULE_PARM_DESC(dhcp_offload,"A short variable to control dhcp offload function
 /*Usage: insmod ***.ko country_code=xx*/
 
 module_param(country_code,charp,0644);
-MODULE_PARM_DESC(country_code,"A string variable to discribe country code");
+MODULE_PARM_DESC(country_code,"A string variable to describe country code");
 
 module_param(bus_type, charp,S_IRUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(bus_type,"A string variable to adjust sdio or usb bus interface");

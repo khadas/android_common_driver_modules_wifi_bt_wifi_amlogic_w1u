@@ -176,7 +176,7 @@ minstrel_ht_get_tp_avg(struct minstrel_ht_sta *mi, int group, int rate,
 {
     unsigned int nsecs = 0;
 
-    /* do not account throughput if sucess prob is below 10% */
+    /* do not account throughput if success prob is below 10% */
     if (prob_ewma < MINSTREL_FRAC(10, 100))
         return 0;
 

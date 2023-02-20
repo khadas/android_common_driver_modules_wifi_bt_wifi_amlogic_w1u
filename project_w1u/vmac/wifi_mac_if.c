@@ -45,7 +45,7 @@ const char *wifi_mac_state_name[WIFINET_S_MAX] =
     "ASSOC",
     "CONNECTED"
 };
-static int g_auto_gain_base = 0;
+int g_auto_gain_base = 0;
 
 static struct wifi_mac wm_mac;
 struct wifi_mac* wifi_mac_get_mac_handle(void)
@@ -258,14 +258,14 @@ void wifi_mac_set_channel_rssi(struct wifi_mac *wifimac, unsigned char rssi)
 {
     unsigned char rssi_set = rssi;
 
-    if (wifimac->bt_lk) {
+    if (wifimac->bt_lk && rssi >= 213 && WIFINET_IS_CHAN_2GHZ(wifimac->drv_priv->drv_wnet_vif_table[0]->vm_curchan)) {
         //for bt wifi coexit need set -50 gian
-        wifimac->drv_priv->drv_ops.set_channel_rssi(wifimac->drv_priv, 226);
+        wifimac->drv_priv->drv_ops.set_channel_rssi(wifimac->drv_priv, rssi);
 
-    } else if (wifimac->is_connect_set_gain ||((wifimac->is_connect_set_gain == 0) && (rssi>191))) {
-        //if (rssi_set > 191) {
-        //    rssi_set = 191;
-        //}
+    } else if (wifimac->is_connect_set_gain) {
+        if (rssi_set > 191) {
+            rssi_set = 191;
+        }
         wifimac->drv_priv->drv_ops.set_channel_rssi(wifimac->drv_priv, rssi_set);
         AML_OUTPUT("is_connect_set_gain %d-> %d\n",wifimac->is_connect_set_gain,256-rssi_set);
 
@@ -275,7 +275,7 @@ void wifi_mac_set_channel_rssi(struct wifi_mac *wifimac, unsigned char rssi)
 
 }
 
-int wifi_mac_is_in_noisy_enviroment(struct wifi_mac *wifimac)
+int wifi_mac_is_in_noisy_environment(struct wifi_mac *wifimac)
 {
     int ret = 0;
 
@@ -287,7 +287,7 @@ int wifi_mac_is_in_noisy_enviroment(struct wifi_mac *wifimac)
     return ret;
 }
 
-int wifi_mac_is_in_clear_enviroment(struct wifi_mac *wifimac)
+int wifi_mac_is_in_clear_environment(struct wifi_mac *wifimac)
 {
     int ret = 0;
 
@@ -1651,7 +1651,7 @@ int wifi_mac_cap_attach(struct wifi_mac *wifimac, struct drv_private* drv_priv)
     wifimac->wm_uapsd_qid = HAL_WME_UAPSD;
 
     /*get capabilities from 'drv_priv->drv_config'
-      initiallized in aml_driv_attach()*/
+      initiallize in aml_driv_attach()*/
     if (ops->drv_get_config_param(drv_priv, CHIP_PARAM_UAPSD))
     {
         wifi_mac_ComSetCap(wifimac, WIFINET_C_UAPSD);
@@ -1784,7 +1784,7 @@ int wifi_mac_cap_attach(struct wifi_mac *wifimac, struct drv_private* drv_priv)
     /* initialize inact_timer for ap&sta, sta will keep alive
     to ap (send nulldata to ap), ap will monitor if sta leave bss.*/
 
-    /*initlialize scan param and scan_timer */
+    /*initialize scan param and scan_timer */
     wifi_mac_scan_attach(wifimac);
     wifimac->wm_esco_en    = 0;
     wifimac->wm_bt_en = 0;
@@ -2548,7 +2548,7 @@ int wifi_mac_initial(struct net_device *dev, int forcescan)
 
         /*set running & up flag for dev/interface. */
         dev->flags |= IFF_RUNNING | IFF_UP;
-#if (DEFAULT_INTIAL_POWERMODE == 1)
+#if (DEFAULT_INITIAL_POWERMODE == 1)
         wifi_mac_pwrsave_set_mode(wnet_vif, WIFINET_PWRSAVE_LOW);
 #endif
     }
@@ -3233,7 +3233,7 @@ wifi_mac_sub_sm(struct wlan_net_vif *wnet_vif, enum wifi_mac_state nstate, int a
                 wifimac->wm_vsdb_slot = CONCURRENT_SLOT_STA;
             }
             if (IS_APSTA_CONCURRENT(aml_wifi_get_con_mode()) && concurrent_check_vmac_is_AP(wifimac)) {
-                /*softap and sta concurrrent as scc, no need vsdb*/
+                /*softap and sta concurrent as scc, no need vsdb*/
                 wifimac->wm_vsdb_slot = CONCURRENT_SLOT_NONE;
             } else {
                 wifi_mac_add_work_task(wifimac, wifi_mac_set_vsdb, NULL, (SYS_TYPE)wifimac, 0, ENABLE, (SYS_TYPE)wnet_vif, 0);
@@ -3629,7 +3629,7 @@ vm_wlan_net_vif_register(struct wlan_net_vif *wnet_vif, char* name)
     if (name != NULL)
         strncpy(dev->name, name, sizeof(dev->name) - 1);
 
-    /*set net device operations, refer to 'wifi_mac_netdev_ops' for detials.
+    /*set net device operations, refer to 'wifi_mac_netdev_ops' for details.
         For example, if wlan0 up/down, tcp/ip_xmit_start ...*/
     dev->netdev_ops = &wifi_mac_netdev_ops;
     dev->hard_header_len = DEFAULT_HARD_HDR_LEN;
@@ -3781,7 +3781,7 @@ wifi_mac_build_country_ie(struct wlan_net_vif * wnet_vif)
 
     wifimac->wm_countryinfo.country_str[0] = country.iso[0];
     wifimac->wm_countryinfo.country_str[1] = country.iso[1];
-    wifimac->wm_countryinfo.country_str[2] = 0x20; //Environmnet: Any
+    wifimac->wm_countryinfo.country_str[2] = 0x20; //environment: Any
     wifimac->wm_countryinfo.country_len += 3;
 
     if (WIFINET_IS_CHAN_2GHZ(wnet_vif->vm_curchan)) {
@@ -4457,6 +4457,7 @@ void wifi_mac_fw_recovery_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,
     wifimac->drv_priv->hal_priv->fwRecoveryStamp = jiffies;
     wifimac->drv_priv->drv_ops.fw_repair(wifimac->drv_priv);
     wifimac->drv_priv->drv_ops.drv_interface_enable(ENABLE, wnet_vif->wnet_vif_id);
+    wifimac->drv_priv->drv_ops.set_macaddr(wifimac->drv_priv, wnet_vif->wnet_vif_id, wnet_vif->vm_myaddr);
 
     wifi_mac_clear_host_wake_status();
     if (wifimac->recovery_stat & WIFINET_RECOVERY_UNDER_CONNECT) {

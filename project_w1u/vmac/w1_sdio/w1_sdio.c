@@ -15,6 +15,7 @@ unsigned char w1_sdio_wifi_bt_alive;
 unsigned char w1_sdio_driver_insmoded;
 unsigned char w1_sdio_after_porbe;
 unsigned char wifi_in_insmod;
+unsigned char wifi_in_rmmod;
 unsigned char  wifi_sdio_access = 1;
 unsigned char  chip_en_access = 0;
 unsigned char  wifi_sdio_timeout = 0;
@@ -277,15 +278,15 @@ int aml_w1_sdio_bottom_read(unsigned char func_num, int addr, void *buf, size_t 
 
     if (!wifi_sdio_access) {
         if (func_num == SDIO_FUNC5) {
-            /*SDIO_FUNC5 ignor*/
+            /*SDIO_FUNC5 ignore*/
             ERROR_DEBUG_OUT("SDIO_FUNC5, func num %d, addr 0x%08x\n", func_num, addr);
 
         } else if (func_num == SDIO_FUNC1) {
-            /*SDIO_FUNC1 ignor*/
+            /*SDIO_FUNC1 ignore*/
             ERROR_DEBUG_OUT("SDIO_FUNC1, func num %d, addr 0x%08x\n", func_num, addr);
 
         }  else if ((func_num == SDIO_FUNC2) && (addr == 0x00005080)) {
-            /*SDIO_FUNC2 && 0x00005080 ignor*/
+            /*SDIO_FUNC2 && 0x00005080 ignore*/
             ERROR_DEBUG_OUT("SDIO_FUNC1, func num %d, addr 0x%08x\n", func_num, addr);
 
         } else {
@@ -1258,6 +1259,7 @@ static const struct sdio_device_id aml_w1_sdio[] =
     {SDIO_DEVICE(W1u_VENDOR_AMLOGIC_EFUSE,W1us_PRODUCT_AMLOGIC_EFUSE)},
     {SDIO_DEVICE(W1u_VENDOR_AMLOGIC_EFUSE,W1us_A_PRODUCT_AMLOGIC_EFUSE)},
     {SDIO_DEVICE(W1u_VENDOR_AMLOGIC_EFUSE,W1us_B_PRODUCT_AMLOGIC_EFUSE)},
+    {SDIO_DEVICE(W1u_VENDOR_AMLOGIC_EFUSE,W1us_C_PRODUCT_AMLOGIC_EFUSE)},
     {}
 };
 
@@ -1375,6 +1377,7 @@ int  aml_w1_sdio_init(void)
     err = sdio_register_driver(&aml_w1_sdio_driver);
     w1_sdio_driver_insmoded = 1;
     wifi_in_insmod = 0;
+    wifi_in_rmmod = 0;
     chip_en_access = 0;
     wifi_sdio_shutdown = 0;
     PRINT("*****************aml sdio common driver is insmoded********************\n");
@@ -1395,6 +1398,7 @@ void  aml_w1_sdio_exit(void)
 }
 EXPORT_SYMBOL(w1_sdio_driver_insmoded);
 EXPORT_SYMBOL(wifi_in_insmod);
+EXPORT_SYMBOL(wifi_in_rmmod);
 EXPORT_SYMBOL(w1_sdio_after_porbe);
 EXPORT_SYMBOL(host_wake_w1_req);
 EXPORT_SYMBOL(host_suspend_req);

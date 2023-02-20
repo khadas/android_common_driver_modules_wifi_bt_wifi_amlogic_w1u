@@ -308,7 +308,7 @@ void CO_SharedFifoGetNElt(struct _CO_SHARED_FIFO *const SharedFifoPtr, const uns
  *    unsigned short   CO_BAD_PARAM2 / CO_STATUS_OK
  *
  * description:
- *    Let avalailable N elements of the shared FIFO for the next block.
+ *    Let available N elements of the shared FIFO for the next block.
  *
  *****************************************************************************************
  */

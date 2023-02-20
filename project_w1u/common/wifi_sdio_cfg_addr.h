@@ -1,9 +1,9 @@
-#ifndef __WIFI_SDIIO_CFG_ADDR_H__
-#define __WIFI_SDIIO_CFG_ADDR_H__
+#ifndef __WIFI_SDIO_CFG_ADDR_H__
+#define __WIFI_SDIO_CFG_ADDR_H__
 
 //Base ADDR
 // for statistic host module
-#define MOD_VADDR (0xF000)  
+#define MOD_VADDR (0xF000)
 #define HOST_SW_VADDR (MOD_VADDR + 0x0)
 
 // bit2,bit3 keep r/w ptr after amlogic's self-definition reset

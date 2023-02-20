@@ -147,6 +147,7 @@ enum aml_iwpriv_subcmd
     AML_IWP_GET_EFUSE = 78,
     AML_IWP_SET_EFUSE = 79,
     AML_IWP_GET_SPEC_REGS = 80,
+    AML_IWP_GET_EN_RF_TEST = 81,
 };
 
 extern void dump_spec_regs_val(struct wlan_net_vif *wnet_vif, int reg_domain);

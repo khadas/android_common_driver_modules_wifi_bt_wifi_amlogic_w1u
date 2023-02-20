@@ -2,6 +2,7 @@
 #include "wifi_mac_rate.h"
 #include "wifi_iwpriv_cmd.h"
 
+extern int g_auto_gain_base;
 
 const char *forbidden_scan_reason_str[FORBIDDEN_SCAN_MAX] =
 {
@@ -45,7 +46,7 @@ static int wifi_mac_scan_sta_compare(const struct scaninfo_entry *a, const struc
 
     if (abs(b->scaninfo.SI_rssi - a->scaninfo.SI_rssi) < 5)
     {
-        return wifi_mac_get_sta_mode((struct wifi_scan_info *)&b->scaninfo) - wifi_mac_get_sta_mode((struct wifi_scan_info *)&a->scaninfo);
+        return wifi_mac_get_sta_mode((struct wifi_scan_info *)&a->scaninfo) - wifi_mac_get_sta_mode((struct wifi_scan_info *)&b->scaninfo);
     }
     return a->scaninfo.SI_rssi - b->scaninfo.SI_rssi;
 }
@@ -72,7 +73,7 @@ static int match_bss(struct wlan_net_vif *wnet_vif,
     unsigned int fail;
 
     fail = 0;
-    if (wifi_mac_chan_num_availd(wifimac, wifi_mac_chan2ieee(wifimac, scaninfo->SI_chan)) == false) {
+    if (wifi_mac_chan_num_avail(wifimac, wifi_mac_chan2ieee(wifimac, scaninfo->SI_chan)) == false) {
         fail |= STA_MATCH_ERR_CHAN;
         //AML_OUTPUT("fail 0x%x\n", fail);
     }
@@ -363,7 +364,7 @@ static int wifi_mac_chk_ap_chan(struct wifi_mac_scan_state *ss, struct wlan_net_
     int channum;
     struct wifi_channel *c = NULL;
 
-     //AP default work in 5G channel 149,wiait hostapd configure after init
+     //AP default work in 5G channel 149,wait hostapd configure after init
     channum = DEFAULT_CHANNEL;
     DPRINTF(AML_DEBUG_SCAN|AML_DEBUG_CONNECT,
         "<%s> :  %s %d ++ vm_opmode %d\n",wnet_vif->vm_ndev->name,__func__,__LINE__,wnet_vif->vm_opmode);
@@ -573,10 +574,10 @@ int wifi_mac_scan_parse(struct wlan_net_vif *wnet_vif, wifi_mac_ScanIterFunc *f,
         wifi_mac_update_chan_overlapping_map(wnet_vif);
         ss->scan_ssid_count = count;
 
-        if (wifi_mac_is_in_noisy_enviroment(wifimac)) {
+        if (wifi_mac_is_in_noisy_environment(wifimac)) {
             wifimac->scan_noisy_status = WIFINET_S_SCAN_ENV_NOISE;
 
-        } else if (wifi_mac_is_in_clear_enviroment(wifimac)) {
+        } else if (wifi_mac_is_in_clear_environment(wifimac)) {
             //clear environment, set to max gain
             wifimac->drv_priv->drv_ops.set_channel_rssi(wifimac->drv_priv, 174);
             wifimac->scan_noisy_status = WIFINET_S_SCAN_ENV_CLEAR;
@@ -618,7 +619,7 @@ void update_roaming_candidate_chan(struct wifi_mac_scan_state *ss, struct wifi_c
     WIFI_ROAMING_CHANNLE_LOCK(ss);
     for (i = 0; i < ROAMING_CANDIDATE_CHAN_MAX; i++) {
         if (ss->roaming_candidate_chans[i].channel) {
-            /*updat rssi */
+            /*update rssi */
             if (ss->roaming_candidate_chans[i].channel->chan_pri_num == apchan->chan_pri_num) {
                 ss->roaming_candidate_chans[i].avg_rssi = (ss->roaming_candidate_chans[i].avg_rssi + (rssi * 3)) >> 2;
                 WIFI_ROAMING_CHANNLE_UNLOCK(ss);
@@ -724,6 +725,10 @@ void wifi_mac_scan_rx(struct wlan_net_vif *wnet_vif, const struct wifi_mac_scan_
         }
     }
 
+    if (sp->rsnxe != NULL) {
+        saveie(&ise->SI_rsnx_ie[0], sp->rsnxe);
+    }
+
     WIFINET_ADDR_COPY(se->scaninfo.SI_macaddr, macaddr);
     DPRINTF(AML_DEBUG_SCAN, "<running> %s se %p se->se_list 0x%p, %s, mac:%02x:%02x:%02x:%02x:%02x:%02x\n",
         __func__, se, &se->se_list, ssidie_sprintf(sp->ssid), macaddr[0], macaddr[1], macaddr[2], macaddr[3], macaddr[4], macaddr[5]);
@@ -819,7 +824,9 @@ void wifi_mac_scan_rx(struct wlan_net_vif *wnet_vif, const struct wifi_mac_scan_
     return;
 
 fail:
-    FREE(se,"sta_add.se");
+    if (oldse == NULL) {
+        FREE(se,"sta_add.se");
+    }
     return;
 }
 
@@ -1702,7 +1709,12 @@ void wifi_mac_end_scan( struct wifi_mac_scan_state *ss)
 
     if ((wnet_vif->vm_opmode == WIFINET_M_STA) && ((wnet_vif->vm_state == WIFINET_S_CONNECTED) ||
        (wnet_vif->vm_scan_before_connect_flag))) {
-        wifi_mac_set_channel_rssi(wifimac, (unsigned char)(wnet_vif->vm_mainsta->sta_avg_bcn_rssi));
+        if (g_auto_gain_base != 0) {
+            wifi_mac_set_channel_rssi(wifimac, g_auto_gain_base);
+        }
+        else{
+            wifi_mac_set_channel_rssi(wifimac, 174);
+        }
     }
     wifi_mac_restore_wnet_vif_channel(wnet_vif);
     wifimac->wm_flags &= ~WIFINET_F_SCAN;
@@ -1966,7 +1978,7 @@ int wifi_mac_start_scan(struct wlan_net_vif *wnet_vif, int flags,
         return 0;
 
     } else if (wifimac->recovery_stat == WIFINET_RECOVERY_START) {
-        DPRINTF(AML_DEBUG_WARNING, "<%s> : %s drop scan due to fw recoverying \n", wnet_vif->vm_ndev->name, __func__);
+        DPRINTF(AML_DEBUG_WARNING, "<%s> : %s drop scan due to fw recovering \n", wnet_vif->vm_ndev->name, __func__);
         return 0;
     }
 

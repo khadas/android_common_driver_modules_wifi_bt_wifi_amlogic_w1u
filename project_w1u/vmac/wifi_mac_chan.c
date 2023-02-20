@@ -4,6 +4,7 @@
 #define ARR_SIZE_OF(arr) (sizeof(arr)/sizeof(arr[0]))
 #define CHAN_2_FREQ_5G(chan) ((chan) * 5 + 5000)
 #define CHAN_2_FREQ_2G(chan) ((chan) * 5 + 2407)
+#define CHAN_2_FREQ_14(chan) ((chan) * 5 + 2414)
 
 #define IS_5G_BAND1(chan) ((chan) >= 36 && (chan) <= 48)
 #define IS_5G_BAND2(chan) ((chan) >= 52 && (chan) <= 64)
@@ -35,7 +36,7 @@ struct class_chan_set global_chan_set [256] =
                  }
     }, //class 81
     {82, 20, 1, {
-                    {CHAN_2_FREQ_2G(14), WIFINET_CHAN_2GHZ, 14, 4, 2, WIFINET_BWC_WIDTH20, 82}
+                    {CHAN_2_FREQ_14(14), WIFINET_CHAN_2GHZ, 14, 4, 2, WIFINET_BWC_WIDTH20, 82}
                 }
     },//82
     {83, 40, 9, {
@@ -338,7 +339,7 @@ struct country_chan_plan country_chan_plan_list[] = {
     /* 0x09 */ {16, {81,83,84,115,116,117,118,119,120,121,122,123,125,126,127,128,0}, 0x06, DFS_5G_B2|DFS_5G_B3, TX_POWER_DEFAULT}, //India
     /* 0x0A */ {16, {81,83,84,115,116,117,118,119,120,121,122,123,125,126,127,128,0}, 0x07, DFS_5G_B2|DFS_5G_B3, TX_POWER_CE}, //Australia
     /* 0x0B */ {16, {81,83,84,115,116,117,118,119,120,121,122,123,125,126,127,128,0}, 0xff, DFS_5G_B2|DFS_5G_B3, TX_POWER_CE}, //NewZealand
-    /* 0x0C */ {16, {81,83,84,115,116,117,118,119,120,121,122,123,125,126,127,128,0}, 0x08, DFS_5G_B2|DFS_5G_B3, TX_POWER_ANATEL}, //Brazi
+    /* 0x0C */ {16, {81,83,84,115,116,117,118,119,120,121,122,123,125,126,127,128,0}, 0x08, DFS_5G_B2|DFS_5G_B3, TX_POWER_ANATEL}, //Brazil
     /* 0x0D */ {16, {81,83,84,115,116,117,118,119,120,121,122,123,125,126,127,128,0}, 0x09, DFS_5G_B2|DFS_5G_B3, TX_POWER_CE}, //RU
     /* 0x0E */ {7,  {81,83,84,125,126,127,128,0,0,0,0,0,0,0,0,0,0},                   0x0a, 0,                   TX_POWER_CE}, //Indonesia
     /* 0x0f */ {16, {81,83,84,115,116,117,118,119,120,121,122,123,125,126,127,128,0}, 0xff, DFS_5G_B1|DFS_5G_B2|DFS_5G_B3, TX_POWER_CE}, //South Korea
@@ -880,7 +881,7 @@ void  wifi_mac_update_chan_list_by_country(int country_code, int support_opt[], 
     wifi_mac_mark_dfs_channel_ex(country_code, wifimac, 0);
 }
 
-unsigned char wifi_mac_chan_num_availd (struct wifi_mac *wifimac, unsigned char channum)
+unsigned char wifi_mac_chan_num_avail (struct wifi_mac *wifimac, unsigned char channum)
 {
     if (isset(wifimac->wm_chan_avail, channum))
     {
@@ -1440,9 +1441,9 @@ int wifimac_set_tx_pwr_plan(int txpoweplan)
 }
 
 /* * Get the country tx_power_plan. */
-unsigned char wifimac_get_tx_pwr_plan(int coutry_code)
+unsigned char wifimac_get_tx_pwr_plan(int country_code)
 {
-    int chan_plan = country_chan_mapping_list[coutry_code].chplan;
+    int chan_plan = country_chan_mapping_list[country_code].chplan;
     unsigned char tx_power_plan = 0;
 
     tx_power_plan = country_chan_plan_list[chan_plan].tx_power_plan;

@@ -6,7 +6,7 @@
  * Project: 11N 80211 driver  layer Software
  *
  * Description:
- *  driver layer configuration functuon
+ *  driver layer configuration function
  *
  *
  ****************************************************************************************
@@ -15,6 +15,10 @@
 #include "wifi_drv_main.h"
 #include "wifi_drv_if.h"
 #include "wifi_debug.h"
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
+#endif
 
 int drv_set_config(void * dev, enum cip_param_id id, int data)
 {
@@ -380,27 +384,31 @@ unsigned char parse_drv_cfg_param(char *varbuf, int len)
 
 int drv_cfg_load_from_file(void)
 {
-    struct file *fp;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     struct kstat stat;
-    int size, len;
-    int error = 0;
-    char *content =  NULL;
+
     mm_segment_t fs;
+    int error = 0;
+#endif
+    struct file *fp;
+    int size, len;
+    char *content =  NULL;
+
     char conf_path[30] = "/vendor/etc/wifi/w1";
     unsigned char cfg_file[100];
 
     sprintf(cfg_file, "%s/aml_wifi_drv_cfg_%d.conf", conf_path, 0);
-
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     fs = get_fs();
     set_fs(KERNEL_DS);
-
+#endif
     fp = filp_open(cfg_file, O_RDONLY, 0);
 
     if (IS_ERR(fp)) {
         fp = NULL;
         goto err;
     }
-
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     error = vfs_stat(cfg_file, &stat);
     if (error) {
         filp_close(fp, NULL);
@@ -412,15 +420,18 @@ int drv_cfg_load_from_file(void)
         filp_close(fp, NULL);
         goto err;
     }
-
+#endif
     content = ZMALLOC(size, "aml_drv_cfg", GFP_KERNEL);
 
     if (content == NULL) {
         filp_close(fp, NULL);
         goto err;
     }
-
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     if (vfs_read(fp, content, size, &fp->f_pos) != size) {
+#else
+    if (kernel_read(fp, content, size, &fp->f_pos) != size) {
+#endif
         FREE(content, "aml_drv_cfg");
         filp_close(fp, NULL);
         goto err;
@@ -431,10 +442,13 @@ int drv_cfg_load_from_file(void)
 
     FREE(content, "aml_drv_cfg");
     filp_close(fp, NULL);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     set_fs(fs);
-
+#endif
     return 0;
 err:
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     set_fs(fs);
+#endif
     return 1;
 }

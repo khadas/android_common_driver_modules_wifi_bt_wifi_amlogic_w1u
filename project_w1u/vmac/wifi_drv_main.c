@@ -651,17 +651,17 @@ void drv_get_sts( struct drv_private *drv_priv,
     struct aml_driver_nsta *drv_sta = NULL;
     struct wlan_net_vif *connect_wnet = wifi_mac_running_wnet_vif(wifimac);
 
-    if(connect_wnet != NULL){
+    if (connect_wnet != NULL) {
         sta = connect_wnet->vm_mainsta;
         drv_sta = sta->drv_sta;
         AML_OUTPUT("\n--------drv statistic--------\n");
-        for(i=0; i< WME_NUM_AC;i++)
+        for (i=0; i< WME_NUM_AC; i++)
         {
             txlist = drv_txlist_initial(drv_priv,i);
             AML_OUTPUT("queen %d ac_queue_buffer_in_drv %d\n", i, txlist->txds_pending_cnt);
 
         }
-        for(i=0; i< WME_NUM_TID;i++)
+        for (i=0; i< WME_NUM_TID; i++)
         {
             tid = &drv_sta->tx_agg_st.tid[i];
             AML_OUTPUT("tid %d tid_queue_buffer_in_drv %d, msdu_count %d\n", i,WIFINET_SAVEQ_QLEN(&tid->tid_tx_buffer_queue), wifimac->msdu_cnt[i]);
@@ -906,7 +906,7 @@ static int drv_delete_wnet_vif(struct drv_private * drv_priv, int wnet_vif_id)
 
     if ((flags & NETCOM_NETIF_RUNNING) && drv_priv->drv_wnet_vif_num)
     {
-        drv_hal_intrset(1);
+        drv_hal_interset(1);
     }
 
     drv_hal_wnet_vifStop(wnet_vif_id);
@@ -1161,7 +1161,7 @@ drv_set_quiet( struct drv_private *drv_priv,
     unsigned short nextStart, unsigned short enabled)
 {
 //
-///we not suport this
+///we not support this
 //
     return 0;
 }
@@ -1325,7 +1325,7 @@ static void drv_init_ops(struct drv_private *drv_priv)
     drv_priv->drv_ops.drv_hal_set_p2p_noa_enable = drv_hal_set_p2p_noa_enable;
     drv_priv->drv_ops.drv_hal_get_tsf = drv_hal_get_tsf;/* drv_hal_get_tsf */
     drv_priv->drv_ops.drv_hal_tx_frm_pause = drv_hal_tx_frm_pause;   /* drv_hal_tx_frm_pause */
-    drv_priv->drv_ops.drv_p2p_client_opps_cwend_may_spleep = drv_p2p_client_opps_cwend_may_spleep;
+    drv_priv->drv_ops.drv_p2p_client_opps_cwend_may_sleep = drv_p2p_client_opps_cwend_may_sleep;
     drv_priv->drv_ops.drv_txq_backup_send = drv_txq_backup_send;
     drv_priv->drv_ops.phy_stc = phy_stc;
     drv_priv->drv_ops.get_snr = get_snr;
@@ -1438,7 +1438,7 @@ int aml_driv_attach( struct drv_private *drv_priv, struct wifi_mac* wmac)
         drv_priv->drv_config.cfg_ampdu_livetime    = DEFAULT_TXAMPDU_ONEFRAME;
     }
 
-    /* set stort retry 100, long retry 100, firmware try more times to send out */
+    /* set short retry 100, long retry 100, firmware try more times to send out */
     drv_set_config((void *)drv_priv, CHIP_PARAM_RETRY_LIMIT, 100 << 8 | 100);
 
    /*11AC capabilities*/
@@ -1530,7 +1530,7 @@ void aml_driv_detach( struct drv_private * drv_priv)
     /* cleanup tx queues */
     for (i = 0; i < HAL_NUM_TX_QUEUES; i++)
         if (DRV_TXQUEUE_VALUE(drv_priv, i))
-            drv_txlist_destory(drv_priv, &drv_priv->drv_txlist_table[i]);
+            drv_txlist_destroy(drv_priv, &drv_priv->drv_txlist_table[i]);
 
     AML_OUTPUT("<running>\n");
     drv_hal_detach();
@@ -1833,7 +1833,7 @@ void p2p_noa_start_irq (struct wifi_mac_p2p *p2p, struct drv_private *drv_priv)
 
             if (HiP2pNoaCountNow == 0)
             {
-                /* noa need to be cancled */
+                /* noa need to be canceled */
 
                 if (wnet_vif->vm_opmode == WIFINET_M_HOSTAP)
                 {
@@ -2043,7 +2043,7 @@ drv_p2p_go_opps_cwend_may_sleep (struct wlan_net_vif *wnet_vif)
     return ret;
 }
 
-int drv_p2p_client_opps_cwend_may_spleep (struct wlan_net_vif *wnet_vif)
+int drv_p2p_client_opps_cwend_may_sleep (struct wlan_net_vif *wnet_vif)
 {
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
     struct drv_private *  drv_priv = wifimac->drv_priv;
@@ -2080,7 +2080,7 @@ static void drv_intr_p2p_opps_cwend (void * dpriv,unsigned char wnet_vif_id)
                 {
                     break;
                 }
-                if (drv_p2p_client_opps_cwend_may_spleep(wnet_vif) == 0)
+                if (drv_p2p_client_opps_cwend_may_sleep(wnet_vif) == 0)
                 {
                     break;;
                 }
@@ -2347,7 +2347,7 @@ static void drv_intr_bt_info_change(void * dpriv, unsigned char wnet_vif_id,unsi
     wnet_vif = drv_priv->drv_wnet_vif_table[wnet_vif_id];
     AML_OUTPUT("vid %d \n", wnet_vif_id);
 
-   /*not open coxiste function*/
+   /*not open coexistence function*/
     if (drv_priv->drv_config.cfg_wifi_bt_coexist_support == 0) {
         return;
     }
@@ -2356,7 +2356,7 @@ static void drv_intr_bt_info_change(void * dpriv, unsigned char wnet_vif_id,unsi
         return;
     }
 
-    if(p_wifi_mac->bt_lk != ((reg_val2 & BIT(31))>>31))
+    if (p_wifi_mac->bt_lk != (!((reg_val2 & BIT(31))>>31) && ((reg_val & BIT(24))>>24)))
     {
          p_wifi_mac->bt_lk = (!((reg_val2 & BIT(31))>>31) && ((reg_val & BIT(24))>>24));
          wifi_mac_set_channel_rssi(p_wifi_mac, (unsigned char)(wnet_vif->vm_mainsta->sta_avg_bcn_rssi));
@@ -2448,6 +2448,11 @@ drv_dev_probe(void)
         goto err_ret;
     }
 
+    if (efuse_manual_read(0xe) & BIT(26))
+        AML_OUTPUT("auto calculate xosc");
+    else
+        AML_OUTPUT("not auto calculate xosc");
+
     memset(drv_priv, 0, sizeof(struct drv_private));
     memset(wm_mac, 0, sizeof(struct wifi_mac));
 
@@ -2496,7 +2501,7 @@ drv_dev_probe(void)
     drv_priv->net_ops->wifi_mac_sta_attach(wm_mac);
     ret = register_inetaddr_notifier(&aml_inetaddr_cb);
     ret = register_inet6addr_notifier(&aml_inet6addr_cb);
-    //sholdn't be here
+    //should not be here
     drv_priv->drv_ops.drv_set_bmfm_info(drv_priv, 0, 0, 0, 0);
     drv_hal_enable_coexist(drv_priv->drv_config.cfg_wifi_bt_coexist_support );
 

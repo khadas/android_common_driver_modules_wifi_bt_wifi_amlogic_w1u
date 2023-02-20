@@ -181,6 +181,7 @@ enum vm_vendor_command_attr{
     VM_NL80211_PRINT_VERSION = 0xa8,
     VM_NL80211_GET_EFUSE_DATA = 0xaa,
     VM_NL80211_GET_FW_LOG = 0xab,
+    VM_NL80211_GET_EN_RF_TEST = 0xac,
 
     VM_NL80211_VENDER_CMD_ID_MAX,
 };

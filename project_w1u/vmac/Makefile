@@ -47,6 +47,7 @@ CONFIG_WIFI_CAPTURE=y
 TARGET = w1u
 
 EXTRA_CFLAGS += -Wno-enum-conversion
+EXTRA_CFLAGS += -Wno-incompatible-pointer-types
 EXTRA_CFLAGS += ${INCS}  -DCONFIG_WAPI
 EXTRA_CFLAGS += -Wall -Wno-unused-function #show all warning
 EXTRA_CFLAGS += -Werror -Wno-format #convert warning into error

@@ -464,7 +464,7 @@ int hi_sdio_setup_scat_data(struct scatterlist *sg_list, struct hi_tx_desc **pTx
         return -1;
     }
 
-    /*Init sg table with sepcific num. */
+    /*Init sg table with specific num. */
     sg_init_table(sg_list, sg_num);
     remain_mpdu_num = sg_num;
 
@@ -569,7 +569,7 @@ int hi_tx_frame(struct hi_tx_desc **pTxDPape, unsigned int mpdu_num,  unsigned i
         }
         else
         {
-            /* Theroetically,  sdio shall not transmit failed, if fail and fix it. */
+            /* Theoretically,  sdio shall not transmit failed, if fail and fix it. */
             AML_OUTPUT("SDIO try re-transmit %d times, but fail\n", loop);
         }
         /*offset for mpdu in pTxDPape list and continue. */
@@ -674,7 +674,7 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
     ASSERT(pCmdDownFifo != NULL);
 
     if (!wifi_sdio_access) {
-        AML_OUTPUT("recoverying downloading frimware\n");
+        AML_OUTPUT("recovering downloading firmware\n");
         return false;
     }
 
@@ -832,7 +832,7 @@ void hi_soft_tx_irq(void)
         if (txok_status_node != NULL)
         {
             memcpy(&(txok_status_node->tx_status.txstatus), txstatus, sizeof(struct txdonestatus));
-            /*enqueue status list to wait for txok anlayse */
+            /*enqueue status list to wait for txok analyse */
             tx_status_node_enqueue(txok_status_node, txok_status_list);
 
             tx_null_status = &(txok_status_node->tx_status.tx_null_status);
@@ -854,7 +854,7 @@ void hi_soft_tx_irq(void)
             continue;
         }
 
-        /*to procesess drv_Intr_Txok*/
+        /*to process drv_Intr_Txok*/
         hal_priv->hal_call_back->intr_tx_handle(hal_priv->drv_priv, txstatus, callback, queue_id);
 #endif
     }
@@ -989,7 +989,7 @@ void hi_soft_rx_irq(struct hal_private *hal_priv, unsigned int rx_fw_ptr)
     /* write packets to FDT, and rx process get mpdus from FDH. The buffer space from FDT to FDH is empty.*/
     fifo_empty_size = CIRCLE_Subtract2(rx_fifo_fdh, rx_fifo_fdt, hif->rx_fifo.FDN);
     rx_total_len = CIRCLE_Subtract2(rx_fifo_fw, hal_priv->rx_host_offset, rxmax_offset);
-    /*puls FUNC6_BLKSIZE is preventaml_sdio_bottom_read overwirte rx fifo data that not handle*/
+    /*puls FUNC6_BLKSIZE is preventable_sdio_bottom_read overwirte rx fifo data that not handle*/
 
     if (fifo_empty_size <= rx_total_len + hif->CommStaticParam.tx_page_len)
     {
@@ -1828,7 +1828,7 @@ void hif_get_sts(unsigned int op_code, unsigned int ctrl_code)
 
         if ((ctrl_code & STS_TYP_RX) == STS_TYP_RX)
         {
-            AML_OUTPUT("rx_fifo: head %ld, tail %ld, totoal %ld\n",
+            AML_OUTPUT("rx_fifo: head %ld, tail %ld, total %ld\n",
                 hif->rx_fifo.FDH, hif->rx_fifo.FDT, hif->rx_fifo.FDN);
             if(aml_bus_type) {
                 AML_OUTPUT("rx by word: free %d, fw_to_do %d, sdio_to_mv %d, buf_rd_ptr 0x%x, mac_wt_ptr 0x%x, fw_rd_ptr 0x%x, sdio_rd_ptr 0x%x \n",

@@ -173,9 +173,9 @@ reg_addr_attr_t reg_addr_attr[DUMP_REG_SEQ_MAX] =
 void dump_spec_regs_val(struct wlan_net_vif *wnet_vif, int reg_domain)
 {
     int i, j, reg_addr, reg_val;
-    for(i = 0; i <= reg_domain; i++)
+    for (i = 0; i <= reg_domain; i++)
     {
-        for(j = 0; j < reg_addr_attr[i].num; j++)
+        for (j = 0; j < reg_addr_attr[i].num; j++)
         {
             reg_addr = reg_addr_attr[i].addr_start + j*4;
             if (((reg_addr >> 24) & 0xff) == 0xff )
@@ -345,11 +345,11 @@ int aml_set_ldpc(struct wlan_net_vif *wnet_vif, unsigned int set)
     if (1 == set) {
         sta->sta_vhtcap |= WIFINET_VHTCAP_RX_LDPC;
         wifimac->wm_flags |=WIFINET_F_LDPC;
-        AML_OUTPUT("Enable LDPC, if need to change, the action must be excuted before connecting to ap or creating ap\n");
+        AML_OUTPUT("Enable LDPC, if need to change, the action must be executed before connecting to ap or creating ap\n");
     } else if (0 == set) {
         sta->sta_vhtcap &= ~WIFINET_VHTCAP_RX_LDPC;
         wifimac->wm_flags &=~WIFINET_F_LDPC;
-        AML_OUTPUT("Disable LDPC, if need to change, the action must be excuted before connecting to ap or creating ap\n");
+        AML_OUTPUT("Disable LDPC, if need to change, the action must be executed before connecting to ap or creating ap\n");
     } else {
         ERROR_DEBUG_OUT("Invalid parameter\n");
     }
@@ -394,7 +394,7 @@ int aml_set_beamforming(struct wlan_net_vif *wnet_vif, unsigned int set1,unsigne
             AML_OUTPUT("disable mu mimo\n");
         }
     } else {
-        ERROR_DEBUG_OUT("invlalid parameter!\n");
+        ERROR_DEBUG_OUT("initial parameter!\n");
     }
     return 0;
 
@@ -906,7 +906,7 @@ static int aml_iwpriv_send_para1(struct net_device *dev,
 
         case AML_IWP_SET_PREAMBLE_TYPE:
             phy_set_preamble_type((unsigned char)set);
-            AML_OUTPUT("iwpriv set premble type %d\n", set);
+            AML_OUTPUT("iwpriv set preamble type %d\n", set);
             break;
 
         case AML_IWP_SET_FIX_BAND:
@@ -1115,7 +1115,7 @@ static int aml_iwpriv_get(struct net_device *dev,
             WIFI_CHANNEL_LOCK(wifimac);
             for (i = 0; i < wifimac->wm_nchans; i++) {
                 c = &wifimac->wm_channels[i];
-                AML_OUTPUT("channel:%d\tfrequency:%d \tbandwidth:%dMHz \n", c->chan_pri_num, c->chan_cfreq1, ((1 << c->chan_bw) * 20));
+                AML_OUTPUT("channel:%d\t frequency:%d \t bandwidth:%dMHz \n", c->chan_pri_num, c->chan_cfreq1, ((1 << c->chan_bw) * 20));
             }
             WIFI_CHANNEL_UNLOCK(wifimac);
             break;
@@ -1172,6 +1172,10 @@ static int aml_iwpriv_get(struct net_device *dev,
             wnet_vif->vif_ops.pt_rx_stop();
             break;
 
+        case AML_IWP_GET_EN_RF_TEST:
+            snprintf(buf, 13, "en_rf_test=%d", aml_wifi_is_enable_rf_test());
+            AML_OUTPUT("%s\n",buf);
+            break;
     }
 
     return 0;
@@ -1207,7 +1211,7 @@ static int aml_iwpriv_get_csi_info(struct net_device *dev,
         || (wnet_vif->vm_curchan == WIFINET_CHAN_ERR)
         || (wnet_vif->vm_mainsta == NULL)) {
 
-        ERROR_DEBUG_OUT("%s curchan or mainsta not avilable\n", __func__);
+        ERROR_DEBUG_OUT("%s curchan or mainsta not available\n", __func__);
         return 0;
     }
 
@@ -1544,7 +1548,7 @@ static int aml_get_channel_list(struct net_device *dev,
     WIFI_CHANNEL_LOCK(wifimac);
     for (i = 0; i < wifimac->wm_nchans; i++) {
         c = &wifimac->wm_channels[i];
-        AML_OUTPUT("channel:%d\tfrequency:%d \tbandwidth:%dMHz \n", c->chan_pri_num, c->chan_cfreq1, ((1 << c->chan_bw) * 20));
+        AML_OUTPUT("channel:%d\t frequency:%d \t bandwidth:%dMHz \n", c->chan_pri_num, c->chan_cfreq1, ((1 << c->chan_bw) * 20));
     }
     WIFI_CHANNEL_UNLOCK(wifimac);
 
@@ -2011,6 +2015,9 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
 {
     AML_IWP_GET_BT_MAC,
     0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, "get_bt_dev_id"},
+{
+    AML_IWP_GET_EN_RF_TEST,
+    0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, "get_en_rf_test"},
 
 
 {

@@ -304,7 +304,7 @@ void phy_register_set(void)
 
 #endif
    /* rf phase and the iq swap value need to change by the final FPGA version*/
-    //hif->hif_ops.hi_write_word(RG_PHY_FPGA_CONTORL, 0x00600701);
+    //hif->hif_ops.hi_write_word(RG_PHY_FPGA_CONTROL, 0x00600701);
 
 }
 
@@ -313,8 +313,6 @@ void coexit_bt_thread_enable(void)
     unsigned int bt_prd,bt_act,bt_offset;
     struct hw_interface* hif = hif_get_hw_interface();
     unsigned int testbus_num = 6;
-
-    
     bt_prd = 7500 * 10;//us
     bt_act = 1500 * 10;//us
     bt_offset = 3500;//us

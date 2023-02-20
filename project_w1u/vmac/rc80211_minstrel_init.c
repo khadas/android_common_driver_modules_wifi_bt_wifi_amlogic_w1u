@@ -48,15 +48,15 @@ static struct ieee80211_supported_band aml_band_5ghz = {
 };
 
 short rssi_threshold[3][10] = {
-    {555, -78, -80, -81, -82, -83, -85, -89, -94},
-    {-66, -67, -72, -73, -74, -79, -82, -86, -88},
-    {-61, -62, -72, -76, -77, -81, -84, -88, -94},
+	{555, -69, -75, -81, -82, -83, -85, -89, -94},
+	{-66, -67, -72, -73, -74, -79, -82, -86, -88},
+	{-61, -62, -72, -76, -77, -81, -84, -88, -94},
 };
 
 short snr_threshold[3][10] = {
-    {555, 16, 15, 14, 13, 12, 11, 8, 5},
-    {27, 26, 21, 20, 19, 14, 11, 8, 6},
-    {27, 26, 22, 20, 19, 14, 11, 8, 5},
+	{555, 16, 15, 14, 13, 12, 11, 8, 5},
+	{27, 26, 21, 20, 19, 14, 11, 8, 6},
+	{27, 26, 22, 20, 19, 14, 11, 8, 5},
 };
 
 
@@ -895,9 +895,9 @@ void minstrel_tx_complete(
 
 
     memset(&info, 0, sizeof(struct ieee80211_tx_info));
-    if (rc[0].flags & HAL_RATECTRL_TX_SEND_SUCCES) {
+    if (rc[0].flags & HAL_RATECTRL_TX_SEND_SUCCESS) {
         info.flags |= IEEE80211_TX_STAT_ACK;
-        rc[0].flags &= ~HAL_RATECTRL_TX_SEND_SUCCES;
+        rc[0].flags &= ~HAL_RATECTRL_TX_SEND_SUCCESS;
     }
 
     for (i = 0; i < IEEE80211_TX_MAX_RATES; i++) {

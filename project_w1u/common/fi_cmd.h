@@ -35,7 +35,15 @@
 #define dhcp_start_cmd 0x21
 #define vsdb_set_cmd 0x22
 #define Beacon_Enable_Cmd 0x24
+#define CHANNEL_SWITCH_CMD 0x25
+#define DPD_MEMORY_CMD 0x26
+#define FWLOG_MODE_CMD 0x27
+#define CALI_PARAM_CMD 0x28
+#define PHY_INTERFACE_CMD 0x29
 #define ADDBA_OK_CMD 0x2a
+#define WF2G_TXPWR_PARAM_CMD 0x2b
+#define WF5G_TXPWR_PARAM_CMD 0x2c
+#define CALI_PARAM_EX_CMD 0x2d
 #define TXPWR_CFFC_CFG_CMD 0x2e
 #define RegStaID_CMD 0x30
 #define UnRegStaID_CMD 0x31
@@ -53,17 +61,9 @@
 #define GET_PN_CMD (CMD_GET|0x48)
 #define GET_SDIO_PTR_CMD (CMD_GET|0x49)
 #define Mac_Rtc_Cmd 0x4a
+#define COEXIST_CMD 0x4B
+#define EFUSE_CFG_CMD 0x4C
 
-#define COEXIST_CMD  0x4B
-
-#define CHANNEL_SWITCH_CMD  0x25
-#define DPD_MEMORY_CMD  0x26
-#define FWLOG_MODE_CMD  0x27
-#define CALI_PARAM_CMD  0x28
-#define CALI_PARAM_EX_CMD  0x2d
-#define PHY_INTERFACE_CMD  0x29
-#define WF2G_TXPWR_PARAM_CMD  0x2b
-#define WF5G_TXPWR_PARAM_CMD  0x2c
 
 /*coexist cmd1 comand*/
 #define COEXIST_EN_CMD  BIT(0)
@@ -591,6 +591,18 @@ typedef struct Txpwr_Cffc_Cfg_Param
     unsigned char reserve[2];
     unsigned char band[4];
 } Txpwr_Cffc_Cfg_Param;
+
+typedef struct Efuse_Cfg_Param
+{
+    unsigned char Cmd;
+    unsigned char flag;
+    unsigned int efuse_9;
+    unsigned int efuse_a;
+    unsigned int efuse_b;
+    unsigned int efuse_c;
+    unsigned int efuse_d;
+    unsigned int efuse_e;
+} Efuse_Cfg_Param;
 
 typedef struct Phy_U_Interface_Param
 {
