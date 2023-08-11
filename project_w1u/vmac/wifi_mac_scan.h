@@ -139,7 +139,7 @@ struct wifi_mac_scan_param
     unsigned short assoc_id;
     unsigned char chan;
     unsigned char erp;
-    unsigned char bintval;
+    unsigned short bintval;
     unsigned char timoff;
     unsigned char *tim;
     unsigned char *tstamp;
@@ -174,6 +174,7 @@ struct wifi_mac_scan_param
     unsigned char *vht_ext_bss_ld;
     unsigned char *vht_quiet_ch;
     unsigned char *vht_opt_md_ntf;
+    unsigned int frame_len;
 };
 
 #define SCANINFO_IE_LENGTH     260
@@ -226,6 +227,7 @@ struct wifi_scan_info
     unsigned char ie_vht_ext_bss_ld[sizeof(struct wifi_mac_ie_vht_ext_bss_ld)];
     unsigned char ie_vht_quiet_ch[sizeof(struct wifi_mac_ie_vht_quiet_chn)];
     unsigned char ie_vht_opt_md_ntf[sizeof(struct wifi_mac_ie_vht_opt_md_ntf)];
+    unsigned int SI_frame_len;
 };
 
 

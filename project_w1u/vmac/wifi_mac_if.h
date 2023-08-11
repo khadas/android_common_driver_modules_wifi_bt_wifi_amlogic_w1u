@@ -23,6 +23,13 @@
             ((s)== WIFINET_S_AUTH)||\
             ((s)== WIFINET_S_ASSOC))
 
+typedef enum {
+    SPECIAL_FRAME_STATUS_TX = 0,
+    SPECIAL_FRAME_STATUS_RX,
+    SPECIAL_FRAME_STATUS_TX_SUC,
+    SPECIAL_FRAME_STATUS_TX_FAIL,
+}SPECIAL_FRAME_STATUS_E;
+
 static __inline void
 wifi_mac_ComSetCap(struct wifi_mac *wifimac, unsigned int cap)
 {
@@ -379,5 +386,6 @@ int wifi_mac_trigger_recovery(void *arg);
 int wifi_mac_monitor_tp_rate(void *arg);
 
 void wifi_mac_fw_recovery(struct wlan_net_vif *wnet_vif);
-void wifi_mac_fw_recovery_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
+int wifi_mac_connect_repair_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
+void wifi_mac_filter_special_data_frame(struct sk_buff *skb, SPECIAL_FRAME_STATUS_E frame_status);
 #endif

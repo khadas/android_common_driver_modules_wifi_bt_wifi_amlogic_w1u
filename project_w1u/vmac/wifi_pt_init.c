@@ -756,6 +756,8 @@ void driver_open(void)
 
 
     AML_OUTPUT("********* b2b debug enter driver_open ***************\n");
+    /* pt mode coex should not work,bit 31:wifi alive ornot to bt ,bit 0: active/sleep mode 1/0 */
+    hal_priv->hal_ops.hal_write_word(RG_PMU_A16,hal_priv->hal_ops.hal_read_word(RG_PMU_A16) & (~(BIT(31) | BIT(0))));
 
     callback.mic_error_event = Driver_mic_error_event;
     callback.intr_tx_handle = Driver_intr_tx_handle;
@@ -796,13 +798,13 @@ void driver_open(void)
     {
         FiOpt2Driver->phy_addba_ok(vmac_id,1,TrcConfMib.tid,
             TrcConfMib.SN[TrcConfMib.tid],64,
-            BA_INITIATOR,immidiate_BA_TYPE);
+            BA_INITIATOR,immediate_BA_TYPE);
     }
     else
     {
         FiOpt2Driver->phy_addba_ok(vmac_id,1,TrcConfMib.tid,
             TrcConfMib.SN[TrcConfMib.tid],64,
-            BA_RESPONDER,immidiate_BA_TYPE);
+            BA_RESPONSER,immediate_BA_TYPE);
     }
 
     if ( 0 != b2b_compare_local_and_bssid() )//Tx side

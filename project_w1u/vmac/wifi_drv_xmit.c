@@ -516,7 +516,7 @@ int drv_to_hal(struct drv_private *drv_priv, struct drv_txlist *txlist, struct l
     }
 
     if (hal_priv->bhaltxdrop || hal_priv->bhalPowerSave) {
-        AML_OUTPUT("hal_priv->bhaltxdrop:%d\n", hal_priv->bhaltxdrop);
+        AML_OUTPUT("bhaltxdrop:%d, bhalPowerSave:%d\n", hal_priv->bhaltxdrop, hal_priv->bhalPowerSave);
     }
     return 0;
 }
@@ -1035,10 +1035,6 @@ enum tx_frame_flag drv_set_tx_frame_flag(struct sk_buff *skbbuf)
         && (p2p_pub_act->action == WIFINET_ACT_PUBLIC_P2P)) {
         switch (p2p_pub_act->subtype) {
             case P2P_GO_NEGO_REQ:
-            case P2P_GO_NEGO_CONF:
-                ret = TX_P2P_GO_NEGO_REQ_GO_NEGO_CONF;
-                break;
-
             case P2P_GO_NEGO_RESP:
             case P2P_PROVISION_DISC_REQ:
             case P2P_PROVISION_DISC_RESP:
@@ -1046,7 +1042,9 @@ enum tx_frame_flag drv_set_tx_frame_flag(struct sk_buff *skbbuf)
             case P2P_INVITE_RESP:
                 ret = TX_P2P_OTHER_GO_NEGO_FRAME;
                 break;
-
+            case P2P_GO_NEGO_CONF:
+                ret = TX_P2P_GO_NEGO_CONF;
+                break;
             default:
                 break;
         }
@@ -1071,6 +1069,9 @@ enum tx_frame_flag drv_set_tx_frame_flag(struct sk_buff *skbbuf)
 
     } else if (WIFINET_IS_ASSOC_REQ(wh)) {
         ret = TX_MGMT_ASSOC_REQ;
+
+    } else if (WIFINET_IS_ASSOC_RESP(wh)) {
+        ret = TX_MGMT_ASSOC_RESP;
 
     } else if (WIFINET_IS_DISASSOC(wh)) {
         ret = TX_MGMT_DISASSOC;
@@ -1242,7 +1243,7 @@ void drv_tx_complete(struct drv_private *drv_priv, struct drv_txdesc *ptxdesc, i
                     //else wakeup
                     if (!ts.ts_flags)
                     {
-                         drv_priv->net_ops->wifi_mac_pwrsave_fullsleep(wnet_vif, SLEEP_AFTER_TX_NULL_WITH_PS);
+                        drv_priv->net_ops->wifi_mac_pwrsave_fullsleep(wnet_vif, SLEEP_AFTER_TX_NULL_WITH_PS);
 #ifdef USER_UAPSD_TRIGGER
                         os_timer_ex_start(&(wnet_vif->vm_pwrsave.ips_timer_uapsd_trigger));
 #endif
@@ -1310,7 +1311,7 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
     wnet_vif = sta->sta_wnet_vif;
 
     if ((ptxdesc->txdesc_frame_flag == TX_P2P_OTHER_GO_NEGO_FRAME)
-        || (ptxdesc->txdesc_frame_flag == TX_P2P_GO_NEGO_REQ_GO_NEGO_CONF)
+        || (ptxdesc->txdesc_frame_flag == TX_P2P_GO_NEGO_CONF)
         || (ptxdesc->txdesc_frame_flag == TX_P2P_PRESENCE_REQ)) {
 
         AML_OUTPUT("txdesc_frame_flag=%d, status=%d\n", ptxdesc->txdesc_frame_flag, status);
@@ -1321,7 +1322,7 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
                 sta->sta_wnet_vif->vm_p2p->raw_action_pkt, sta->sta_wnet_vif->vm_p2p->raw_action_pkt_len, txok, GFP_KERNEL);
 
         } else {
-            if (ptxdesc->txdesc_frame_flag == TX_P2P_GO_NEGO_REQ_GO_NEGO_CONF || ptxdesc->txdesc_frame_flag == TX_P2P_PRESENCE_REQ) {
+            if (ptxdesc->txdesc_frame_flag == TX_P2P_GO_NEGO_CONF || ptxdesc->txdesc_frame_flag == TX_P2P_PRESENCE_REQ) {
                 sta->sta_wnet_vif->vm_p2p->action_retry_time = DEFAULT_MGMT_RETRY_INTERVAL;
 
             } else {
@@ -1361,6 +1362,14 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
         ;
     }
 
+    if ((wnet_vif->pkt_ctrl.flag & WAIT_TX_COMPLETE) && (wnet_vif->pkt_ctrl.txd_frm_type == ptxdesc->txdesc_frame_flag)) {
+        if (txok) {
+            wnet_vif->pkt_ctrl.flag |= TX_STATUS_SUCCESS;
+        }
+        wnet_vif->pkt_ctrl.txd_frm_type = 0;
+        wnet_vif->pkt_ctrl.flag &= ~WAIT_TX_COMPLETE;
+    }
+
     if (ptxdesc->txdesc_frame_flag == TX_MGMT_DEAUTH && txok
         && sta->sta_wnet_vif->vm_opmode == WIFINET_M_STA) {
         if (wnet_vif->vm_state != WIFINET_S_SCAN) {
@@ -1375,12 +1384,12 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
         deauth_fail_time ++;
     }
 
-    if(deauth_fail_time == 1) {
+    if (deauth_fail_time == 1) {
         mgmt_arg = WIFINET_REASON_AUTH_LEAVE;
         wifi_mac_send_mgmt(wnet_vif->vm_mainsta, WIFINET_FC0_SUBTYPE_DEAUTH, (void *)&mgmt_arg);
     }
 
-    if(deauth_fail_time == 2) {
+    if (deauth_fail_time == 2) {
         if (wnet_vif->vm_state != WIFINET_S_SCAN) {
             wifi_mac_add_work_task(wnet_vif->vm_wmac, wifi_mac_sm_switch, NULL, (SYS_TYPE)wnet_vif, WIFINET_S_SCAN, 0, 0, 0);
         }
@@ -1510,15 +1519,13 @@ static void drv_tx_complete_task(struct drv_private *drv_priv, struct drv_txlist
                         ptxdesc->txdesc_rateinfo[2].trynum = left_try_num + 1;
                     }
 
-                    if (status == TX_DESCRIPTOR_STATUS_SUCCESS) {
-                        ptxdesc->txdesc_rateinfo[0].flags |= HAL_RATECTRL_TX_SEND_SUCCESS;
-                    }
-
+                    ptxdesc->txdesc_rateinfo[0].flags |= HAL_RATECTRL_TX_SEND_SUCCESS;
                 } else {
                     ptxdesc->txdesc_rateinfo[1].trynum = 0;
                     ptxdesc->txdesc_rateinfo[2].trynum = 0;
                 }
 
+                drv_special_data_pkt_is_complete(ptxdesc, txok);
                 if (ptxdesc->txinfo->b_Ampdu) {
                     if (ptxdesc->txdesc_queue_last != ptxdesc) {
                         AML_PRINT(AML_DBG_MODULES_RATE_CTR, "first status:%d, ts.ts_longretry:%d, ts.ts_shortretry:%d, rate:%02x:%02x:%02x, bw:%d, seqnum:%04x, vid:%d, rssi:%d, snr:%d\n", status,
@@ -1924,7 +1931,6 @@ unsigned int drv_txlist_all_qcnt ( struct drv_private *drv_priv, int queue_id)
 
 int drv_txlist_isfull(struct drv_private *drv_priv, int queue_id, struct sk_buff *skbbuf, void *nsta)
 {
-    int txlist_qcnt = 0;
     int tid_idx = 0;
     struct aml_driver_nsta *drv_sta = DRIVER_NODE(nsta);
     int fifo_freecnt = 0;
@@ -1938,8 +1944,6 @@ int drv_txlist_isfull(struct drv_private *drv_priv, int queue_id, struct sk_buff
         return -1;
     }
 
-    txlist_qcnt = drv_priv->drv_txlist_table[queue_id].txlist_qcnt
-                    + drv_priv->drv_txlist_table[queue_id].txds_pending_cnt;// all frame in amlmain
     /*get fifo free num */
     fifo_freecnt = drv_priv->hal_priv->hal_ops.hal_get_priv_cnt(queue_id);
 
@@ -1947,9 +1951,9 @@ int drv_txlist_isfull(struct drv_private *drv_priv, int queue_id, struct sk_buff
 
     /*check if txlist is full by mpdu pending cnt is greater than
         (get_fifo free num + WIFI_MAX_TXFRAME/WIFI_MAX_TID))*/
-    if(drv_priv->drv_txlist_table[queue_id].txds_pending_cnt
+    if((drv_priv->drv_txlist_table[queue_id].txds_pending_cnt
         > (fifo_freecnt + WIFI_MAX_TXFRAME/WIFI_MAX_TID + 48))
-    {
+        || (fifo_freecnt < 2)) {
         return 1;
     }
     return 0;
@@ -2155,7 +2159,7 @@ drv_addba_rsp_process(
         if (resume)
         {
             hal_phy_addba_ok(sta->sta_wnet_vif->wnet_vif_id, drv_hal_nsta_staid((struct wifi_station *)sta),
-                tid_index, drv_sta->tx_agg_st.tid[tid_index].seq_start, tid->baw_size, BA_INITIATOR, BA_IMMIDIATE);
+                tid_index, drv_sta->tx_agg_st.tid[tid_index].seq_start, tid->baw_size, BA_INITIATOR, BA_IMMEDIATE);
             drv_txlist_resume_for_sta_tid(drv_priv, tid);
         }
     }
@@ -2765,6 +2769,11 @@ drv_txampdu_build(struct drv_private *drv_priv, struct drv_tx_scoreboard *tid,
             break;
         }
 
+        if (drv_priv->wmac->wm_zgb_exist_flag && nframes >= 1) {
+            status = 2;
+            break;
+        }
+
         txdesc_aggr_page_num += drv_priv->hal_priv->hal_ops. hal_calc_mpdu_page(ptxdesc->txinfo->mpdulen); //fixed!1011
         al += bpad + al_delta;
         ndelim = drv_compute_num_delims(drv_priv, bf_first, ptxdesc->txinfo->packetlen);
@@ -3292,3 +3301,17 @@ int drv_tx_get_mgmt_frm_rate(struct drv_private *drv_priv,
     }
     return 0;
 }
+
+void drv_special_data_pkt_is_complete(struct drv_txdesc *ptxdesc, unsigned char is_tx_ok)
+{
+    struct wifi_mac_pkt_info *mac_pkt_info = &ptxdesc->drv_pkt_info.pkt_info[0];
+
+    if (mac_pkt_info->b_arp) {
+        printk("[TX], arp req success:%d\n", is_tx_ok);
+    }
+
+    if (mac_pkt_info->b_dhcp) {
+        printk("[TX], dhcp success:%d\n", is_tx_ok);
+    }
+}
+

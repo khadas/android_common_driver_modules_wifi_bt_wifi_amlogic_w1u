@@ -9,7 +9,7 @@
 
 
 extern void print_driver_version(void);
-extern char **aml_cmd_char_prase(char sep, const char *str, int *size);
+extern char **aml_cmd_char_phrase(char sep, const char *str, int *size);
 extern struct udp_info aml_udp_info[];
 extern struct udp_timer aml_udp_timer;
 extern int udp_cnt;
@@ -262,6 +262,253 @@ int aml_iwpriv_get_efuse(int addr)
 
 }
 
+static int aml_mem_dump(struct net_device *dev, int addr, int size)
+{
+    int len = 0, i = 0,ret = 0;
+    unsigned int read_data = 0;
+    unsigned char write_bin_flag = 0;
+    char *la_buf = NULL;
+    struct file *fp = NULL;
+    char info_path[64];
+    char *address = NULL;
+    struct wlan_net_vif *wnet_vif = aml_iwpriv_get_vif(dev->name);
+
+    if (size < 0) {
+        ERROR_DEBUG_OUT("size=%d is illegal !",size);
+        goto err;
+    }
+
+    if ((addr & 0x00f00000) == 0x00100000) {
+        addr &= ~BIT(20);
+        AML_OUTPUT("The addr you put is fw addr need convert host addr=%#010x",addr);
+    }
+    else if ((addr & 0x00f00000) == 0x00800000) {
+        addr &= ~0x00f0000;
+        addr |= 0x00d00000;
+        AML_OUTPUT("The addr you put is fw addr need convert host addr=%#010x",addr);
+    }
+
+    if ( (MAC_ICCM_AHB_BASE <= addr) && ((MAC_ICCM_AHB_BASE + ICCM_ROM_LEN) > addr) ) {
+        if (size > (MAC_ICCM_AHB_BASE + ICCM_ROM_LEN - addr)) {
+            ERROR_DEBUG_OUT("size=%#x is bigger than ICCM_ROM_LEN(%#x) !",size,(MAC_ICCM_AHB_BASE + ICCM_ROM_LEN - addr));
+            size = MAC_ICCM_AHB_BASE + ICCM_ROM_LEN - addr;
+        }
+        write_bin_flag = 1;
+        scnprintf(info_path,64,"/data/dumpinfo_iccrom.bin");
+    }
+    else if ((MEM_ICCM_RAM_ADDR <= addr) && ((MEM_ICCM_RAM_ADDR + ICCM_RAM_LEN) > addr)) {
+        if (size > (MEM_ICCM_RAM_ADDR + ICCM_RAM_LEN - addr)) {
+            ERROR_DEBUG_OUT("size=%#x is bigger than ICCM_RAM_LEN(%#x) !",size,(MEM_ICCM_RAM_ADDR + ICCM_RAM_LEN - addr));
+            size = MEM_ICCM_RAM_ADDR + ICCM_RAM_LEN - addr;
+        }
+        write_bin_flag = 1;
+        scnprintf(info_path,64,"/data/dumpinfo_iccram.bin");
+    }
+    else if ((MAC_DCCM_AHB_BASE <= addr) && ((MAC_DCCM_AHB_BASE + DCCM_LEN) > addr)) {
+        if (size > (MAC_DCCM_AHB_BASE + DCCM_LEN - addr)) {
+            ERROR_DEBUG_OUT("size=%#x is bigger than DCCM_LEN(%#x) !",size,(MAC_DCCM_AHB_BASE + DCCM_LEN - addr));
+            size = MAC_DCCM_AHB_BASE + DCCM_LEN - addr;
+        }
+        write_bin_flag = 1;
+        scnprintf(info_path,64,"/data/dumpinfo_dccm.bin");
+    }
+    else if ((MEM_PKT_ADDR <= addr) && ((MEM_PKT_ADDR + MEM_PKT_lEN) > addr)) {
+        if (size > (MEM_PKT_ADDR + MEM_PKT_lEN - addr)) {
+            ERROR_DEBUG_OUT("size=%#x is bigger than MEM_PKT_lEN(%#x) !",size,(MEM_PKT_ADDR + MEM_PKT_lEN- addr));
+            size = MEM_PKT_ADDR + MEM_PKT_lEN - addr;
+        }
+        write_bin_flag = 1;
+        scnprintf(info_path,64,"/data/dumpinfo_pkt.bin");
+    }
+    else if ((MAC_REG_BASE <= addr) && ((MAC_REG_BASE + REG_LEN) > addr)) {
+        if (size > (MAC_REG_BASE + REG_LEN - addr)) {
+            ERROR_DEBUG_OUT("size=%#x is bigger than MAC_REG_LEN(%#x) !",size,(MAC_REG_BASE + REG_LEN - addr));
+            size = MAC_REG_BASE + REG_LEN - addr;
+        }
+        scnprintf(info_path,64,"/data/dumpinfo_reg.txt");
+    }
+    else if ((MAC_SRAM_BASE <= addr) && ((MAC_SRAM_BASE + SRAM_LEN) > addr)) {
+        if (size > (MAC_SRAM_BASE + SRAM_LEN - addr)) {
+            ERROR_DEBUG_OUT("size=%#x is bigger than SRAM_LEN(%#x) !",size,(MAC_SRAM_BASE + SRAM_LEN - addr));
+            size = MAC_SRAM_BASE + SRAM_LEN - addr;
+        }
+        scnprintf(info_path,64,"/data/dumpinfo_sram.txt");
+    }
+    else if ((0x00f00000 <= addr) && ((0x00f00000 + 0x6000) > addr)) {
+        if (size > (0x00f00000 + 0x6000 - addr)) {
+            ERROR_DEBUG_OUT("size=%#x is bigger than MAXLEN(%#x) !",size,(0x00f00000 + 0x6000 - addr));
+            size = 0x00f00000 + 0x6000 - addr;
+            }
+        scnprintf(info_path,64,"/data/dumpinfo_00f0.txt");
+    }
+    else {
+        scnprintf(info_path,64,"/data/dumpinfo.txt");
+    }
+
+    la_buf = kmalloc(REG_DUMP_SIZE, GFP_ATOMIC);
+    if (!la_buf) {
+         ERROR_DEBUG_OUT("%s: malloc buf erro\n", __func__);
+         return 0;
+    }
+
+    fp = filp_open(info_path, O_CREAT | O_WRONLY | O_TRUNC | O_SYNC, 0644);
+    if (IS_ERR(fp)) {
+        ERROR_DEBUG_OUT("%s: mactrace file(%s) open failed: PTR_ERR(fp) = %d\n", __func__, info_path, PTR_ERR(fp));
+        goto err;
+    }
+    fp->f_pos = 0;
+    memset(la_buf, 0, REG_DUMP_SIZE);
+    address =(char *)(unsigned long)addr;
+    if (!write_bin_flag) {
+        len += scnprintf(&la_buf[len], (REG_DUMP_SIZE - len), "========dump range [0x%08x ---- 0x%08x], Size 0x%x========\n",
+                        address, address + size, size);
+    }
+    else {
+        AML_OUTPUT("========dump range [0x%08x ---- 0x%08x], Size 0x%x========\n", address, address + size, size);
+    }
+
+    for (i = 0; i < size / 4; i++) {
+        if (write_bin_flag) {
+            read_data = 0;
+            read_data = wnet_vif->vif_ops.read_word((unsigned long)(address + i * 4));
+            memcpy(&la_buf[len],&read_data,sizeof(unsigned int));
+            len += sizeof(unsigned int);
+        }
+        else {
+            if (((unsigned long)(address + i * 4) & 0x00fff000) == 0x00a02000 ||
+                ((unsigned long)(address + i * 4) & 0x00fff000) == 0x00a03000 ||
+                ((unsigned long)(address + i * 4) & 0x00fff000) == 0x00a04000 ||
+                ((unsigned long)(address + i * 4) & 0x00fff000) == 0x00a06000 ||
+                ((unsigned long)(address + i * 4) & 0x00fff000) == 0x00a0c000 ||
+                ((unsigned long)(address + i * 4) & 0x00fff000) == 0x00a0f000 ||
+                ((unsigned long)(address + i * 4) & 0x00fff000) == 0x00f05000 ) {
+                continue;
+            }
+            len += scnprintf(&la_buf[len], (REG_DUMP_SIZE - len), "addr 0x%08x ----- value 0x%08x\n",
+                             address + i * 4,  wnet_vif->vif_ops.read_word((unsigned long)(address + i * 4)));
+        }
+
+        if ((REG_DUMP_SIZE - len) < 38) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
+            ret = kernel_write(fp, la_buf, len, &fp->f_pos);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
+            ret = __vfs_write(fp, la_buf, len, &fp->f_pos);
+#else
+            ret = fp->f_op->write(fp, la_buf, len, &fp->f_pos);
+#endif
+            len = 0;
+            memset(la_buf, 0, REG_DUMP_SIZE);
+        }
+    }
+    if (len != 0) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
+            ret = kernel_write(fp, la_buf, len, &fp->f_pos);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
+            ret = __vfs_write(fp, la_buf, len, &fp->f_pos);
+#else
+            ret = fp->f_op->write(fp, la_buf, len, &fp->f_pos);
+#endif
+    }
+
+    filp_close(fp, NULL);
+
+err:
+    if (la_buf != NULL) {
+        kfree(la_buf);
+    }
+    return ret;
+}
+
+int aml_dump_info(struct net_device *dev, unsigned int dump_flag, unsigned int input_size)
+{
+    unsigned int size = 0 , addr = 0;
+
+    if (input_size < 0) {
+        ERROR_DEBUG_OUT("input_size=%d is illegal !",input_size);
+        return -1;
+    }
+
+    if (dump_flag & ICCROM_DUMP) {
+        if (input_size == 0 || input_size > ICCM_ROM_LEN ) {
+            size = ICCM_ROM_LEN;
+        }
+        else {
+            size = input_size;
+        }
+        addr = MAC_ICCM_AHB_BASE;
+        aml_mem_dump(dev, addr, size);
+    }
+
+    if (dump_flag & ICCRAM_DUMP) {
+        if (input_size == 0 || input_size > ICCM_RAM_LEN ) {
+            size = ICCM_RAM_LEN;
+        }
+        else {
+            size = input_size;
+        }
+        addr = MAC_ICCM_AHB_BASE + ICCM_ROM_LEN;
+        aml_mem_dump(dev, addr, size);
+    }
+
+    if (dump_flag & DCCM_DUMP) {
+        if (input_size == 0 || input_size > DCCM_LEN ) {
+            size = DCCM_LEN;
+        }
+        else {
+            size = input_size;
+        }
+        addr = MAC_DCCM_AHB_BASE;
+        aml_mem_dump(dev, addr, size);
+    }
+
+    if (dump_flag & SRAM_DUMP) {
+        if (input_size == 0 || input_size > SRAM_LEN ) {
+            size = SRAM_LEN;
+        }
+        else {
+            size = input_size;
+        }
+        addr = MAC_SRAM_BASE;
+        aml_mem_dump(dev, addr, size);
+    }
+
+    if (dump_flag & PKT_DUMP) {
+        if (input_size == 0 || input_size > MEM_PKT_lEN ) {
+            size = MEM_PKT_lEN;
+        }
+        else {
+            size = input_size;
+        }
+        addr = MEM_PKT_ADDR;
+        aml_mem_dump(dev, addr, size);
+    }
+
+    if (dump_flag & REG_DUMP) {
+        if (input_size == 0 || input_size > REG_LEN ) {
+            size = REG_LEN;
+        }
+        else {
+            size = input_size;
+        }
+        addr = MAC_REG_BASE;
+        aml_mem_dump(dev, addr, size);
+    }
+
+    if (dump_flag & OTHERREG_DUMP) {
+        if (input_size == 0 || input_size > 0x6000 ) {
+            size = 0x6000;
+        }
+        else {
+            size = input_size;
+        }
+        /*ao_intf ao_ana ao_wf_pmu ao_bt_mpu efuse coexist */
+        addr = 0x00f00000;
+        aml_mem_dump(dev, addr, size);
+    }
+
+    return 0;
+}
+
 unsigned int get_latest_tx_status(struct wifi_mac *wifimac)
 {
     unsigned int addr = 0x00000038;
@@ -298,6 +545,20 @@ int aml_beacon_intvl_set(struct wlan_net_vif *wnet_vif, unsigned int set)
         }
     }
     return 0;
+}
+
+static void aml_iwpriv_set_recovery(unsigned int set)
+{
+    struct wifi_mac * wifimac = wifi_mac_get_mac_handle();
+
+    AML_OUTPUT("wifi recovery now %s, set to %s", BOOL2STR_EFFECT(wifimac->drv_priv->drv_config.cfg_recovery), BOOL2STR_EFFECT(set));
+    if (OTHERS2BOOL(wifimac->drv_priv->drv_config.cfg_recovery) == ENABLE && OTHERS2BOOL(set) == DISABLE) {
+        wifimac->drv_priv->drv_config.cfg_recovery = DISABLE;
+        os_timer_ex_cancel(&wifimac->wm_monitor_fw, CANCEL_SLEEP);
+    } else if (OTHERS2BOOL(wifimac->drv_priv->drv_config.cfg_recovery) == DISABLE && OTHERS2BOOL(set) == ENABLE) {
+        wifimac->drv_priv->drv_config.cfg_recovery = ENABLE;
+        os_timer_ex_start(&wifimac->wm_monitor_fw);
+    }
 }
 
 static void aml_iwpriv_enable_fw_log(struct wlan_net_vif *wnet_vif, unsigned int set)
@@ -946,7 +1207,7 @@ static int aml_iwpriv_send_para1(struct net_device *dev,
             break;
 
         case AML_IWP_SET_RECOVERY:
-            wifimac->drv_priv->drv_config.cfg_recovery = set;
+            aml_iwpriv_set_recovery(set);
             break;
         case AML_IWP_GET_EFUSE:
             aml_iwpriv_get_efuse(set);
@@ -957,6 +1218,8 @@ static int aml_iwpriv_send_para1(struct net_device *dev,
         case AML_IWP_GET_SPEC_REGS:
             aml_iwpriv_get_spec_regs(wnet_vif, set);
             break;
+        case AML_IWP_SET_RX_SIZE:
+            wifimac->wm_manual_rx_bufsize = set;
     }
 
     return 0;
@@ -1003,6 +1266,11 @@ static int aml_iwpriv_send_para2(struct net_device *dev,
 #endif
         case AML_IWP_SET_EFUSE:
             aml_iwpriv_set_efuse(set1,set2);
+            break;
+
+        case AML_IWP_MEM_DUMP:
+            aml_mem_dump(dev, set1, set2);
+            break;
     }
 
     return 0;
@@ -1306,7 +1574,7 @@ static int aml_ap_set_udp_info(struct net_device *dev,
     buf[40] = '\0';
     AML_OUTPUT("%s\n", buf);
 
-    arg = aml_cmd_char_prase(sep, buf, &cmd_arg);
+    arg = aml_cmd_char_phrase(sep, buf, &cmd_arg);
     wifi_mac_set_udp_info(arg);
     kfree(arg);
 
@@ -1347,7 +1615,7 @@ void aml_iwpriv_set_dev_sn(char* arg_iw)
     char sep = ':';
     unsigned int efuse_data = 0;
 
-    mac_cmd = aml_cmd_char_prase(sep, arg_iw, &cmd_arg);
+    mac_cmd = aml_cmd_char_phrase(sep, arg_iw, &cmd_arg);
     if (mac_cmd) {
         efuse_data = (simple_strtoul(mac_cmd[0],NULL,16) << 8) | (simple_strtoul(mac_cmd[1],NULL,16));
         for (i = 0; i < 16; i++) {
@@ -1369,7 +1637,7 @@ void aml_iwpriv_set_mac_addr(char* arg_iw)
     unsigned int efuse_data_l = 0;
     unsigned int efuse_data_h = 0;
 
-    mac_cmd = aml_cmd_char_prase(sep, arg_iw, &cmd_arg);
+    mac_cmd = aml_cmd_char_phrase(sep, arg_iw, &cmd_arg);
     if (mac_cmd) {
         efuse_data_l = (simple_strtoul(mac_cmd[2],NULL,16) << 24) | (simple_strtoul(mac_cmd[3],NULL,16) << 16)
                        | (simple_strtoul(mac_cmd[4],NULL,16) << 8) | simple_strtoul(mac_cmd[5],NULL,16);
@@ -1399,7 +1667,7 @@ void aml_iwpriv_set_bt_dev_id(char* arg_iw)
     unsigned int efuse_data_l = 0;
     unsigned int efuse_data_h = 0;
 
-    mac_cmd = aml_cmd_char_prase(sep, arg_iw, &cmd_arg);
+    mac_cmd = aml_cmd_char_phrase(sep, arg_iw, &cmd_arg);
     if (mac_cmd) {
         efuse_data_h = (simple_strtoul(mac_cmd[0],NULL,16) << 24) | (simple_strtoul(mac_cmd[1],NULL,16) << 16)
                        | (simple_strtoul(mac_cmd[2],NULL,16) << 8) | simple_strtoul(mac_cmd[3],NULL,16);
@@ -1515,6 +1783,12 @@ int aml_set_debug_modules(char *debug_str)
             return 0;
         }
         g_dbg_modules |= AML_DBG_MODULES_SCAN;
+    } else if(strstr(debug_str,"bcn") != NULL) {
+        if (aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
+            g_dbg_modules &= ~(BIT(6));
+            return 0;
+        }
+        g_dbg_modules |= AML_DBG_MODULES_BCN;
     } else {
         ERROR_DEBUG_OUT("input error\n");
     }
@@ -1569,7 +1843,7 @@ static int aml_ap_set_arp_rx(struct net_device *dev,
     buf[40] = '\0';
     AML_OUTPUT("%s\n", buf);
 
-    arg = aml_cmd_char_prase(sep, buf, &cmd_arg);
+    arg = aml_cmd_char_phrase(sep, buf, &cmd_arg);
     wifi_mac_ap_set_arp_rx(arg);
     kfree(arg);
 
@@ -1947,6 +2221,9 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
 {
     AML_IWP_GET_SPEC_REGS,
     IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "get_spec_regs"},
+{
+    AML_IWP_SET_RX_SIZE,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_rx_buf"},
 
 /*iwpriv get command*/
 {
@@ -2052,14 +2329,12 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
 {
     AML_IWP_SET_EFUSE,
     IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2, 0, "set_efuse"},
-
-
-
-
-
+{
+    AML_IWP_MEM_DUMP,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2, 0, "mem_dump"},
 #if defined(SU_BF) || defined(MU_BF)
 {
-    AML_LWP_SET_BEAMFORMING,
+    AML_IWP_SET_BEAMFORMING,
     IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2, 0, "set_beamforming"},
 #endif
 

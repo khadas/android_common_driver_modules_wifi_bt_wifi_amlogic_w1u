@@ -41,6 +41,11 @@ extern struct iw_handler_def w1_iw_handle;
 #define AON_REG_ADDR_START 0x00f01000
 #define AON_REG_ADDR_END 0x00f0107c
 #define AON_REG_ADDR_NUM CALI_ADDR_NUM(AON_REG_ADDR_START, AON_REG_ADDR_END)
+#define REG_DUMP_SIZE 2048
+#define MEM_PKT_ADDR 0x00900000
+#define MEM_PKT_lEN (112*1024*2)
+#define REG_LEN 0xf000
+#define MEM_ICCM_RAM_ADDR 0x00020000
 enum
 {
     RF_TOP_SEQ = 0,
@@ -56,6 +61,17 @@ enum
     PHY_SEQ,
     AON_SEQ,
     DUMP_REG_SEQ_MAX,
+};
+
+enum DUMP_FLAG
+{
+    ICCROM_DUMP = BIT(0),
+    ICCRAM_DUMP = BIT(1),
+    DCCM_DUMP = BIT(2),
+    SRAM_DUMP = BIT(3),
+    PKT_DUMP = BIT(4),
+    REG_DUMP = BIT(5),
+    OTHERREG_DUMP = BIT(6),
 };
 
 typedef struct
@@ -148,6 +164,8 @@ enum aml_iwpriv_subcmd
     AML_IWP_SET_EFUSE = 79,
     AML_IWP_GET_SPEC_REGS = 80,
     AML_IWP_GET_EN_RF_TEST = 81,
+    AML_IWP_SET_RX_SIZE = 82,
+    AML_IWP_MEM_DUMP = 83,
 };
 
 extern void dump_spec_regs_val(struct wlan_net_vif *wnet_vif, int reg_domain);

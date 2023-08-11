@@ -12,6 +12,41 @@ EXTRA_CFLAGS += -DSYSTEM64
 endif
 
 
+ifneq ($(ROKU_PROJECT),)
+-include $(BACKPORTS_VERSIONS)
+ifneq ($(BACKPORTED_KERNEL_VERSION),)
+export CFG_CFG80211_VERSION ?= $(BACKPORTED_KERNEL_VERSION)
+endif
+
+ifneq ($(BACKPORTS_VERSIONS),)
+LINUXINCLUDE := $(BACKPORTS_INCLUDE_DIR) $(LINUXINCLUDE)
+include $(BACKPORTS_VERSIONS)
+EXTRA_CFLAGS += -D__rcu=
+EXTRA_CFLAGS += -DCOMPAT_KERNEL_RELEASE=1
+EXTRA_CFLAGS += '-include' 'backport/backport.h'
+EXTRA_CFLAGS += -DCPTCFG_VERSION=\"$(BACKPORTS_VERSION)\"
+EXTRA_CFLAGS += -DCPTCFG_KERNEL_VERSION=\"$(BACKPORTED_KERNEL_VERSION)\"
+EXTRA_CFLAGS += -DCPTCFG_KERNEL_NAME=\"$(BACKPORTED_KERNEL_NAME)\"
+EXTRA_CFLAGS += -DBACKPORTED_KERNEL_NAME=\"$(BACKPORTED_KERNEL_NAME)\"
+EXTRA_CFLAGS += -DBACKPORTS_VERSION=\"$(BACKPORTS_VERSION)\"
+EXTRA_CFLAGS += -DBACKPORTED_KERNEL_VERSION=\"$(BACKPORTED_KERNEL_VERSION)\"
+EXTRA_CFLAGS += -Wno-error=missing-attributes
+EXTRA_CFLAGS += -Wno-error=stringop-truncation
+EXTRA_CFLAGS += -Wno-error=unused-variable
+EXTRA_CFLAGS += -DCONFIG_ROKU
+CONFIG_ROKU=y
+CONFIG_CFG80211=y
+ifeq ($(BACKPORTS_3), y)
+EXTRA_CFLAGS += -DCOMPAT_KERNEL_RELEASE_3_14=1
+$(info set COMPAT_KERNEL_RELEASE_3_14)
+else
+# Assume all non_backport_3 is using backport_4_19
+EXTRA_CFLAGS += -DCOMPAT_KERNEL_RELEASE_4_19=1
+$(info set COMPAT_KERNEL_RELEASE_4_19)
+endif
+endif
+endif
+
 ifeq ($(PROJ_NAME),p-amlogic)
 SRCTOP ?= /proj/vlsi.wifi/p-amlogic
 KERNELDIR ?= $(SRCTOP)/out/target/product/newton/obj/KERNEL_OBJ
@@ -33,6 +68,13 @@ CUR_DIR  := $(M)
 endif
 EXT_INCS := $(CUR_DIR)/../common
 INCS     := -I$(CUR_DIR) -I$(EXT_INCS)
+
+ccflags-y += -I$(CUR_DIR)
+ccflags-y += -I$(CUR_DIR)/aml_bus
+ccflags-y += -I$(CUR_DIR)/../common
+ccflags-y += -I$(CUR_DIR)/linux
+
+
 KERNEL_SRC ?= $(KERNELDIR)
 #n=for normal mode,y=product mode
 #n=not support WIFI_RF when boot up. y=support WIFI_RF when boot up
@@ -67,6 +109,8 @@ EXTRA_CFLAGS += -DCTS_VERIFIER_GAS
 #EXTRA_CFLAGS += -DCONFIG_COMPAT
 EXTRA_CFLAGS += -DCONFIG_AML_USE_STATIC_BUF
 EXTRA_CFLAGS += -DSDIO_BUILD_IN
+#EXTRA_CFLAGS += -DSU_BF
+#EXTRA_CFLAGS += -DMU_BF
 EXTRA_CFLAGS += -DUSB_BUILD_IN
 #EXTRA_CFLAGS += -DDEBUG_MALLOC
 #EXTRA_CFLAGS += -DCONFIG_DPD_ENABLE
@@ -76,23 +120,30 @@ EXTRA_CFLAGS += -DAML_WPA3
 EXTRA_CFLAGS += -DHOST
 EXTRA_CFLAGS += -DDYNAMIC_BW
 #EXTRA_CFLAGS += -DWFA_P2P_TEST
+ifeq ($(ROKU_PROJECT),)
+EXTRA_CFLAGS += -DSDIO_MODE_ON
+else
+EXTRA_CFLAGS += -DNOT_AMLOGIC_PLATFORM
+endif
 
 ifeq ($(UNOENV),$(UNO_GXL))
 EXTRA_CFLAGS += -DCONFIG_GXL
 EXTRA_CFLAGS += -DCONFIG_HAS_WAKELOCK
 #EXTRA_CFLAGS += -DCONFIG_RTC_ENABLE
 #EXTRA_CFLAGS += -DCONFIG_GPIO_RESET
-EXTRA_CFLAGS += -DUSE_GPIO_IRQ=1
-EXTRA_CFLAGS += -DUSE_SDIO_IRQ=0
+EXTRA_CFLAGS += -DUSE_GPIO_IRQ
+#EXTRA_CFLAGS += -DUSE_SDIO_IRQ
 endif
 
 ifneq ($(KERNELRELEASE),)
 
 obj-m += w1u_comm.o
 w1u_comm-objs:=\
-	aml_bus/aml_phy.o\
-	w1_sdio/w1_sdio.o\
-	usb_interface/usb_common.o
+        aml_bus/aml_interface.o\
+        aml_bus/usb_common.o
+ifeq ($(ROKU_PROJECT),)
+w1u_comm-objs += aml_bus/w1_sdio.o
+endif
 #obj-m += w1u_sdio.o
 #w1u_sdio-objs += w1_sdio/w1_sdio.o
 #obj-m += w1u_usb.o
@@ -101,10 +152,14 @@ w1u_comm-objs:=\
 
 obj-m += $(TARGET).o
 DISCARD :=
-SRC_FILE := $(wildcard $(CUR_DIR)/*.c $(CUR_DIR)/rf_t9026/*.c $(CUR_DIR)/crypto/*.c)
+SRC_FILE := $(wildcard $(CUR_DIR)/*.c $(CUR_DIR)/rf_t9026/*.c $(CUR_DIR)/crypto/*.c $(CUR_DIR)/linux/*.c)
 TARGET_FILE = $(subst $(CUR_DIR)/,, $(SRC_FILE:%.c=%.o))
 
 ifneq ($(CONFIG_SDIO),)
+
+ifneq ($(ROKU_PROJECT),)
+DISCARD += wifi_sdio.o
+endif
 EXTRA_CFLAGS += -DCONFIG_SDIO_IF
 EXTRA_CFLAGS += -DFPGA
 #EXTRA_CFLAGS += -DCONFIG_GPIO_WAKEUP
@@ -123,7 +178,11 @@ endif
 
 ifeq ($(CONFIG_MAC_SUPPORT),y)
 EXTRA_CFLAGS += -DCONFIG_MAC_SUPPORT
+ifeq ($(CONFIG_ROKU),y)
+EXTRA_CFLAGS += -DWIFIMAC_PATH=\"/nvram/wifimac.txt\"
+else
 EXTRA_CFLAGS += -DWIFIMAC_PATH=\"/data/vendor/wifi/wifimac.txt\"
+endif
 endif
 
 ifeq ($(CONFIG_BT_RF_SUPPORT),y)
@@ -138,6 +197,7 @@ EXTRA_CFLAGS += -DUSE_T902X_RF
 else#CONFIG_SDIO_IF
 $(DISCARD) += wifi_hif.o
 $(DISCARD) += wifi_sdio.o
+
 endif #CONFIG_SDIO_IF
 
 ifneq ($(CONFIG_CFG80211),)
@@ -178,10 +238,11 @@ modules_install:
 endif
 
 clean:
-	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions *.order *.symvers
+	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions *.order *.symvers *.o.symversions *.mod
 	rm -rf ./rf_t9026/*.o ./rf_t9026/.*.cmd ./w1_sdio/*.o ./w1_sdio/.*.cmd ./w1_sdio/.*.o.d
 	rm -rf ./usb_interface/*.o ./usb_interface/.*.cmd ./usb_interface/.*.o.d
-	rm -rf ./aml_bus/*.o ./aml_bus/.*.cmd ./aml_bus/.*.o.d
+	rm -rf ./aml_bus/*.o ./aml_bus/.*.cmd ./aml_bus/.*.o.d ./aml_bus/*.o.symversions
+	rm -rf ./linux/*.o ./linux/.*.cmd ./linux/.*.o.d ./linux/*.o.symversions
 	rm -rf ./crypto/*.o ./crypto/.*.cmd
 	rm -rf ./print_version.c
 

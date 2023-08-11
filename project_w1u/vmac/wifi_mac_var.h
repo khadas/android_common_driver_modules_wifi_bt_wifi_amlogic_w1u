@@ -131,7 +131,7 @@ struct vm_wlan_net_vif_params
 
 #define WIFINET_BINTVAL_DEFAULT  100
 #define DEFAULT_MGMT_RETRY_TIMES 3
-#define DEFAULT_P2P_ACTION_RETRY_TIMES 5
+#define DEFAULT_P2P_ACTION_RETRY_TIMES 3
 #define DEFAULT_MGMT_RETRY_INTERVAL 512
 #define DEFAULT_P2P_ACTION_RETRY_INTERVAL 50
 #define DEFAULT_AUTH_RETRY_INTERVAL 512
@@ -291,8 +291,8 @@ struct wifi_mac_ops
     int (*os_skb_get_tid)(struct sk_buff *skb);
     void (*wifi_mac_notify_mic_fail)(struct wlan_net_vif *wnet_vif,const struct wifi_frame *wh, unsigned int key_index);
     int (*wifi_mac_send_qosnulldata)(struct wifi_station *sta, int ac);
-   // int (*vm_p2p_client_cancle_noa) (struct wifi_mac_p2p *p2p);
-   // int (*vm_p2p_go_cancle_noa) (struct wifi_mac_p2p *p2p);
+   // int (*vm_p2p_client_cancel_noa) (struct wifi_mac_p2p *p2p);
+   // int (*vm_p2p_go_cancel_noa) (struct wifi_mac_p2p *p2p);
     int (*wifi_mac_pwrsave_fullsleep)(struct wlan_net_vif *wnet_vif, enum wifinet_ps_sleep_reason reason);
     int (*wifi_mac_pwrsave_is_sta_fullsleep) (struct wlan_net_vif *wnet_vif);
     int (*wifi_mac_pwrsave_is_sta_sleeping) (struct wlan_net_vif *wnet_vif);
@@ -327,11 +327,46 @@ enum
     CONCURRENT_CHANNEL_SWITCH = BIT(0),
     CONCURRENT_NOTIFY_AP = BIT(1),
     CONCURRENT_NOTIFY_AP_SUCCESS = BIT(2),
+    CONCURRENT_AP_SWITCH_CHANNEL = BIT(3),
+    CONCURRENT_SWITCH_TO_STA_CHANNEL = BIT(4),
+};
+
+enum wifi_roaming_state
+{
+    ROAMING_STOP = 0,
+    ROAMING_SCAN = 1,
+    ROAMING_CONNECTING = 2,
+};
+
+enum DisconnectionReasonCode {
+    DISCONNECT_SYSTEM,             ///< Disconnection initiated by higher layer.
+    DISCONNECT_DRVINIT,            ///< Generic Disconnection initiated by Driver.
+    DISCONNECT_NETDEVDOWN,         ///< Disconnection initiated by driver when the network interface is down.
+    DISCONNECT_DFSDETECTION,       ///< Disconnection by Driver when DFS is detected on the serving channel.
+    DISCONNECT_UNSUPCHAN,          ///< Disconnection by Driver when AP switched to an unsupported channel.
+    DISCONNECT_DFSCHAN,            ///< Disconnection by Driver when AP switched to an DFS channel.
+    DISCONNECT_APLEAVE,            ///< Disconnection by Driver when connection to AP is lost.
+    DISCONNECT_APROAMFAIL,         ///< Disconnection by Driver when Roaming Failed.
+    DISCONNECT_RCVDEAUTH,          ///< Disconnection initiated by AP and Deauth Received.
+    DISCONNECT_RCVDISASSOC,        ///< Disconnection initiated by AP and Disassoc Received.
+    DISCONNECT_GENERIC             ///< Uncategorized Disconnection Reasons.
+};
+
+struct chan_switch_target_t {
+    unsigned char start;
+    struct wifi_channel *switch_chan;
 };
 
 struct wifi_mac_chan_overlapping {
     unsigned char chan_index;
     unsigned short overlapping;
+};
+
+struct rf_test_recover {
+    unsigned int ch_bw_link_val;
+    unsigned int primary_channel_val;
+    unsigned int power_tx_val;
+    unsigned int packet_type;
 };
 
 struct wifi_mac
@@ -376,6 +411,8 @@ struct wifi_mac
     enum wifi_mac_roamingmode wm_roaming;
     int roaming_threshold_5g;
     int roaming_threshold_2g;
+    enum wifi_roaming_state wm_roaming_state;
+    enum DisconnectionReasonCode wm_disconnect_code;
 
     /* 11g rates for p2p GO and vht mode */
     struct wifi_mac_rateset wm_11b_rates;
@@ -408,6 +445,7 @@ struct wifi_mac
     unsigned int wm_time_noht_present;
 
     unsigned char wm_maxampdu;
+    unsigned char wm_manual_rx_bufsize;
     unsigned char wm_mpdudensity;
 
 #ifdef CONFIG_CONCURRENT_MODE
@@ -428,6 +466,7 @@ struct wifi_mac
     struct wifi_mac_ie_country wm_countryinfo;
     struct _wifi_mac_country_iso wm_country;
     struct wifi_mac_country_ie* wm_11dinfo;
+    struct wifi_mac_vendor_ie wm_vendorinfo[VENDOR_IE_MAX];
 
     unsigned char scan_available;
     unsigned char scan_gain_thresh_unconnect;
@@ -481,6 +520,8 @@ struct wifi_mac
 #if defined(SU_BF) || defined(MU_BF)
     int max_spatial;
 #endif
+    struct rf_test_recover rf_test_recover;
+    unsigned char wm_zgb_exist_flag;
 };
 
 struct wifi_net_vif_ops
@@ -550,6 +591,20 @@ struct wlan_tp_stat
     unsigned long tcp_tx_payload_total;
 };
 
+enum
+{
+    PKT_STOP_SEND = BIT(0),
+    WAIT_TX_COMPLETE = BIT(1),
+    TX_STATUS_SUCCESS = BIT(2),
+};
+
+
+struct packet_ctrl {
+    unsigned char flag;
+    unsigned short frm_seq;
+    unsigned int txd_frm_type;
+    unsigned char addr[WIFINET_ADDR_LEN];
+};
 
 struct wlan_net_vif
 {
@@ -560,6 +615,7 @@ struct wlan_net_vif
     struct iw_statistics vm_iwstats;
     struct vlan_group *vm_vlgrp;
     struct wireless_dev *vm_wdev;
+    struct proc_dir_entry *vm_proc;
 
     struct wifi_station *vm_mainsta;
     struct wifi_mac_statistic vif_sts;
@@ -641,7 +697,7 @@ struct wlan_net_vif
     unsigned char vm_chanchange_count;
     unsigned char vm_bmiss_count;
     struct wifi_mac_rateset vm_legacy_rates;
-
+    struct chan_switch_target_t csa_target;
     struct wifi_mac_wmm_ac_params vm_wmm_ac_params;
     struct wifi_mac_wmm_tspec_element tspecs[WME_AC_NUM][TS_DIR_IDX_COUNT];
     struct wifi_mac_app_ie_t app_ie[WIFINET_APPIE_NUM_OF_FRAME];
@@ -701,6 +757,7 @@ struct wlan_net_vif
     unsigned short vm_rx_speed;
     unsigned char vm_change_rate_enable;
     unsigned long long pn_window[2][2];
+    struct packet_ctrl pkt_ctrl;
 #ifdef CONFIG_P2P
     struct wifi_mac_p2p* vm_p2p;
     int vm_p2p_support;
@@ -740,6 +797,7 @@ struct wlan_net_vif
 #define WIFINET_F_WPA 0x01800000
 #define WIFINET_F_COUNTERM 0x04000000
 #define WIFINET_F_HIDESSID 0x08000000
+#define WIFINET_F_HIDESSID_TO_BIT0_OFST 27
 #define WIFINET_F_WMEUPDATE 0x20000000
 #define WIFINET_F_DOTH 0x40000000
 #define WIFINET_F_CHANSWITCH 0x80000000

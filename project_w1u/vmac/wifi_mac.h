@@ -248,13 +248,15 @@ struct country_na_freq_set
 
 #define  WIFINET_CHAN_MODE_MASK             0xff
 
+#define WIFINET_IS_CHAN_ERR(_c) ((_c) == WIFINET_CHAN_ERR)
+
 #define WIFINET_IS_CHAN_2GHZ(_c) \
-        (((_c)->chan_flags & WIFINET_CHAN_2GHZ) != 0)
+        ((!WIFINET_IS_CHAN_ERR(_c)) && (((_c)->chan_flags & WIFINET_CHAN_2GHZ) != 0))
 #define WIFINET_IS_CHAN_5GHZ(_c) \
-        (((_c)->chan_flags & WIFINET_CHAN_5GHZ) != 0)
+        ((!WIFINET_IS_CHAN_ERR(_c)) && (((_c)->chan_flags & WIFINET_CHAN_5GHZ) != 0))
 
 #define WIFINET_IS_CHAN_11N_HT40(_c) \
-        (((_c)->chan_bw == WIFINET_BWC_WIDTH40))
+        ((!WIFINET_IS_CHAN_ERR(_c)) && (((_c)->chan_bw == WIFINET_BWC_WIDTH40)))
 
 #define WIFINET_RATE_SIZE   8
 #define WIFINET_RATE_MAXSIZE    57
@@ -331,6 +333,7 @@ struct wmeParams
 };
 
 #define WME_NUM_AC      4
+#define VENDOR_IE_MAX   3
 
 
 struct chanAccParams
@@ -359,6 +362,7 @@ struct wifi_mac_wme_state
 
 struct wifi_mac_beacon_offsets
 {
+    unsigned char *bo_ssid;
     unsigned short *bo_caps;
     unsigned char *bo_rates;
     unsigned char *bo_channel;
@@ -379,8 +383,11 @@ struct wifi_mac_beacon_offsets
     unsigned char *bo_vhtcap;
     unsigned char *bo_obss_scan;
     unsigned char *bo_extcap;
+    unsigned char *bo_ch_sw_wrp;
+    unsigned char *bo_vendor_ie[VENDOR_IE_MAX];
     unsigned short bo_chanswitch_trailerlen;
     unsigned short bo_extchanswitch_trailerlen;
+    unsigned short bo_chswwrp_trailerlen;
     unsigned char bo_initial;
     /* beacon sequence number */
     unsigned short bo_bcn_seq;
@@ -576,6 +583,9 @@ struct WIFINET_S_FRAME_ADDR2
 #define WIFINET_IS_ASSOC_REQ(_frame) ((((_frame)->i_fc[0] & WIFINET_FC0_TYPE_MASK) == WIFINET_FC0_TYPE_MGT) && \
     (((_frame)->i_fc[0] & WIFINET_FC0_SUBTYPE_MASK) == WIFINET_FC0_SUBTYPE_ASSOC_REQ))
 
+#define WIFINET_IS_ASSOC_RESP(_frame) ((((_frame)->i_fc[0] & WIFINET_FC0_TYPE_MASK) == WIFINET_FC0_TYPE_MGT) && \
+        (((_frame)->i_fc[0] & WIFINET_FC0_SUBTYPE_MASK) == WIFINET_FC0_SUBTYPE_ASSOC_RESP))
+
 #define WIFINET_IS_DEAUTH(_frame) ((((_frame)->i_fc[0] & WIFINET_FC0_TYPE_MASK) == WIFINET_FC0_TYPE_MGT) && \
     (((_frame)->i_fc[0] & WIFINET_FC0_SUBTYPE_MASK) == WIFINET_FC0_SUBTYPE_DEAUTH))
 
@@ -741,7 +751,7 @@ enum ts_dir_idx {
 #define USB_HIF_TYPE     1
 
 #define SDIO_CLK_SWITCH_TH 230
-#define USB_CLK_SWITCH_TH  150
+#define USB_CLK_SWITCH_TH  110
 
 #define WIFI_CPU_CLK_REG_80    0x4f770033
 #define WIFI_CPU_CLK_REG_160   0x4f730033
@@ -1102,6 +1112,9 @@ enum
 };
 
 #define WIFINET_CHANSWITCHANN_BYTES 5
+#define WIFINET_WIDEBANDCHANSW_BYTES 5
+#define WIFINET_EXTCHANSWITCHANN_BYTES 6
+
 
 struct wifi_mac_tim_ie
 {
@@ -1158,6 +1171,14 @@ struct wifi_mac_erp_ie
     unsigned char  erp_len;
     unsigned char  erp;
 } __packed;
+
+struct wifi_mac_vendor_ie
+{
+    unsigned char    ie;
+    unsigned char    len;
+    unsigned char    buf[256];
+} __packed;
+
 #define WIFINET_CHALLENGE_LEN       128
 
 #define WIFINET_SUPPCHAN_LEN        26
@@ -1221,6 +1242,7 @@ struct wifi_mac_erp_ie
 
 #define P2P_OUI_BE         0x506f9a09
 #define WFD_OUI_BE         0x506f9a0a
+#define ROKU_OUI_BE        0xc83a6b00
 
 #define IE_HDR_LEN    2
 #define IE_LEN_OFFSET 1

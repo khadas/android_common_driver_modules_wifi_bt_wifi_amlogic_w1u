@@ -109,7 +109,7 @@ unsigned char os_timer_ex_start_period (struct os_timer_ext* timer_object, unsig
     return os_timer_ex_start(timer_object);
 }
 
-/* timer handler cannot cancle himself */
+/* timer handler cannot cancel himself */
 unsigned char os_timer_ex_cancel (struct os_timer_ext* timer_object, enum timer_flags flags)
 {
     int         tick_counter = 0;

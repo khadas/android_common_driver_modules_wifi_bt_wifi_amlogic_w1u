@@ -75,7 +75,7 @@ struct crg_msc_cbw {
     uint8_t lun;
     uint8_t len;
     uint32_t cdb[4];
-    uint8_t reseverd; /* make sure 32 bype alined */
+    uint8_t reserved; /* make sure 32 bype alined */
     uint8_t buf[480]; /* reserved */
 //uint8_t resv;
 }__attribute__ ((packed));
@@ -87,6 +87,8 @@ struct usb_hub {
 
 int aml_usb_init(void);
 void aml_usb_exit(void);
+void aml_usb_disable_wifi(void);
+void aml_usb_enable_wifi(void);
 int start_wifi(void);
 int stop_wifi(void);
 int wifi_fw_download(void);
@@ -106,4 +108,10 @@ int aml_usb_port_resume(struct usb_device *udev);
 int aml_usb_send_packet(struct amlw_hif_scatter_req * scat_req);
 void usb_stor_control_msg(unsigned long data );
 
+#ifndef SDIO_MODE_ON
+void aml_aon_write_reg(unsigned int addr,unsigned int data);
+unsigned int aml_aon_read_reg(unsigned int addr);
+void set_reg_fragment(unsigned int addr, unsigned int bit_end,
+        unsigned int bit_start,unsigned int value);
+#endif
 #endif

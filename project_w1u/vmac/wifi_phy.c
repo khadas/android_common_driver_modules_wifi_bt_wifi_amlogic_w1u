@@ -20,6 +20,9 @@ namespace FW_NAME
 
 #include "wifi_hal_com.h"
 #include "wifi_hif.h"
+#ifndef SDIO_MODE_ON
+#include "wifi_usb.h"
+#endif
 
 static const struct reg_table wifi_fpga_regtable[] =
 {
@@ -141,6 +144,7 @@ void phy_stc(void)
 
 }
 
+extern void set_reg_fragment(unsigned int addr, unsigned int bit_end, unsigned int bit_start, unsigned int value);
 unsigned int cca_busy_check(void)
 {
     unsigned int v0 = 0, v1 = 0, v2 = 0, v3 = 0, v4 = 0;

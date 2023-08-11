@@ -69,6 +69,7 @@
 #include "wifi_mac_beacon.h"
 #include "wifi_mac_concurrent.h"
 #include "wifi_pkt_desc.h"
+#include "rf_d_adda_xmit_reg.h"
 
 extern unsigned long long g_dbg_info_enable;
 extern const char *wifi_mac_state_name[WIFINET_S_MAX];
@@ -88,4 +89,8 @@ extern const char *wifi_mac_state_name[WIFINET_S_MAX];
                         AML_OUTPUT("<%s> mac[%s] "_fmt"\n", (_sta)->sta_wnet_vif->vm_ndev->name , ether_sprintf((_sta)->sta_macaddr),__VA_ARGS__);  \
         } while (0)
 
+#define BOOL2STR_EFFECT(_bool) (_bool?"enable":"disable")
+#define BOOL2STR_SWITCH(_bool) (_bool?"on":"off")
+
+#define OTHERS2BOOL(_var) (!!_var)
 #endif //_NET80211_COMMON_H_

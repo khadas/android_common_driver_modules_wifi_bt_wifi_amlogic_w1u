@@ -71,9 +71,9 @@ void *wifi_mem_prealloc(int section, unsigned long size)
         }
 
 #ifdef NOT_AMLOGIC_PLATFORM
-        return aml_mem_prealloc(AML_TX, size);;
+        return aml_mem_prealloc(AML_TX, size);
 #else
-        return bcmdhd_mem_prealloc(AML_TX, size);;
+        return bcmdhd_mem_prealloc(AML_TX, size);
 #endif
     }
     return NULL;

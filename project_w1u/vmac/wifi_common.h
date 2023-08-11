@@ -16,6 +16,9 @@
 
 #define FILE_DATA_LEN 48
 #define PARSE_DIGIT_BASE 30
+
+#define CIRCLE_SUBTRACT(a, b, l)  (((a) >= (b)) ? ((a) - (b)):((l) + (a) - (b)))
+
 #ifdef CONFIG_AML_USE_STATIC_BUF
 void *wifi_mem_prealloc(int section, unsigned long size);
 #endif

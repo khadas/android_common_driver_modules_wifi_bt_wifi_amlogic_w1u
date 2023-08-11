@@ -58,6 +58,7 @@ unsigned char *wifi_mac_add_vht_quiet_ch(unsigned char *, struct wifi_station *)
 unsigned char *wifi_mac_add_vht_op_md_ntf(unsigned char *, struct wifi_station *);
 unsigned char *wifi_mac_add_obss_scan(unsigned char *, struct wifi_station *);
 unsigned char *wifi_mac_add_extcap(unsigned char *, struct wifi_station *);
+unsigned char *wifi_mac_add_vendor_ie(unsigned char *frm, struct wifi_mac *wifimac, unsigned char index);
 
 unsigned char *wifi_mac_add_timeout_interval(unsigned char *, struct wifi_station *);
 
@@ -74,5 +75,8 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
 int wifi_mac_send_mgmt(struct wifi_station *, int, void *);
 int wifi_mac_udp_send_timeout_ex(void *arg);
 void wifi_mac_check_opt_ie(struct wlan_net_vif *wnet_vif);
+unsigned char *wifi_mac_add_chansw_wrapper(unsigned char *frm,struct wifi_station *sta);
+unsigned char *wifi_mac_add_extended_chanswitch(unsigned char *frm,struct wifi_station *sta);
+unsigned char *wifi_mac_add_chanswitch(unsigned char *frm,struct wifi_station *sta);
 
 #endif

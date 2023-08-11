@@ -505,7 +505,7 @@ unsigned short hal_txdescriptor_ht_gettxTime(unsigned char mcs ,unsigned short p
 
 /*get vht frame tx time ,don't contain Signal Extension*/
 unsigned short Hal_TxDescriptor_VHT_GetTxTime(unsigned char mcs ,unsigned short pktlen,
-    unsigned char shortGI, unsigned char bandwith, unsigned char green)
+    unsigned char shortGI, unsigned char bandwidth, unsigned char green)
 {
     unsigned int nbits = 0;
     unsigned short duration,nsymbits,nsymbols;
@@ -515,10 +515,10 @@ unsigned short Hal_TxDescriptor_VHT_GetTxTime(unsigned char mcs ,unsigned short 
     * find number of symbols: PLCP + data
     */
     nbits = (pktlen << 3) + OFDM_PLCP_BITS;
-    nsymbits = vht_bits_per_symbol[mcs][bandwith];
+    nsymbits = vht_bits_per_symbol[mcs][bandwidth];
 
     if (nsymbits == 0) {
-        AML_OUTPUT("Hal_TxDescriptor_VHT_GetTxTime warming nsymbits=%d, bw=%d, mcs=%d\n ", nsymbits, bandwith, mcs);
+        AML_OUTPUT("Hal_TxDescriptor_VHT_GetTxTime warming nsymbits=%d, bw=%d, mcs=%d\n ", nsymbits, bandwidth, mcs);
         nsymbols = 1;
 
     } else {
@@ -1067,7 +1067,7 @@ unsigned int max_send_packet_len(unsigned char rate,unsigned char bw, unsigned c
 
     if ((mcs == 9)  && (bw == 0))
     {
-        /*vht 20M bandwith have not mcs9 rate*/
+        /*vht 20M bandwidth have not mcs9 rate*/
         mcs = 8;
     }
 

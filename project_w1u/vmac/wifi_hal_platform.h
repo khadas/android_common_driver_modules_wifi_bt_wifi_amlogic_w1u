@@ -42,10 +42,13 @@ extern unsigned char aml_bus_type;
 
 unsigned char hal_set_sys_clk(int clockdiv);
 unsigned char hal_set_sys_clk_Core(unsigned int addr, unsigned int value);
-int hal_download_wifi_fw_img(void);
+int hal_download_sdio_fw_img(void);
+int hal_download_usb_fw_img(void);
 unsigned int bbpll_init(void);
 unsigned int bbpll_start (void);
 int aml_usb_ctlread_complete(struct urb *urb);
+void aml_disable_wifi(void);
+void aml_enable_wifi(void);
 
 extern void aml_wifi_set_mac_addr(void);
 extern char * aml_wifi_get_country_code(void);
@@ -54,10 +57,11 @@ extern char * aml_wifi_get_vif1_name(void);
 extern int aml_wifi_get_vif0_opmode(void);
 extern int aml_wifi_get_vif1_opmode(void);
 extern unsigned int aml_wifi_get_con_mode(void);
+extern void aml_wifi_set_con_mode(void *wifimac);
 extern unsigned int aml_wifi_get_platform_verid(void);
 extern char *aml_wifi_get_bus_type(void);
 extern char *aml_wifi_get_fw_type(void);
 extern unsigned int aml_wifi_is_enable_rf_test(void);
-extern void aml_w1_fw_recovery(void);
+extern void aml_w1_fw_recovery(void *drv_priv);
 
 #endif

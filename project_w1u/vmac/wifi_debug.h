@@ -89,6 +89,7 @@ enum
     AML_DBG_MODULES_HAL_TX = BIT(3),    /* hal_tx */
     AML_DBG_MODULES_TX_ERROR = BIT(4),
     AML_DBG_MODULES_SCAN = BIT(5),
+    AML_DBG_MODULES_BCN = BIT(6), /* bcn module*/
     AML_DEBUG_MODULES_ALL = 0xffffffffffffffff,
 };
 
@@ -105,6 +106,8 @@ enum
                         AML_OUTPUT("[TX_ERROR] "format"", ##__VA_ARGS__); \
                     else if(_m == AML_DBG_MODULES_SCAN) \
                         AML_OUTPUT("[SCAN] "format"", ##__VA_ARGS__); \
+                    else if (_m == AML_DBG_MODULES_BCN) \
+                        AML_OUTPUT("[BCN] "format"", ##__VA_ARGS__); \
                 }    \
         } while (0)
 

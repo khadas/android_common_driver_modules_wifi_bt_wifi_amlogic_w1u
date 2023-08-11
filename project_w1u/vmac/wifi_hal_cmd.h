@@ -86,6 +86,8 @@ unsigned int phy_interface_enable(unsigned char enable, unsigned char vid);
 unsigned int hal_set_fwlog_cmd(unsigned char mode);
 unsigned int hal_cfg_cali_param(void);
 unsigned int hal_cfg_txpwr_cffc_param(void * chan, void * txpwr_plan);
+void set_coex_wf_zgb_mode(char mode);
+void phy_set_tx_power_percentage(char percentage, unsigned short channel_num, unsigned char channel_bw, unsigned char vid);
 
 
 #endif  //__AML_PHY_H__

@@ -36,6 +36,7 @@ struct crg_msc_cbw *g_cbw_buf = NULL;
 struct usb_ctrlrequest  *g_cr = NULL;
 struct urb *g_urb;
 unsigned char *g_buffer;
+extern unsigned char wifi_usb_access;
 void aml_usb_build_cbw(struct crg_msc_cbw *cbw_buf,
                                unsigned char dir,
                                unsigned int len,
@@ -61,6 +62,10 @@ int aml_usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
     void *data, int len, int *actual_length, int timeout)
 {
     int ret;
+    if (!wifi_usb_access) {
+        ERROR_DEBUG_OUT("usb bulk disable\n");
+        return -ENOMEM;
+    }
     ret = usb_bulk_msg(usb_dev, pipe, data, len, actual_length, timeout);
     return ret;
 }
@@ -70,6 +75,10 @@ int aml_usb_control_msg(struct usb_device *dev, unsigned int pipe, unsigned char
     unsigned short size, int timeout)
 {
     int ret;
+    if (!wifi_usb_access) {
+        ERROR_DEBUG_OUT("usb control disable\n");
+        return -ENOMEM;
+    }
     ret = usb_control_msg(dev, pipe, request, requesttype, value, index, data, size, timeout);
     return ret;
 }
@@ -1183,6 +1192,7 @@ int aml_usb_send_packet(struct amlw_hif_scatter_req * scat_req)
     return 0;
 }
 extern struct auc_hif_ops g_auc_hif_ops;
+extern void hif_get_sts(unsigned int op_code, unsigned int ctrl_code);
 void hif_init_usb_ops(void)
 {
     struct hw_interface* hif = hif_get_hw_interface();
@@ -1325,6 +1335,81 @@ create_thread_error:
 
 }
 
+extern unsigned char auc_driver_probed;
+
+#ifndef SDIO_MODE_ON
+
+void set_reg_fragment(unsigned int addr,unsigned int bit_end,
+        unsigned int bit_start,unsigned int value)
+{
+    unsigned int tmp;
+    unsigned int bitwidth = bit_end - bit_start + 1;
+    int max_value = (bitwidth == 32)? -1 : (1 << (bitwidth)) - 1;
+    struct hw_interface* hif = hif_get_hw_interface();
+
+    ASSERT((bitwidth > 0)||(bit_start <= 31)||(bit_end <= 31));
+
+    tmp = hif->hif_ops.hi_read_word(addr);
+    tmp &= ~(max_value << bit_start); // clear [bit_end: bit_start]
+    tmp |= ((value & max_value) << bit_start);
+
+    hif->hif_ops.hi_write_word(addr,tmp);
+}
+
+/* aon module address from 0x00f00000, we need read/write by sdio func5 */
+void aml_aon_write_reg(unsigned int addr,unsigned int data)
+{
+    struct hw_interface* hif = hif_get_hw_interface();
+    hif->hif_ops.hi_write_word((addr), data);
+}
+
+unsigned int aml_aon_read_reg(unsigned int addr)
+{
+    unsigned int regdata = 0;
+    struct hw_interface* hif = hif_get_hw_interface();
+    regdata = hif->hif_ops.hi_read_word((addr));
+    return regdata;
+}
+
+#endif
+void aml_usb_disable_wifi(void)
+{
+    AML_OUTPUT("enter\n");
+    wifi_usb_access = 0;
+
+    /* 1.chip en off, usb disconnect */
+    set_usb_wifi_power(0);
+
+    //waiting for usb disconnect
+    while (auc_driver_probed == 1) {
+        msleep(100);
+    }
+
+    /* 2.chip en on, usb probe */
+    set_usb_wifi_power(1);
+
+    //waiting for usb probe
+    while (auc_driver_probed == 0) {
+        msleep(100);
+    }
+    AML_OUTPUT("usb power cycle ok\n");
+}
+
+void aml_usb_enable_wifi(void)
+{
+    struct hal_private *hal_priv = hal_get_priv();
+    struct hw_interface * hif = hif_get_hw_interface();
+    /* g_udev freed by auc_disconnect and realloc by auc_probe, old pointer reset to null,
+       so hif->udev need to be reassigned */
+    hif->udev = g_udev;
+    /* same as hif->udev */
+    g_cbw_buf = g_cmd_buf;
+    hal_recovery_init_priv();
+    wifi_usb_access = 1;
+    hal_fw_repair();
+    usb_stor_control_msg((unsigned long)hal_priv);
+}
+
 void aml_usb_exit(void)
 {
     struct hal_private * hal_priv = hal_get_priv();
@@ -1337,6 +1422,7 @@ void aml_usb_exit(void)
 
     hal_free();
     g_cbw_buf = NULL;
+    usb_kill_urb(g_urb);
     usb_free_urb(g_urb);
     FREE(g_cr,"fw_stat");
     FREE(g_buffer,"fw_stat");

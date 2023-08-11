@@ -3,12 +3,12 @@
 
 struct auc_hif_ops g_auc_hif_ops;
 struct usb_device *g_udev = NULL;
-struct aml_hwif_usb g_hwif_usb;
 unsigned char auc_driver_insmoded;
 unsigned char auc_wifi_in_insmod;
+unsigned char wifi_usb_access = 1;
 struct crg_msc_cbw *g_cmd_buf = NULL;
-//struct mutex auc_usb_metux;
 unsigned char *g_kmalloc_buf;
+unsigned char auc_driver_probed = 0;
 
 void auc_build_cbw(struct crg_msc_cbw *cbw_buf,
                                unsigned char dir,
@@ -71,7 +71,7 @@ unsigned int auc_reg_read(unsigned int addr, unsigned int len)
     USB_BEGIN_LOCK();
 #if 0
     data = (unsigned char *)ZMALLOC(len,"reg tmp",GFP_DMA | GFP_ATOMIC);
-    if(!data) {
+    if (!data) {
         ERROR_DEBUG_OUT("data malloc fail\n");
         return -ENOMEM;
     }
@@ -198,7 +198,7 @@ void usb_write_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
     }
 #if 0
     kmalloc_buf = (unsigned char *)ZMALLOC(len, "usb_write_sram", GFP_DMA | GFP_ATOMIC);//virt_to_phys(fwICCM);
-    if(kmalloc_buf == NULL)
+    if (kmalloc_buf == NULL)
     {
         ERROR_DEBUG_OUT("kmalloc buf fail\n");
         FREE(g_cmd_buf,"cmd stage");
@@ -244,7 +244,7 @@ void usb_read_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
     }
 #if 0
     kmalloc_buf = (unsigned char *)ZMALLOC(len, "usb_read_sram", GFP_DMA|GFP_ATOMIC);
-    if(kmalloc_buf == NULL)
+    if (kmalloc_buf == NULL)
     {
         ERROR_DEBUG_OUT("kmalloc buf fail\n");
         FREE(g_cmd_buf,"cmd stage");
@@ -321,13 +321,13 @@ static int auc_probe(struct usb_interface *interface, const struct usb_device_id
     USB_LOCK_INIT();
 
     g_cmd_buf = ZMALLOC(sizeof(*g_cmd_buf),"cmd stage",GFP_DMA | GFP_ATOMIC);
-    if(!g_cmd_buf) {
+    if (!g_cmd_buf) {
         PRINT_U("g_cbw_buf malloc fail\n");
         return -ENOMEM;;
     }
 
     g_kmalloc_buf = (unsigned char *)ZMALLOC(20*1024,"reg tmp",GFP_DMA | GFP_ATOMIC);
-    if(!g_kmalloc_buf) {
+    if (!g_kmalloc_buf) {
         ERROR_DEBUG_OUT("data malloc fail\n");
         return -ENOMEM;
     }
@@ -335,6 +335,7 @@ static int auc_probe(struct usb_interface *interface, const struct usb_device_id
     memset(g_cmd_buf,0,sizeof(struct crg_msc_cbw ));
 
     auc_ops_init();
+    auc_driver_probed = 1;
 
     PRINT_U("%s(%d)\n",__func__,__LINE__);
     return 0;
@@ -347,6 +348,7 @@ static void auc_disconnect(struct usb_interface *interface)
     FREE(g_cmd_buf,"cmd stage");
     usb_set_intfdata(interface, NULL);
     usb_put_dev(g_udev);
+    auc_driver_probed = 0;
     PRINT_U("--------aml_usb:disconnect-------\n");
 }
 
@@ -361,6 +363,12 @@ static int auc_resume(struct usb_interface *interface)
     return 0;
 }
 #endif
+
+static int auc_reset_resume(struct usb_interface *intf)
+{
+    printk("--------W1U usb reset resume-------------- \n");
+    return 0;
+}
 
 static const struct usb_device_id auc_devices[] =
 {
@@ -383,21 +391,29 @@ static struct usb_driver aml_usb_common_driver = {
     .suspend = auc_suspend,
     .resume = auc_resume,
 #endif
+    .reset_resume = auc_reset_resume,
 };
 
 
 
-
+extern int aml_init_wlan_mem(void);
 int aml_usb_insmod(void)
 {
     int err = 0;
 
+#ifdef NOT_AMLOGIC_PLATFORM
+        err = aml_init_wlan_mem();
+        if (err) {
+            PRINT_U("aml_init_wlan_mem err: %d \n", err);
+            return -ENOMEM;
+        }
+#endif
     err = usb_register(&aml_usb_common_driver);
     auc_driver_insmoded = 1;
     auc_wifi_in_insmod = 0;
     PRINT_U("%s(%d) aml usb driver insmod\n",__func__, __LINE__);
 
-    if(err) {
+    if (err) {
         PRINT_U("failed to register usb driver: %d \n", err);
     }
 
@@ -420,7 +436,8 @@ EXPORT_SYMBOL(auc_driver_insmoded);
 EXPORT_SYMBOL(auc_wifi_in_insmod);
 EXPORT_SYMBOL(auc_send_cmd);
 EXPORT_SYMBOL(auc_usb_mutex);
-
+EXPORT_SYMBOL(wifi_usb_access);
+EXPORT_SYMBOL(auc_driver_probed);
 
 //module_init(aml_common_insmod);
 //module_exit(aml_common_rmmod);

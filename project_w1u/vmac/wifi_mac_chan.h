@@ -4,6 +4,7 @@
 #define WIFI_CHANNEL_LOCK(wifimac) OS_SPIN_LOCK_IRQ(&(wifimac)->channel_lock, (wifimac)->channel_lock_flag)
 #define WIFI_CHANNEL_UNLOCK(wifimac) OS_SPIN_UNLOCK_IRQ(&(wifimac)->channel_lock, (wifimac)->channel_lock_flag)
 
+unsigned char if_southamerica_country(unsigned char *countrycode);
 void wifi_mac_update_country_chan_list(struct wifi_mac *wifimac);
 void wifi_mac_chan_setup(void * ieee, unsigned int wMode, int countrycode_ex);
 int wifi_mac_chan_attach(struct wifi_mac *wifimac);

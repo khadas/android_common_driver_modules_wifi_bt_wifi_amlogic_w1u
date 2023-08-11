@@ -63,6 +63,8 @@
 #define Mac_Rtc_Cmd 0x4a
 #define COEXIST_CMD 0x4B
 #define EFUSE_CFG_CMD 0x4C
+#define COEX_WF_ZGB_MODE_CMD 0X4D
+#define TX_POWER_PT_CMD 0X4E
 
 
 /*coexist cmd1 comand*/
@@ -393,11 +395,11 @@ typedef struct NDPAnncmntCmd
 
 ///TxBA_TYPE
 #define  BA_DELAY  0
-#define  BA_IMMIDIATE  1
+#define  BA_IMMEDIATE  1
 
 ///AuthRole
 #define BA_INITIATOR  0
-#define BA_RESPONDER  1
+#define BA_RESPONSER  1
 
 typedef struct Add_BA_Struct
 {
@@ -511,6 +513,19 @@ typedef struct channel_switch_event
     unsigned int done;
 } channel_switch_event;
 
+struct zgb_event_info
+{
+    unsigned char zgb_exist_flag;
+    unsigned int  ampdu_num;
+    unsigned int  del_ba_flag;
+};
+
+typedef struct zgb_exist_event
+{
+    struct fw_event_basic_info basic_info;
+    struct zgb_event_info data_info;
+} zgb_exist_event;
+
 typedef struct tx_error_event
 {
     struct fw_event_basic_info basic_info;
@@ -603,6 +618,21 @@ typedef struct Efuse_Cfg_Param
     unsigned int efuse_d;
     unsigned int efuse_e;
 } Efuse_Cfg_Param;
+
+typedef struct Coex_Wf_Zgb_Mode_Param
+{
+    unsigned char Cmd;
+    unsigned char  coex_work_mode;
+
+}Coex_Wf_Zgb_Mode_Param;
+
+typedef struct Tx_Power_Percentage_Param
+{
+    unsigned char Cmd;
+    unsigned char  tx_power_percentage;
+
+}Tx_Power_Percentage_Param;
+
 
 typedef struct Phy_U_Interface_Param
 {

@@ -865,7 +865,7 @@ int wifi_mac_key_delete(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key
 {
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
     int staid = 0;
-    DPRINTF(AML_DEBUG_WARNING, "%s: delete key stanfo->sta_associd:%d\n", __func__, stanfo->sta_associd);
+    DPRINTF(AML_DEBUG_WARNING, "%s, sta_associd:%d, key_index:%d\n", __func__, stanfo->sta_associd, k->wk_keyix);
 
     staid = stanfo->sta_associd & 0xff;
     wifimac->drv_priv->drv_ops.key_delete(wifimac->drv_priv,wnet_vif->wnet_vif_id, k->wk_keyix, staid);

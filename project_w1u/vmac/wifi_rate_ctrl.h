@@ -108,8 +108,8 @@ enum
 #define OFDM_SYMBOL_TIME    4
 #define DELT (0)
 
-#define LEGACY_RATE_SET_TH_RSSI          -76
-#define LEGACY_RATE_BACKUP_TH_RSSI       -74
+#define LEGACY_RATE_SET_TH_RSSI          -89
+#define LEGACY_RATE_BACKUP_TH_RSSI       -89
 
 
 // rate control modules

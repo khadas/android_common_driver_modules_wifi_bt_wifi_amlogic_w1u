@@ -35,6 +35,7 @@ int hal_open(void *   drv_priv);
 void hal_get_sts(unsigned int op_code, unsigned int ctrl_code);
 int hal_close(void *   drv_priv);
 unsigned char hal_tx_empty(void);
+unsigned char fw_tx_empty(void);
 struct aml_hal_call_backs  *hal_get_drv_func(void);
 void hal_ops_attach(void);
 void hal_ops_detach(void);

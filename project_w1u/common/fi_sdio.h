@@ -1,5 +1,4 @@
 
-#ifdef CONFIG_SDIO_IF
 /*
  *****************************************************************************************
  *
@@ -19,10 +18,9 @@
 
 #define PRODUCT_AMLOGIC 0x8888
 #define VENDOR_AMLOGIC  0x8888
-#define  HOST_VERSION   1234
+#define HOST_VERSION   1234
 #define FW_VERSION_W1   0x1
 #define FW_VERSION_W1U  0x2
-
 
  /* memory mapping for wifi space */
 #define MAC_ICCM_AHB_BASE    0x00000000
@@ -47,7 +45,7 @@
 #define WF2BT_DCCM_RAM      (0x00400000)  //BT DCCM RAM baseAddr seen from wifi system side
 #define WF2BT_MAC_ARC       (WF2BT_APB_BASE + 0x0c)
 #define RW_OPERTION_SIZE    (4)
-    
+
 //base address
 #define   PRODUCT_AMLOGIC_ADDR  (MAC_SRAM_BASE+0x000000)
 #define   VENDOR_AMLOGIC_ADDR  (MAC_SRAM_BASE+0x000004)
@@ -73,6 +71,8 @@
 #define   CMD_UP_FIFO_FDT_ADDR  (CMD_UP_FIFO_CTRL_ADDR+12)
 #define   CMD_UP_FIFO_BASE_ADDR  (MAC_SRAM_BASE+0x0000d0)
 
+#define  PHY_PRIMARY_CHANNEL  (0x00a0b000 + 0x22c)
+#define CH_BW_LINK_SRAM_ADDR  (MAC_SRAM_BASE + 0xf4)
 /*wifi operate mode */
 #define MODE_IBSS 0
 #define MODE_STA 1
@@ -96,6 +96,7 @@
 #define WIFI_MAX_RXFRAME  255 //127
 #define PHY_VMAC_ID  (0x20)
 #define TX_ADDRESSTABLE_NUM  256
+
 #ifdef DHCP_OFFLOAD
 #define RX_TMP_MAX_LEN  512
 #else
@@ -109,11 +110,11 @@
 #define PREAMBLE_SHORT 1
 
 ///BA_TYPE
-#define immidiate_BA_TYPE 1
+#define immediate_BA_TYPE 1
 
 ///AuthRole
 #define BA_INITIATOR 0
-#define BA_RESPONDER 1
+#define BA_RESPONSER 1
 
 ///encrypt type
 #define WIFI_NO_WEP  0x0
@@ -363,7 +364,7 @@ enum
 /* pri = cent - 30M */
 #define  SW_COFF_L30M   4
 
-// define rf sample rate 
+// define rf sample rate
 #define RF_SMP_160 (0x2)
 
 
@@ -716,6 +717,7 @@ enum fw_event_type
   DPD_CALIBRATION_EVENT,
   TX_ERROR_EVENT,
   FWLOG_PRINT_EVENT,
+  ZGB_EXIST_EVENT,
 };
 
 struct fw_event_basic_info
@@ -831,7 +833,7 @@ typedef struct hi_tx_desc
 //8 -32 -20-44-152
 #define FW_TXDESC_DATAOFFSET  ((size_t) &(((struct TxDescPage *)0)->txdata))
 #define FW_FIRST_PAGE_DATA_LEN  (PAGE_LEN-FW_TXDESC_DATAOFFSET)
-#define FW_TXDESC_X_LEN  ((size_t) sizeof(struct Fw_TxPriv)+sizeof(struct HW_TxOption)+sizeof(struct hw_tx_vector_bits))
+#define W1_FW_TXDESC_X_LEN  ((size_t) sizeof(struct Fw_TxPriv)+sizeof(struct HW_TxOption)+sizeof(struct hw_tx_vector_bits))
 
 typedef struct TxDescPage
 {
@@ -1074,5 +1076,4 @@ typedef struct RekeyDataCmd
 #define WOW_FILTER_OPTION_DISCONNECT BIT(5)
 #define WOW_FILTER_OPTION_GTK_ERROR BIT(6)
 #endif// _FI_AHB_H
-#endif// #ifdef CONFIG_SDIO_IF
 

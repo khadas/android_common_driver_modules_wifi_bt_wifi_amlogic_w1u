@@ -3,6 +3,7 @@
 #include "wifi_iwpriv_cmd.h"
 
 extern int g_auto_gain_base;
+extern bool g_DFS_on;
 
 const char *forbidden_scan_reason_str[FORBIDDEN_SCAN_MAX] =
 {
@@ -316,6 +317,12 @@ wifi_mac_scan_connect(struct wifi_mac_scan_state *ss, struct wlan_net_vif *wnet_
         goto notfound;
     }
 
+    if (wnet_vif->vm_wmac->wm_roaming_state == ROAMING_SCAN) {
+        AML_OUTPUT("Roaming better bssid rssi:%d channel:%d bssid:%s ssid: %s\n",
+            best_node->scaninfo.SI_rssi - 256, best_node->scaninfo.SI_chan->chan_pri_num,
+            ether_sprintf(best_node->scaninfo.SI_bssid), ssidie_sprintf(best_node->scaninfo.SI_ssid));
+    }
+
     if ((wnet_vif->vm_opmode == WIFINET_M_IBSS)
         && (WIFINET_ADDR_EQ(best_node->scaninfo.SI_bssid, &zero_bssid[0])))
     {
@@ -336,6 +343,11 @@ wifi_mac_scan_connect(struct wifi_mac_scan_state *ss, struct wlan_net_vif *wnet_
     } else {
         best_node->connectcnt++;
         best_node->ConnectTime = jiffies;
+        if (wnet_vif->vm_wmac->wm_roaming_state == ROAMING_SCAN) {
+            AML_OUTPUT("Roaming try to join ssid:%s bssid:%s channel:%d\n",
+                ssidie_sprintf(best_node->scaninfo.SI_ssid), ether_sprintf(best_node->scaninfo.SI_bssid), best_node->scaninfo.SI_chan->chan_pri_num);
+            wnet_vif->vm_wmac->wm_roaming_state = ROAMING_CONNECTING;
+        }
         wifi_mac_connect(wnet_vif, &best_node->scaninfo);
         best_node->se_valid = 0;
         return 1;
@@ -688,6 +700,9 @@ void wifi_mac_scan_rx(struct wlan_net_vif *wnet_vif, const struct wifi_mac_scan_
     int err;
 
     if (ss->scan_StateFlags & SCANSTATE_F_DISCARD) {
+        if (wnet_vif->vm_mainsta->sta_bcn_num_connected) {
+            wnet_vif->vm_mainsta->sta_bcn_num_connected = 0;
+        }
         DPRINTF(AML_DEBUG_SCAN,"%s %d drop \n",__func__,__LINE__);
         return;
     }
@@ -713,6 +728,7 @@ void wifi_mac_scan_rx(struct wlan_net_vif *wnet_vif, const struct wifi_mac_scan_
     }
 
     ise = &se->scaninfo;
+    ise->SI_frame_len = sp->frame_len;
     if (sp->rsn != NULL) {
         saveie(&ise->SI_rsn_ie[0], sp->rsn);
 
@@ -788,7 +804,9 @@ void wifi_mac_scan_rx(struct wlan_net_vif *wnet_vif, const struct wifi_mac_scan_
     saveie(&ise->SI_htinfo_ie[0], sp->htinfo);
     saveie(&ise->SI_country_ie[0], sp->country);
     saveie(&ise->SI_wpa_ie[0], sp->wpa);
-    saveie(&ise->SI_wps_ie[0], sp->wps);
+    if (sp->wps != NULL) {
+        saveie(&ise->SI_wps_ie[0], sp->wps);
+    }
 
     if (se->connectcnt && ((jiffies - se->ConnectTime) > WIFINET_CONNECT_CNT_AGE*HZ)) {
         se->connectcnt = 0;
@@ -1018,6 +1036,9 @@ static int vm_scan_setup_chan(struct wifi_mac_scan_state *ss, struct wlan_net_vi
                         continue;
                     } else if ((aml_iwpriv_get_band() == CFG_BAND_A) && (!WIFINET_IS_CHAN_5GHZ(c))) {
                         continue;
+                    } else if (!g_DFS_on && c->chan_flags & WIFINET_CHAN_DFS) {
+                        DPRINTF(AML_DEBUG_SCAN, "%s %d skip the DFS channel %d!\n", __func__, __LINE__, c->chan_pri_num);
+                        continue;
                     }
 
                     ss->ss_chans[ss->scan_last_chan_index++] = c;
@@ -1133,8 +1154,12 @@ void wifi_mac_scan_chk_leakap_hrtimer_attach(struct wifi_mac *wifimac)
 
 void wifi_mac_scan_chk_leakap_hrtimer_start(struct wifi_mac *wifimac)
 {
+#ifdef CONFIG_ROKU
+    hrtimer_start(&wifimac->wm_scan->scan_hr_timer, 2000000, HRTIMER_MODE_REL);
+#else
     wifimac->wm_scan->scan_kt = ktime_set(0, 2000000);
     hrtimer_start(&wifimac->wm_scan->scan_hr_timer, wifimac->wm_scan->scan_kt, HRTIMER_MODE_REL);
+#endif
 }
 
 void wifi_mac_scan_chk_leakap_hrtimer_cancel(struct wifi_mac *wifimac)
@@ -1213,6 +1238,8 @@ void wifi_mac_scan_channel(struct wifi_mac *wifimac)
         DPRINTF(AML_DEBUG_SCAN, "%s vid:%d, next_chan_index = %d, chan=%d freq=%d, p2p_enable:%d\n", __func__,
             wnet_vif->wnet_vif_id, ss->scan_next_chan_index, chan->chan_pri_num, chan->chan_cfreq1, wnet_vif->vm_p2p->p2p_enable);
 
+        AML_OUTPUT("Scan CH %d, scan_ch_ms = %d\n", chan->chan_pri_num, ss->scan_chan_wait);
+
         if (!wnet_vif->vm_p2p->p2p_enable && !wnet_vif->vm_chan_switch_scan_flag) {
              wifi_mac_send_probereq(wnet_vif->vm_mainsta, wnet_vif->vm_myaddr, dev->broadcast,
                  dev->broadcast, "", 0, wnet_vif->vm_opt_ie, wnet_vif->vm_opt_ie_len);
@@ -1262,7 +1289,6 @@ void wifi_mac_switch_scan_channel(struct wifi_mac *wifimac)
     if ((wifimac->wm_curchan != NULL) && (chan->chan_pri_num == wifimac->wm_curchan->chan_pri_num)) {
         ss->scan_StateFlags |= SCANSTATE_F_CHANNEL_SWITCH_COMPLETE;
         wifi_mac_scan_channel(wifimac);
-
     } else {
         ss->scan_StateFlags |= SCANSTATE_F_WAIT_CHANNEL_SWITCH;
         wifi_mac_ChangeChannel(wifimac, chan, 0, wnet_vif->wnet_vif_id);
@@ -1610,8 +1636,11 @@ void wifi_mac_end_scan( struct wifi_mac_scan_state *ss)
 {
     struct wlan_net_vif *wnet_vif = ss->VMacPriv;
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
-    int find_roaming_node = 0;
+    int find_roaming_node = 0, scan_roaming_node = 0;
     static int before_conn_scan_times = 0;
+    struct scaninfo_entry *se = NULL, *SI_next = NULL;
+    struct scaninfo_table *st = ss->ScanTablePriv;
+    unsigned char encryption_type[5];
 
     if (!(wifimac->wm_flags & WIFINET_F_SCAN)) {
         ERROR_DEBUG_OUT("not in scan status\n");
@@ -1640,6 +1669,7 @@ void wifi_mac_end_scan( struct wifi_mac_scan_state *ss)
                 if (P2P_NoA_START_FLAG(connect_wnet->vm_p2p->HiP2pNoaCountNow)) {
                     p2p_noa_start_irq(connect_wnet->vm_p2p, wifimac->drv_priv);
                 }
+                connect_wnet->vm_p2p->HiP2pNoaCountNow = 0;
             }
         }
 
@@ -1657,6 +1687,31 @@ void wifi_mac_end_scan( struct wifi_mac_scan_state *ss)
         wifi_mac_set_legacy_rates(&wnet_vif->vm_legacy_rates, wnet_vif);
     }
 
+    /*if in roaming scan, print the result*/
+    if (wnet_vif->vm_chan_roaming_scan_flag || wifimac->wm_roaming_state == ROAMING_SCAN) {
+        list_for_each_entry_safe(se,SI_next,&st->st_entry,se_list) {
+            if (memcmp(ss->roaming_ssid.ssid, ssidie_sprintf(se->scaninfo.SI_ssid), ss->roaming_ssid.len) == 0) {
+                memset(encryption_type, 0, sizeof(encryption_type));
+                if (se->scaninfo.SI_rsn_ie[0])
+                    memcpy(encryption_type, "WPA2", strlen("WPA2"));
+                else if (se->scaninfo.SI_wpa_ie[0])
+                    memcpy(encryption_type, "WPA", strlen("WPA"));
+                else if (se->scaninfo.SI_wps_ie[0])
+                    memcpy(encryption_type, "WPS", strlen("WPS"));
+                else
+                    memcpy(encryption_type, "ESS", strlen("ESS"));
+                AML_OUTPUT("Roaming Scan rssi:%d channel:%d encryption:%s bssid:%s ssid: %s\n",
+                    se->scaninfo.SI_rssi - 256, se->scaninfo.SI_chan->chan_pri_num, encryption_type,
+                    ether_sprintf(se->scaninfo.SI_bssid), ssidie_sprintf(se->scaninfo.SI_ssid));
+                scan_roaming_node++;
+            }
+        }
+        if (scan_roaming_node == 0) {
+            wifimac->wm_roaming_state = ROAMING_STOP;
+            AML_OUTPUT("No Roaming bssid find!\nRoaming quit!\n");
+        }
+    }
+
     /*if in roaming mode ,check if can roaming*/
     if (wnet_vif->vm_mainsta != NULL && wnet_vif->vm_chan_roaming_scan_flag) {
         struct scaninfo_entry *best_node = &wnet_vif->vm_connect_scan_entry;
@@ -1669,7 +1724,16 @@ void wifi_mac_end_scan( struct wifi_mac_scan_state *ss)
                 wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
                 find_roaming_node = 1;
                 wnet_vif->vm_wmac->wm_scan->roaming_full_scan = 0;
+                AML_OUTPUT("Roaming get better bssid rssi:%d channel:%d bssid:%s ssid: %s\n",
+                    best_node->scaninfo.SI_rssi - 256, best_node->scaninfo.SI_chan->chan_pri_num,
+                    ether_sprintf(best_node->scaninfo.SI_bssid), ssidie_sprintf(best_node->scaninfo.SI_ssid));
+                wifimac->wm_roaming_state = ROAMING_CONNECTING;
+                AML_OUTPUT("Roaming connect start!\n");
             }
+        }
+        else {
+            wifimac->wm_roaming_state = ROAMING_STOP;
+            AML_OUTPUT("Roaming get better bssid fail!\nRoaming quit!\n");
         }
     }
 
@@ -1852,7 +1916,8 @@ void wifi_mac_notify_pkt_clear(struct wifi_mac *wifimac) {
 
     if (wifimac->wm_nrunning == 2) {
         #ifdef  CONFIG_CONCURRENT_MODE
-            if (wifimac->wm_vsdb_flags & CONCURRENT_NOTIFY_AP_SUCCESS) {
+            if ((wifimac->wm_vsdb_flags & CONCURRENT_NOTIFY_AP_SUCCESS)
+                || (wifimac->wm_vsdb_flags & CONCURRENT_AP_SWITCH_CHANNEL)) {
                 if (drv_priv->hal_priv->hal_ops.hal_tx_empty()) {
                     concurrent_vsdb_do_channel_change(wifimac);
                 }
@@ -1914,7 +1979,7 @@ int vm_scan_user_set_chan(struct wlan_net_vif *wnet_vif,
                     }
                 }
 
-                if (c->chan_cfreq1 != request->channels[j]->center_freq && !vm_is_p2p_connect_scan(wnet_vif, request)) {
+                if (c->chan_cfreq1 != request->channels[j]->center_freq) {
                     continue;
                 }
 
@@ -2092,6 +2157,7 @@ void wifi_mac_scan_attach(struct wifi_mac *wifimac)
     wifimac->wm_roaming = WIFINET_ROAMING_BASIC;
     wifimac->roaming_threshold_2g = DEFAULT_ROAMING_THRESHOLD_2G;
     wifimac->roaming_threshold_5g = DEFAULT_ROAMING_THRESHOLD_5G;
+    wifimac->wm_roaming_state = ROAMING_STOP;
 
     AML_OUTPUT("wifi_mac_scan_timeout is %p\n", wifi_mac_scan_timeout);
     ss = (struct wifi_mac_scan_state *)NET_MALLOC(sizeof(struct wifi_mac_scan_state),

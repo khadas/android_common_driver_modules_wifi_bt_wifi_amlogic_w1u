@@ -11,7 +11,7 @@
  *
  ****************************************************************************************
  */
-
+#define BCN_MISS_CONSECUTIVE_NUM 5
 struct sk_buff *_wifi_mac_beacon_alloc(struct wifi_station *sta, struct wifi_mac_beacon_offsets *bo);
 int _wifi_mac_beacon_update(struct wifi_station *sta,            struct wifi_mac_beacon_offsets *bo, struct sk_buff *skb, int mcast);
 int wifi_mac_beacon_alloc(void * ieee, int wnet_vif_id);

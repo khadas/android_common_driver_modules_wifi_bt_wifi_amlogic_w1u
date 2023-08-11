@@ -41,6 +41,7 @@ struct  hw_interface* hif_get_hw_interface(void)
     return &g_hw_interface;
 }
 
+#ifdef SDIO_MODE_ON
 void hif_init_ops(void)
 {
     struct amlw_hif_ops* ops = &g_hw_interface.hif_ops;
@@ -91,6 +92,7 @@ void hif_init_ops(void)
     ops->hif_pt_rx_start = hif_pt_rx_start;
     ops->hif_pt_rx_stop = hif_pt_rx_stop;
 }
+#endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0))
 extern void do_gettimeofday(struct timeval *tv);
@@ -216,16 +218,19 @@ void hi_clear_irq_status(unsigned int data)
             unsigned int tmpreg = 0;
 
             POWER_END_LOCK();
-            if (!aml_bus_type) {
-                tmpreg = hif->hif_ops.hi_bottom_read8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ);
-                // set host sleep req
-                tmpreg |= HOST_SLEEP_REQ;
-                hif->hif_ops.hi_bottom_write8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ, tmpreg);
-            } else {
+            if (aml_bus_type) {
                 tmpreg = hif->hif_ops.hi_read_reg8(RG_SDIO_PMU_HOST_REQ);
                 tmpreg |= HOST_SLEEP_REQ;
                 hif->hif_ops.hi_write_reg8(RG_SDIO_PMU_HOST_REQ, tmpreg);
             }
+#ifdef SDIO_MODE_ON
+            else {
+                tmpreg = hif->hif_ops.hi_bottom_read8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ);
+                // set host sleep req
+                tmpreg |= HOST_SLEEP_REQ;
+                hif->hif_ops.hi_bottom_write8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ, tmpreg);
+            }
+#endif
             POWER_BEGIN_LOCK();
         }
         POWER_END_LOCK();
@@ -299,13 +304,16 @@ static  unsigned char hi_push_down_fifo(FIFO_SHARE_CTRL *pDownFifo,
             (unsigned char*)hi_get_next_down_fifo(pDownFifo),len);
         CIRCLE_Add_One( pDownFifo->FDH ,pDownFifo->FDN);
         //trigger host cmd irq for firmware
-        if (!aml_bus_type) {
-            hif->hif_ops.hi_write_sram((unsigned char*)(&(pDownFifo->FDH)),
-                (unsigned char *)(SYS_TYPE)((pDownFifo)->FCB + 8), 4);
-        } else {
+        if (aml_bus_type) {
             hif->hif_ops.hi_write_word((unsigned int)(SYS_TYPE)(pDownFifo->FCB + 8),
                 (unsigned int)pDownFifo->FDH);
         }
+#ifdef SDIO_MODE_ON
+        else {
+            hif->hif_ops.hi_write_sram((unsigned char*)(&(pDownFifo->FDH)),
+                (unsigned char *)(SYS_TYPE)((pDownFifo)->FCB + 8), 4);
+        }
+#endif
         return true;
     }
     return false;
@@ -417,32 +425,44 @@ void hi_rx_fifo_init(void)
     struct  hw_interface* hif = hif_get_hw_interface();
 
 #ifdef CONFIG_AML_USE_STATIC_BUF
-    if(!aml_bus_type) {
-        g_rx_fifo = wifi_mem_prealloc(AML_RX_FIFO, RX_FIFO_SIZE + 2 * hif->CommStaticParam.tx_page_len);
-    } else {
+    if (aml_bus_type) {
         g_rx_fifo = wifi_mem_prealloc(AML_RX_FIFO, USB_RX_FIFO_SIZE + 2 * hif->CommStaticParam.tx_page_len);
     }
-#else
-    if(!aml_bus_type) {
-        g_rx_fifo = (unsigned char *)ZMALLOC(RX_FIFO_SIZE + 2 * hif->CommStaticParam.tx_page_len, "hi_rx_fifo_init", GFP_KERNEL);
-    } else {
-        g_rx_fifo = (unsigned char *)ZMALLOC(USB_RX_FIFO_SIZE + 2 * hif->CommStaticParam.tx_page_len, "hi_rx_fifo_init", GFP_KERNEL);
+#ifdef SDIO_MODE_ON
+    else {
+        g_rx_fifo = wifi_mem_prealloc(AML_RX_FIFO, RX_FIFO_SIZE + 2 * hif->CommStaticParam.tx_page_len);
     }
+#endif
+#else
+    if (aml_bus_type) {
+            g_rx_fifo = (unsigned char *)ZMALLOC(USB_RX_FIFO_SIZE + 2 * hif->CommStaticParam.tx_page_len, "hi_rx_fifo_init", GFP_KERNEL);
+        }
+#ifdef SDIO_MODE_ON
+        else {
+            g_rx_fifo = (unsigned char *)ZMALLOC(RX_FIFO_SIZE + 2 * hif->CommStaticParam.tx_page_len, "hi_rx_fifo_init", GFP_KERNEL);
+        }
+#endif
+
 #endif
     if (g_rx_fifo == NULL)
         ERROR_DEBUG_OUT("rx fifo alloc failed\n");
 
     hif->rx_fifo.FDH = 0;
     hif->rx_fifo.FDT = 0;
-    if(!aml_bus_type) {
-        hif->rx_fifo.FDN = RX_FIFO_SIZE;
-    } else {
+
+    if (aml_bus_type) {
         hif->rx_fifo.FDN = USB_RX_FIFO_SIZE;
     }
-
+#ifdef SDIO_MODE_ON
+    else {
+        hif->rx_fifo.FDN = RX_FIFO_SIZE;
+    }
+#endif
     hif->rx_fifo.FDB = g_rx_fifo;
 }
 
+
+#ifdef SDIO_MODE_ON
 /* remain mpdu num in mpdu list after initializing sg list */
 static unsigned int remain_mpdu_num = 0;
 /* page num after initializing sg list */
@@ -506,7 +526,7 @@ int hi_tx_frame(struct hi_tx_desc **pTxDPape, unsigned int mpdu_num,  unsigned i
     static unsigned int cnt = 0;
     cnt++;
     sg_num = mpdu_num;
-    
+
     do
     {
         /*Support wifi host fill many mpdus in sg_list. */
@@ -579,7 +599,7 @@ int hi_tx_frame(struct hi_tx_desc **pTxDPape, unsigned int mpdu_num,  unsigned i
     while(sg_remain > 0);
     return ret;
 }
-
+#endif
 #elif defined (HAL_SIM_VER)
 
 unsigned int print_cnt = 0;
@@ -632,6 +652,7 @@ void hi_cfg_firmware(void)
         hif->hw_config.bcn_page_num = DEFAULT_BCN_NUM/4;
         hif->hw_config.page_len = PAGE_LEN_USB;
     }
+#ifdef SDIO_MODE_ON
     else
     {
         hif->hw_config.txpagenum = DEFAULT_TXPAGENUM;
@@ -639,7 +660,7 @@ void hi_cfg_firmware(void)
         hif->hw_config.bcn_page_num = DEFAULT_BCN_NUM;
         hif->hw_config.page_len = PAGE_LEN;
     }
-
+#endif
 #if defined (HAL_SIM_VER)
     if( STA1_VMAC0_SEND_RATE <= WIFI_11B_11M)
     {
@@ -658,6 +679,7 @@ void hi_cfg_firmware(void)
 
 //asynchronous
 extern unsigned char  wifi_sdio_access;
+extern unsigned char wifi_usb_access;
 unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
 {
     struct hal_private * hal_priv = hal_get_priv();
@@ -665,15 +687,23 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
     struct wifi_mac *wifimac = wifi_mac_get_mac_handle();
     FIFO_SHARE_CTRL *pCmdDownFifo = &hif->CmdDownFifo;
     unsigned int loop = 0;
+
+#ifdef SDIO_MODE_ON
     PowerSaveCmd pscmd = *(PowerSaveCmd *)pdata;
     struct SuspendCmd suspend_cmd = *(struct SuspendCmd *)pdata;
+#endif
 
     ASSERT(pdata != NULL);
     ASSERT(hif != NULL);
     ASSERT(hal_priv != NULL);
     ASSERT(pCmdDownFifo != NULL);
 
-    if (!wifi_sdio_access) {
+#ifdef SDIO_MODE_ON
+    if ((!aml_bus_type && !wifi_sdio_access) || (aml_bus_type && !wifi_usb_access))
+#else
+    if (!wifi_usb_access)
+#endif
+    {
         AML_OUTPUT("recovering downloading firmware\n");
         return false;
     }
@@ -715,37 +745,45 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
 #ifdef HAL_SIM_VER
         if(aml_bus_type) {
             OS_UDELAY(80000);
-        } else {
+        }
+#ifdef SDIO_MODE_ON
+        else {
             OS_UDELAY(20);
         }
+#endif
 #else
         OS_UDELAY(20);
 #endif
     }
-	
-    if(!aml_bus_type)
+
+#ifdef SDIO_MODE_ON
+    if (!aml_bus_type)
     {
         aml_wifi_sdio_power_lock();
     }
+#endif
     POWER_BEGIN_LOCK();
+#ifdef SDIO_MODE_ON
     if (((hal_priv->powersave_init_flag == 0) && (pscmd.Cmd == Power_Save_Cmd) && (pscmd.psmode == PS_DOZE))
         || ((hal_priv->powersave_init_flag == 0) && (suspend_cmd.Cmd == WoW_Enable_Cmd) && (suspend_cmd.enable == 1)))
     {
         unsigned int tmpreg = 0;
-        if(!aml_bus_type){
+        if (!aml_bus_type) {
             tmpreg = hif->hif_ops.hi_bottom_read8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ);
             // set host sleep req
             tmpreg |= HOST_SLEEP_REQ;
             hif->hif_ops.hi_bottom_write8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ, tmpreg);
         }
     }
-
+#endif
     hal_priv->hal_drv_ps_status &= ~HAL_DRV_IN_ACTIVE;
     POWER_END_LOCK();
-    if(!aml_bus_type)
+#ifdef SDIO_MODE_ON
+    if (!aml_bus_type)
     {
         aml_wifi_sdio_power_unlock();
     }
+#endif
 
     return true;
 }
@@ -767,11 +805,14 @@ unsigned char hi_get_cmd(unsigned char *pdata,unsigned int len)
     while (!hi_push_down_fifo_up(pCmdDownFifo,pdata,len))
     {
 #ifdef HAL_SIM_VER
-        if(aml_bus_type) {
+        if (aml_bus_type) {
             OS_UDELAY(80000);
-        } else {
+        }
+#ifdef SDIO_MODE_ON
+        else {
             OS_UDELAY(20);
         }
+#endif
 #else
         OS_UDELAY(20);
 #endif
@@ -871,6 +912,7 @@ void hi_soft_fw_event(void)
     struct hw_interface *hif = hif_get_hw_interface();
     struct fw_event_to_driver *event = NULL;
     unsigned int hw_event_addr = 0;
+    unsigned char index = 0;
 
     hw_event_addr = hif->hw_config.fweventaddress;
     event = hal_priv->fw_event;
@@ -881,13 +923,25 @@ void hi_soft_fw_event(void)
     if (aml_wifi_is_enable_rf_test())
         return;
 
+    if (CIRCLE_SUBTRACT(hal_priv->fw_event->event_counter, hal_priv->hal_fw_event_counter, 256) > WIFI_MAX_FW_EVENT)
+    {
+        ERROR_DEBUG_OUT("fw_event_counter:%d, hal_event_count:%d\n", hal_priv->fw_event->event_counter, hal_priv->hal_fw_event_counter);
+        for (index = 0; index < WIFI_MAX_FW_EVENT; index++)
+        {
+            ERROR_DEBUG_OUT("event_type[%d]:%d \n",index,event->event_data[index].data[0]);
+        }
+    }
+
     while (hal_priv->fw_event->event_counter !=  hal_priv->hal_fw_event_counter)
     {
         struct fw_event_no_data *normal_event = NULL;
 
         normal_event = &hal_priv->fw_event->event_data[hal_priv->hal_fw_event_counter % WIFI_MAX_FW_EVENT].normal_event;
-        hal_priv->hal_fw_event_counter++;
         hal_priv->hal_call_back->intr_fw_event(hal_priv->drv_priv, normal_event);
+        event->event_data[0].data[28] = hal_priv->hal_fw_event_counter;
+        hif->hif_ops.hi_write_sram((unsigned char *)&event->event_data[0].data[28],
+            (unsigned char *)(SYS_TYPE)(hw_event_addr+32), (SYS_TYPE)(sizeof(unsigned char)*4));
+        hal_priv->hal_fw_event_counter++;
     }
 
     return;
@@ -963,8 +1017,10 @@ void hi_soft_rx_irq(struct hal_private *hal_priv, unsigned int rx_fw_ptr)
     unsigned int fifo_empty_size = 0;
     unsigned int rx_fifo_fdt = 0;
     unsigned int rx_fifo_fdh = 0;
+#ifdef SDIO_MODE_ON
 #if (SDIO_UPDATE_HOST_RDPTR != 0)
     int host_wrapper_len = 0;
+#endif
 #endif
     static unsigned char print_cnt = 0;
 
@@ -1007,6 +1063,7 @@ void hi_soft_rx_irq(struct hal_private *hal_priv, unsigned int rx_fw_ptr)
         host_remain_len = hif->rx_fifo.FDN - rx_fifo_fdt;
         if (read_len >= host_remain_len)
         {
+#ifdef SDIO_MODE_ON
             if((SDIO_UPDATE_HOST_RDPTR != 0) && (!aml_bus_type)) {
 
                 struct sdio_func * func = aml_priv_to_func(SDIO_FUNC6);
@@ -1016,16 +1073,21 @@ void hi_soft_rx_irq(struct hal_private *hal_priv, unsigned int rx_fw_ptr)
             } else {
                 read_len = host_remain_len;
             }
+#else
+            read_len = host_remain_len;
+#endif
         }
         /*Read rx packets. but during suspend, we can't get packets by this function, ATTENTION */
-        if(aml_bus_type) {
+        if (aml_bus_type) {
             hif->hif_ops.hi_rcv_frame((hif->rx_fifo.FDB + rx_fifo_fdt),
                 (unsigned char *)(SYS_TYPE)(hif->hw_config.rxframeaddress + hal_priv->rx_host_offset), read_len);
-        } else {
+        }
+
+#ifdef SDIO_MODE_ON
+        else {
             hif->hif_ops.hi_rcv_frame((hif->rx_fifo.FDB + rx_fifo_fdt),
                 (unsigned char *)(SYS_TYPE)hal_priv->rx_host_offset, read_len);
         }
-
         if ((SDIO_UPDATE_HOST_RDPTR != 0) && (!aml_bus_type)) {
             if (host_wrapper_len > 0)
             {
@@ -1044,7 +1106,7 @@ void hi_soft_rx_irq(struct hal_private *hal_priv, unsigned int rx_fw_ptr)
                 host_wrapper_len = 0;
             }
         }
-
+#endif
         rx_fifo_fdt = CIRCLE_Addition2(rx_fifo_fdt, read_len, hif->rx_fifo.FDN);
 
         /*Update host read pointer*/
@@ -1054,7 +1116,12 @@ void hi_soft_rx_irq(struct hal_private *hal_priv, unsigned int rx_fw_ptr)
     }
     while (remain_len > 0);
 
-    if((SDIO_UPDATE_HOST_RDPTR == 0) || aml_bus_type) {
+#ifdef SDIO_MODE_ON
+    if ((SDIO_UPDATE_HOST_RDPTR == 0) || aml_bus_type)
+#else
+    if (aml_bus_type)
+#endif
+    {
         unsigned int write_data = 0;
         write_data = BIT(31) | (hal_priv->rx_host_offset >> 2);
         hif->hif_ops.hi_write_word(RG_WIFI_IF_RXPAGE_BUF_RDPTR, write_data);
@@ -1112,26 +1179,36 @@ void hi_soft_rx_irq(struct hal_private *hal_priv, unsigned int rx_fw_ptr)
                         if(aml_bus_type) {
                             hif->hif_ops.hi_rcv_frame((unsigned char *)rx_buffer_tmp,
                                 (unsigned char *)(SYS_TYPE)(hif->hw_config.rxframeaddress + hal_priv->rx_host_offset), read_len);
-                        } else {
+                        }
+#ifdef SDIO_MODE_ON
+                        else {
                             hif->hif_ops.hi_rcv_frame((unsigned char *)rx_buffer_tmp,
                                 (unsigned char *)(SYS_TYPE)hal_priv->rx_host_offset, ALIGN(read_len, page_len));
                         /*herer, HalPriv->rx_host_offset will equal to 0 after CIRCLE_Addition*/
                         }
+#endif
                 }
                 else
                 {
                         if(aml_bus_type) {
                             hif->hif_ops.hi_rcv_frame((unsigned char *)rx_buffer_tmp,
                                 (unsigned char *)(SYS_TYPE)(hif->hw_config.rxframeaddress + hal_priv->rx_host_offset), read_len);
-                        } else {
+                        }
+#ifdef SDIO_MODE_ON
+                        else {
                             hif->hif_ops.hi_rcv_frame((unsigned char *)rx_buffer_tmp,
                                 (unsigned char *)(SYS_TYPE)hal_priv->rx_host_offset, read_len);
                         }
+#endif
                 }
                 /*Update host read pointer*/
                 hal_priv->rx_host_offset = CIRCLE_Addition2(hal_priv->rx_host_offset, read_len, rxmax_offset);
-
-                if( (SDIO_UPDATE_HOST_RDPTR == 0) || aml_bus_type) {
+#ifdef SDIO_MODE_ON
+                if ( (SDIO_UPDATE_HOST_RDPTR == 0) || aml_bus_type)
+#else
+                if (aml_bus_type)
+#endif
+                {
                     unsigned int write_data = 0;
 
                     write_data = BIT(31) | (hal_priv->rx_host_offset >> 2);
@@ -1195,15 +1272,17 @@ void hi_irq_task(struct hal_private *hal_priv)
     unsigned int intr_status =0;
     unsigned char loop_count = 0;
     unsigned char int_loop_num = 0;
+#ifdef SDIO_MODE_ON
     unsigned int gpio_en = 0;
+#endif
 //    unsigned char i;
 //    unsigned char rx_loop_num = 0;
 //    unsigned int intr_status_tmp = 0;
 #ifdef POWER_SAVE_NO_SDIO
     unsigned int ptr = 0;
 #endif
-    if(aml_bus_type) {
-        if(atomic_read(&hal_priv->usb_isr_done) == 0) {
+    if (aml_bus_type) {
+        if (atomic_read(&hal_priv->usb_isr_done) == 0) {
             AML_TXLOCK_LOCK();
             hal_tx_frame();
             AML_TXLOCK_UNLOCK();
@@ -1235,11 +1314,13 @@ void hi_irq_task(struct hal_private *hal_priv)
     if(aml_bus_type) {
         intr_status = hal_priv->int_status_copy;
         memset(g_buffer, 0, 2*sizeof(int));
-    } else {
+    }
+#ifdef SDIO_MODE_ON
+    else {
         intr_status = hi_get_irq_status();
         hal_priv->int_status_copy = intr_status;
     }
-
+#endif
     loop_count += 1;
     if (intr_status & GOTO_WAKEUP_VID1)
     {
@@ -1389,14 +1470,18 @@ void hi_irq_task(struct hal_private *hal_priv)
 
     if (loop_count > int_loop_num)
     {
-        if(!aml_bus_type) {
-            /*Enable Interrupt. */
-            gpio_en = SDIO_FW2HOST_GPIO_EN;
-            hi_clear_irq_status(SDIO_FW2HOST_EN);
-        } else {
+
+        if (aml_bus_type) {
             atomic_set(&hal_priv->usb_isr_done, 0);
             usb_submit_urb(g_urb, GFP_ATOMIC);
         }
+#ifdef SDIO_MODE_ON
+        else {
+            /*Enable Interrupt. */
+            gpio_en = SDIO_FW2HOST_GPIO_EN;
+            hi_clear_irq_status(SDIO_FW2HOST_EN);
+        }
+#endif
         return;
     }
 
@@ -1494,8 +1579,10 @@ void hi_irq_task(struct hal_private *hal_priv)
                         /*reset configuration for func4 and func6 */
                         tmpreg = 0;
                         tmpreg |= BIT(8);
+#ifdef SDIO_MODE_ON
 #if (SDIO_UPDATE_HOST_WRPTR == 0)
                         tmpreg |= BIT(9);
+#endif
 #endif
 #if RTL_WRAPPER_AROUND_ADDR
                         tmpreg |= BIT(16);
@@ -1503,9 +1590,11 @@ void hi_irq_task(struct hal_private *hal_priv)
 
                         hif->hif_ops.hi_write_word( RG_SDIO_IF_MISC_CTRL, tmpreg);
 
+#ifdef SDIO_MODE_ON
 #if SDIO_UPDATE_HOST_RDPTR
                         tmpreg = 0;
                         tmpreg |= BIT(6);
+#endif
 #endif
 
                         hif->hif_ops.hi_write_word(RG_SDIO_IF_MISC_CTRL2, tmpreg);
@@ -1518,6 +1607,8 @@ void hi_irq_task(struct hal_private *hal_priv)
                         data33 = hif->hif_ops.hi_read_word(RG_MAC_RX_HRPTR);
 
                         PRINT("======3=====>intr_status %x,%x,%x,%x\n",intr_status,data11,data22,data33);
+
+#ifdef SDIO_MODE_ON
 #if (SDIO_UPDATE_HOST_RDPTR == 0)
                         to_sdio = BIT(31)|data33;
                         hif->hif_ops.hi_write_word(RG_WIFI_IF_RXPAGE_BUF_RDPTR, to_sdio);
@@ -1531,6 +1622,8 @@ void hi_irq_task(struct hal_private *hal_priv)
                         hif->hif_ops.hi_write_word(RG_WIFI_IF_MAC_TXTABLE_WT_ID, txpage_wr_id);
                         hif->hif_ops.hi_write_word(RG_WIFI_IF_MAC_TXTABLE_PAGE_NUM, txpagetbl_num);
 #endif
+#endif
+
                    }
               }
         }
@@ -1656,15 +1749,15 @@ static void hif_get_mac_sts(void)
     rd_info[13].addr= RG_MAC_RX_DATA_OTHER_CNT;
     rd_info[14].addr= RG_MAC_RX_DATA_MUTIL_CNT;
 
-    rd_info[0].prt= "irq_cnt_0"; 
-    rd_info[1].prt= "irq_cnt_1"; 
-    rd_info[2].prt= "irq_cnt_2"; 
-    rd_info[3].prt= "irq_cnt_3"; 
+    rd_info[0].prt= "irq_cnt_0";
+    rd_info[1].prt= "irq_cnt_1";
+    rd_info[2].prt= "irq_cnt_2";
+    rd_info[3].prt= "irq_cnt_3";
 
-    rd_info[4].prt= "rx_rts"; 
-    rd_info[5].prt= "rx_cts"; 
-    rd_info[6].prt= "rx_ack"; 
-    rd_info[7].prt= "rx_qos_data";   
+    rd_info[4].prt= "rx_rts";
+    rd_info[5].prt= "rx_cts";
+    rd_info[6].prt= "rx_ack";
+    rd_info[7].prt= "rx_qos_data";
 
     rd_info[8].prt= "tx_stt_chk";
     rd_info[9].prt= "tx_end_chk";
@@ -1708,7 +1801,7 @@ static void hif_get_phy_sts(void)
     int i = 0;
     unsigned int rd_data = 0;
     struct hw_interface* hif = hif_get_hw_interface();
-  
+
     rd_info[0].addr= RG_AGC_STATE;
     rd_info[1].addr= RG_AGC_OB_IC_GAIN;
     rd_info[2].addr= RG_AGC_WATCH1;
@@ -1805,7 +1898,7 @@ void hif_get_hst_int_status(void)
        struct hal_private *hal_prv = hal_get_priv();
 
        AML_OUTPUT("fw2hst_int_status 0x%x  rx_dbuf_fw_rptr 0x%x\n",
-                    (hal_prv->int_status_copy>> 16) & 0xffff, 
+                    (hal_prv->int_status_copy>> 16) & 0xffff,
                     hal_prv->int_status_copy & 0xffff);
 
 }
@@ -1837,6 +1930,7 @@ void hif_get_sts(unsigned int op_code, unsigned int ctrl_code)
                 CIRCLE_Subtract2( fw_rd, sdio_rd,USB_DEFAULT_RXPAGENUM*PAGE_LEN/4),
                 buf_rd,mac_wt,fw_rd,sdio_rd);
             }
+#ifdef SDIO_MODE_ON
             else {
                 AML_OUTPUT("rx by word: free %d, fw_to_do %d, sdio_to_mv %d, buf_rd_ptr 0x%x, mac_wt_ptr 0x%x, fw_rd_ptr 0x%x, sdio_rd_ptr 0x%x \n",
                 CIRCLE_Subtract2(sdio_rd, mac_wt, DEFAULT_RXPAGENUM*PAGE_LEN/4),
@@ -1844,6 +1938,7 @@ void hif_get_sts(unsigned int op_code, unsigned int ctrl_code)
                 CIRCLE_Subtract2( fw_rd, sdio_rd,DEFAULT_RXPAGENUM*PAGE_LEN/4),
                 buf_rd,mac_wt,fw_rd,sdio_rd);
             }
+#endif
 
         }
 

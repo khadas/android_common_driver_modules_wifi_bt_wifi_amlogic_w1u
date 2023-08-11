@@ -116,12 +116,12 @@ int wifi_mac_classify(struct wifi_station *sta, struct sk_buff *skb)
 
 static int is_rtsp_play(char *buf)
 {
-    return (buf + 3) && (*(buf + 3) | *(buf + 2) << 8 | *(buf + 1) << 16 | *buf << 24) == 0x504c4159;
+    return buf && (*(buf + 3) | *(buf + 2) << 8 | *(buf + 1) << 16 | *buf << 24) == 0x504c4159;
 }
 
 static int is_rtsp_play_session(char *buf)
 {
-    return (buf + 3) && (*(buf + 3) | *(buf + 2) << 8 | *(buf + 1) << 16 | *buf << 24) == 0x53657373;
+    return buf && (*(buf + 3) | *(buf + 2) << 8 | *(buf + 1) << 16 | *buf << 24) == 0x53657373;
 }
 
 
@@ -480,6 +480,7 @@ int wifi_mac_hardstart(struct sk_buff *skb, struct net_device *dev)
     txinfo->ptxdesc = ptxdesc;
     txinfo->ptxdesc->drv_pkt_info.pkt_info_count = 1;
     wifi_mac_xmit_pkt_parse(skb, wifimac);
+    wifi_mac_filter_special_data_frame(skb, SPECIAL_FRAME_STATUS_TX);
 
     wnet_vif->vif_sts.sts_tx_out_msdu++;
     wnet_vif->vif_sts.sts_tx_tid_out_msdu[os_skb_get_tid(skb)]++;
@@ -1824,6 +1825,63 @@ wifi_mac_add_htcap(unsigned char *frm, struct wifi_station *sta)
     return frm + htcaplen;
 }
 
+unsigned char *
+wifi_mac_add_wide_bandwidth_subie(unsigned char *frm,struct wifi_station *sta)
+{
+    struct wifi_mac *wifimac = sta->sta_wmac;
+    struct wifi_channel *main_vmac_chan = wifi_mac_get_main_vmac_channel(wifimac);
+
+    *frm++ = WIFINET_ELEMID_WIDE_BAND_CHAN_SWITCH;
+    *frm++ = 3;
+    if (main_vmac_chan->chan_bw == WIFINET_BWC_WIDTH80) {
+        *frm++ = 1;
+    } else {
+        /* for 40m bw*/
+        *frm++ = 0;
+    }
+    *frm++ = wifi_mac_mhz2chan(main_vmac_chan->chan_cfreq1);
+    *frm++ = 0;
+    return frm;
+}
+
+unsigned char *
+wifi_mac_add_chansw_wrapper(unsigned char *frm,struct wifi_station *sta)
+{
+
+    *frm++ = WIFINET_ELEMID_CHAN_SWITCH_WRAP;
+    *frm++ = WIFINET_WIDEBANDCHANSW_BYTES;
+    return wifi_mac_add_wide_bandwidth_subie(frm,sta);
+}
+
+unsigned char *
+wifi_mac_add_extended_chanswitch(unsigned char *frm,struct wifi_station *sta)
+{
+    struct wifi_mac *wifimac = sta->sta_wmac;
+    struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
+    struct wifi_channel *switch_chan = wnet_vif->csa_target.switch_chan;
+
+    *frm++ = WIFINET_ELEMID_EXTCHANSWITCHANN;
+    *frm++ = 4;
+    *frm++ = 1;
+    *frm++ = switch_chan->global_operating_class;
+    *frm++ = wifimac->wm_doth_channel;
+    *frm++ = wifimac->wm_doth_tbtt;
+    return frm;
+}
+
+unsigned char *
+wifi_mac_add_chanswitch(unsigned char *frm,struct wifi_station *sta)
+{
+    struct wifi_mac *wifimac = sta->sta_wmac;
+
+    *frm++ = WIFINET_ELEMID_CHANSWITCHANN;
+    *frm++ = 3;
+    *frm++ = 1;
+    *frm++ = wifimac->wm_doth_channel;
+    *frm++ = wifimac->wm_doth_tbtt;
+    return frm;
+}
+
 void print_ht_opt_information(unsigned char* ht_opt)
 {
     if (ht_opt[0] != WIFINET_ELEMID_HTINFO)
@@ -2278,6 +2336,16 @@ unsigned char *wifi_mac_add_vht_op_md_ntf(unsigned char *frm, struct wifi_statio
     return frm + vht_op_md_ntf_len;
 }
 
+unsigned char *
+wifi_mac_add_vendor_ie(unsigned char *frm, struct wifi_mac *wifimac, unsigned char index)
+{
+    *frm++ = WIFINET_ELEMID_VENDOR;
+    *frm++ = wifimac->wm_vendorinfo[index].len;
+    memcpy(frm, &wifimac->wm_vendorinfo[index].buf, wifimac->wm_vendorinfo[index].len);
+
+    return frm + wifimac->wm_vendorinfo[index].len;
+}
+
 int wifi_mac_send_probereq(struct wifi_station *sta, const unsigned char sa[WIFINET_ADDR_LEN],
     const unsigned char da[WIFINET_ADDR_LEN], const unsigned char bssid[WIFINET_ADDR_LEN],
     const unsigned char *ssid, size_t ssidlen, const void *optie, size_t optielen)
@@ -2356,6 +2424,7 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
     unsigned char *frm;
     unsigned short capinfo;
     unsigned short pkt_len;
+    unsigned char  index;
 
     pkt_len = 8 + sizeof(unsigned short) + sizeof(unsigned short) + 2 + WIFINET_NWID_LEN + 2 + WIFINET_RATE_SIZE
         + 7 + 6 + 3 + 2 + (WIFINET_RATE_MAXSIZE - WIFINET_RATE_SIZE) + wifimac->wm_countryinfo.country_len + 2
@@ -2368,7 +2437,7 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
 #endif//#ifdef CONFIG_P2P
         + sizeof(struct wifi_mac_ie_htcap) + sizeof(struct wifi_mac_ie_htinfo) + sizeof (struct wifi_mac_ie_obss_scan)
         + sizeof (struct wifi_mac_ie_ext_cap) + WIFINET_APPIE_MAX + sizeof(struct wifi_mac_ie_vht_cap) + sizeof(struct wifi_mac_ie_vht_opt)
-        + sizeof(struct wifi_mac_ie_vht_txpwr_env) + sizeof(struct wifi_mac_ie_vht_ch_sw_wrp);
+        + sizeof(struct wifi_mac_ie_vht_txpwr_env) + sizeof(struct wifi_mac_ie_vht_ch_sw_wrp) + sizeof(struct wifi_mac_vendor_ie) * VENDOR_IE_MAX;
 
     skb = wifi_mac_get_mgmt_frm(wifimac, pkt_len);
     if (skb == NULL)
@@ -2544,6 +2613,13 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
         //frm = wifi_mac_add_vht_ext_bss_ld(frm, sta);
         //frm = wifi_mac_add_vht_quiet_ch(frm, sta);
         //frm = wifi_mac_add_vht_op_md_ntf(frm, sta);
+    }
+
+    for (index = 0; index < VENDOR_IE_MAX; index++) {
+        if (wifimac->wm_vendorinfo[index].ie == WIFINET_ELEMID_VENDOR
+            && wifimac->wm_vendorinfo[index].len != 0) {
+            frm = wifi_mac_add_vendor_ie(frm, wifimac, index);
+        }
     }
 
     os_skb_trim(skb, frm - os_skb_data(skb));
@@ -2803,7 +2879,7 @@ int wifi_mac_send_assoc_req(struct wlan_net_vif *wnet_vif, struct wifi_station *
 
     frm = wifi_mac_add_ssid(frm, sta->sta_essid, sta->sta_esslen);
     frm = wifi_mac_add_rates(frm, &sta->sta_rates);
-    if (wifimac->wm_flags & WIFINET_F_DOTH)
+    if ((wifimac->wm_flags & WIFINET_F_DOTH) && wnet_vif->vm_p2p_support)
         frm = wifi_mac_add_doth(frm, wnet_vif);
 
     frm = wifi_mac_add_xrates(frm, &sta->sta_rates);
@@ -2880,10 +2956,12 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
     unsigned char *frm;
     unsigned short capinfo;
     unsigned short pkt_len;
+    unsigned char  index;
 
     pkt_len = sizeof(capinfo) + sizeof(unsigned short) + sizeof(unsigned short) + 2 + WIFINET_RATE_SIZE + sizeof(struct wifi_mac_ie_timeout)
         + 2 + (WIFINET_RATE_MAXSIZE - WIFINET_RATE_SIZE) + sizeof(struct wifi_mac_wme_param) + sizeof(struct wifi_mac_ie_htcap)
-        + sizeof(struct wifi_mac_ie_htinfo) + sizeof (struct wifi_mac_ie_obss_scan) + sizeof (struct wifi_mac_ie_ext_cap) + WIFINET_APPIE_MAX;
+        + sizeof(struct wifi_mac_ie_htinfo) + sizeof (struct wifi_mac_ie_obss_scan) + sizeof (struct wifi_mac_ie_ext_cap) + WIFINET_APPIE_MAX
+        + sizeof(struct wifi_mac_vendor_ie) * VENDOR_IE_MAX;
 
     skb = wifi_mac_get_mgmt_frm(wifimac, pkt_len);
     if (skb == NULL) {
@@ -2982,6 +3060,13 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
         frm += wnet_vif->vm_p2p->wfd_app_ie[WIFINET_APPIE_FRAME_ASSOC_RESP].length;
     }
 #endif//#ifdef CONFIG_WFD
+
+    for (index = 0; index < VENDOR_IE_MAX; index++) {
+        if (wifimac->wm_vendorinfo[index].ie == WIFINET_ELEMID_VENDOR
+            && wifimac->wm_vendorinfo[index].len != 0) {
+            frm = wifi_mac_add_vendor_ie(frm, wifimac, index);
+        }
+    }
 
     os_skb_trim(skb, frm - os_skb_data(skb));
     wifi_mac_mgmt_output(sta, skb, type);
@@ -3237,6 +3322,10 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
                                 AML_OUTPUT("coex change rx_addba_rsp ---> FDD or BT EN and no connect\n");
                             }
                         }
+                        if (wifi_mac->wm_manual_rx_bufsize) {
+                            addbaresponse->rs_baparamset.buffersize = wifi_mac->wm_manual_rx_bufsize;
+                            AML_OUTPUT("manual change rx_addba_rsp ---> %d\n", addbaresponse->rs_baparamset.buffersize);
+                        }
                         wifi_mac->g_rs_baparamset_buffersize = addbaresponse->rs_baparamset.buffersize;
                         DPRINTF(AML_DEBUG_WARNING, "%s: ADDBA response action mgt frame. TID %d, buffer size %d, status %d \n",
                             __func__, tid_index, baparamset.buffersize, statuscode);
@@ -3398,7 +3487,7 @@ int wifi_mac_send_mgmt(struct wifi_station *sta, int type, void *arg)
 
     KASSERT(sta != NULL, ("null nsta"));
 
-    if (sta->sta_wnet_vif->vm_curchan == NULL) {
+    if (sta->sta_wnet_vif->vm_curchan == NULL && !sta->sta_wnet_vif->vm_p2p_support) {
         ERROR_DEBUG_OUT("vm_curchan is NULL, just return\n");
         ret = EINVAL;
         return ret;

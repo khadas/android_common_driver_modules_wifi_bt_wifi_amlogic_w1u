@@ -48,7 +48,7 @@ extern struct ieee80211_rate aml_rates[AML_G_RATES_NUM];
 #define VO_MAP 0x00C0
 
 #define MAX_BIT_RATE_40MHZ_MCS7     150
-#define CANCLE_STEP_MS  10
+#define CANCEL_STEP_MS  10
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,0,0)
 #define STATION_INFO_INACTIVE_TIME  BIT(NL80211_STA_INFO_INACTIVE_TIME)
@@ -182,6 +182,8 @@ enum vm_vendor_command_attr{
     VM_NL80211_GET_EFUSE_DATA = 0xaa,
     VM_NL80211_GET_FW_LOG = 0xab,
     VM_NL80211_GET_EN_RF_TEST = 0xac,
+    VM_NL80211_SET_COEX_WF_ZGB_MODE = 0xad,
+    VM_NL80211_SET_TX_POWER_PERCENTAGE = 0xae,
 
     VM_NL80211_VENDER_CMD_ID_MAX,
 };
@@ -355,6 +357,7 @@ void vm_cfg80211_indicate_connect(struct wlan_net_vif *wnet_vif);
 void vm_cfg80211_indicate_disconnect(struct wlan_net_vif *wnet_vif);
 int vm_cfg80211_inform_bss (struct wlan_net_vif *wnet_vif);
 int vm_cfg80211_notify_mgmt_rx(struct wlan_net_vif *wnet_vif,  unsigned short channel, void *data,int len);
+int vm_cfg80211_chan_switch_notify_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
 int vm_p2p_set_wpsp2pie(struct net_device *net, char *buf, int len, int type);
 int vm_p2p_update_beacon_app_ie (struct wlan_net_vif *wnet_vif);
 int vm_p2p_set_p2p_noa(struct net_device *dev, char* buf, int len);

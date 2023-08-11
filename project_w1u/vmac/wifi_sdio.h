@@ -118,11 +118,12 @@ void aml_sdio_wake_up_int(void);
 
 void set_reg_fragment(unsigned int addr, unsigned int bit_end,
         unsigned int bit_start,unsigned int value);
-int aml_sdio_init(void);
-void  aml_sdio_exit(void);
+int aml_w1_init(void);
+void  aml_w1_exit(void);
 int sdio_call_task( void );
-void aml_enable_wifi(void);
-void aml_disable_wifi(void);
+void aml_sdio_enable_wifi(void);
+void aml_sdio_disable_wifi(void);
+
 
 
 void aml_aon_write_reg(unsigned int addr,unsigned int data);
@@ -147,7 +148,9 @@ extern void amlwifi_set_sdio_host_clk(int clk);
 extern void sdio_reinit(void);
 void aml_sdio_reset(void);
 void aml_sdio_irq_path(unsigned char b_gpio);
-#if (USE_GPIO_IRQ)
+
+#ifndef USE_SDIO_IRQ
+
 int amlhal_gpio_open(struct hal_private * hal_priv);
 int amlhal_gpio_close(struct hal_private * hal_priv );
 #endif
@@ -176,7 +179,7 @@ extern void sdio_read_write(int idx, int addr, svBitPackedArrRef buff, int len, 
 #ifdef SDIO_BUILD_IN
     extern struct amlw_hif_ops g_w1_hif_ops;
     extern struct amlw_hwif_sdio g_w1_hwif_sdio;
-    extern unsigned char (*host_wake_w1_req)(void);
+    extern unsigned char (*host_wake_req)(void);
     extern int (*host_suspend_req)(struct device* device);
     extern int (*host_resume_req)(struct device* device);
     extern void aml_wifi_sdio_power_lock(void);
@@ -192,3 +195,4 @@ extern void sdio_read_write(int idx, int addr, svBitPackedArrRef buff, int len, 
 #endif
 
 #endif //AML_SDIO_H
+

@@ -17,6 +17,8 @@
 #define DFS_5G_B4  0x00000008
 #define PASSIVE_2G_12_14 0x00000010
 
+extern bool g_DFS_on;
+
 struct class_chan_set global_chan_set [256] =
 {
     {81, 20, 13, {
@@ -347,7 +349,7 @@ struct country_chan_plan country_chan_plan_list[] = {
     /* 0x11 */ {13, {81,83,84,118,119,120,121,122,123,125,126,127,128,0,0,0,0},       0x0b, DFS_5G_B2|DFS_5G_B3, TX_POWER_FCC}, //Taiwan
     /* 0x12 */ {16, {81,83,84,115,116,117,118,119,120,121,122,123,125,126,127,128,0}, 0xff, DFS_5G_B1|DFS_5G_B2, TX_POWER_CE}, //Thailand
     /* 0x13 */ {6,  {81,83,84,115,118,121,0,0,0,0,0,0,0,0,0,0,0},                     0x0c, DFS_5G_B2|DFS_5G_B3, TX_POWER_CE}, //United Arab Emirates
-    /* 0x14 */ {15, {81,83,84,115,116,117,118,119,120,121,122,123,125,126,127,128,0}, 0x0d, DFS_5G_B2|DFS_5G_B3, TX_POWER_CE}, //Argentina
+    /* 0x14 */ {16, {81,83,84,115,116,117,118,119,120,121,122,123,125,126,127,128,0}, 0x0d, DFS_5G_B2|DFS_5G_B3, TX_POWER_CE}, //Argentina
     /* 0x15 */ {6,  {81,83,84,115,118,125,0,0,0,0,0,0,0,0,0,0,0},                     0xff, DFS_5G_B2,           TX_POWER_CE}, //Bahrain
     /* 0x16 */ {3,  {81,83,84,0,0,0,0,0,0,0,0,0,0,0,0,0,0},                           0xff, 0,                   TX_POWER_CE}, //Costa Rica
     /* 0x17 */ {5,  {81,83,84,115,118,0,0,0,0,0,0,0,0,0,0,0,0},                       0xff, DFS_5G_B2,           TX_POWER_CE}, //Armenia
@@ -606,6 +608,35 @@ struct country_chan_mapping  country_chan_mapping_list[] = {
     {"ZW", 0x16}  /* Zimbabwe */
 };
 
+struct country_chan_mapping  southamerica_country[] = {
+    {"AR", 0x14}, /* Argentina */
+    {"BO", 0x0E}, /* Bolivia */
+    {"BR", 0x0C}, /* Brazil */
+    {"CL", 0x01}, /* Chile */
+    {"CO", 0x07}, /* Colombia */
+    {"EC", 0x0C}, /* Ecuador */
+    {"FK", 0x04}, /* Falkland Islands (Islas Malvinas) (UK) */
+    {"GF", 0x04}, /* French Guiana */
+    {"GY", 0x00}, /* Guyana */
+    {"PY", 0x02}, /* Paraguay */
+    {"PE", 0x10}, /* Peru */
+    {"SR", 0x00}, /* Suriname */
+    {"UY", 0x0A}, /* Uruguay */
+    {"VE", 0x0E}, /* Venezuela */
+};
+
+unsigned char if_southamerica_country(unsigned char *countrycode) {
+    unsigned char index;
+
+    for (index = 0; index < (sizeof(southamerica_country) / sizeof(southamerica_country[0])); index++) {
+        if ((southamerica_country[index].country[0] == countrycode[0])
+            && (southamerica_country[index].country[1] == countrycode[1])) {
+            return index + 1;
+        }
+    }
+
+    return 0;
+}
 
 static int  wifi_mac_get_pos(struct wifi_channel in[], int a, int b)
 {
@@ -1223,6 +1254,7 @@ void wifi_mac_ChangeChannel(void * ieee, struct wifi_channel *chan, unsigned cha
 {
     struct wifi_mac *wifimac = NET80211_HANDLE(ieee);
     struct hal_channel hchan;
+    unsigned int delay_time = 0;
 
     if (chan == WIFINET_CHAN_ERR) {
         ERROR_DEBUG_OUT("chan not valid !!\n");
@@ -1239,6 +1271,12 @@ void wifi_mac_ChangeChannel(void * ieee, struct wifi_channel *chan, unsigned cha
 #ifdef FW_RF_CALIBRATION
     wifimac->drv_priv->drv_ops.drv_hal_tx_frm_pause(wifimac->drv_priv, 1);
 #endif
+    if (flag & CHANNEL_CONNECT_FLAG) {
+        while (!fw_tx_empty() && (delay_time < 500)) {
+            msleep(10);
+            delay_time+=10;
+        }
+    }
     wifimac->drv_priv->drv_ops.set_channel(wifimac->drv_priv, &hchan, flag, vid);
 
     if (!(wifimac->wm_flags & WIFINET_F_SCAN)) {
@@ -1280,6 +1318,11 @@ int wifi_mac_set_wnet_vif_channel(struct wlan_net_vif *wnet_vif,  int chan, int 
     if (c == NULL) {
         ERROR_DEBUG_OUT("WARNING<%s>can't support set this channel, chan %d, bw %d, c_chan %d\n",
             (wnet_vif)->vm_ndev->name, chan, bw, center_chan);
+        wifimac->wm_disconnect_code = DISCONNECT_UNSUPCHAN;
+        return false;
+    }
+    if (c->chan_flags & WIFINET_CHAN_DFS && !g_DFS_on) {
+        wifimac->wm_disconnect_code = DISCONNECT_DFSCHAN;
         return false;
     }
 

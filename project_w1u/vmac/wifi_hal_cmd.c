@@ -30,6 +30,7 @@ namespace FW_NAME
 #include "patch_fi_cmd.h"
 #include "wifi_mac_if.h"
 #include "wifi_mac_chan.h"
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 #include <linux/firmware.h>
 #include "wifi_mac_com.h"
@@ -45,6 +46,8 @@ MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,29))
 #define WIFI_CONF_PATH "/system/etc/wifi/w1u"
+#elif (defined CONFIG_ROKU)
+#define WIFI_CONF_PATH "/lib/firmware/"
 #else
 #define WIFI_CONF_PATH "/vendor/etc/wifi/w1u"
 #endif
@@ -217,7 +220,7 @@ unsigned int phy_addba_ok(unsigned char wnet_vif_id,unsigned short StaAid,unsign
     AddBA.vid = wnet_vif_id;
     AddBA.STA_ID = StaAid;
     AddBA.TID = TID;
-    AddBA.BA_TYPE = BA_TYPE /*immidiate_BA_TYPE*/;
+    AddBA.BA_TYPE = BA_TYPE /*immediate_BA_TYPE*/;
     AddBA.AuthRole = AuthRole;
     AddBA.BA_Size = BA_Size;
     AddBA.SeqNumStart = SeqNumStart;
@@ -306,7 +309,7 @@ unsigned int phy_set_bcn_buf(unsigned char wnet_vif_id,unsigned char *pBeacon,
     unsigned int BcnAddr = hif->hw_config.beaconframeaddress;
     struct TxDescPage *pbeacon_s = (struct TxDescPage *)buffer;
     struct OtherTxPage  *other_page = NULL;
-    int total_len = len + sizeof(struct TxDescPage) -1 + FCS_LEN;
+    int total_valid_len = len + sizeof(struct TxDescPage) -1 ; /*not include fcs len*/
     /* beacon len per page */
     int firstpagelen = 0, otherpagelen = 0;
 
@@ -319,7 +322,7 @@ unsigned int phy_set_bcn_buf(unsigned char wnet_vif_id,unsigned char *pBeacon,
     memcpy(pbeacon_s->txdata,  pBeacon,  len);
 
     /* build page flag */
-    if (total_len <= PAGE_LEN) {
+    if (total_valid_len <= PAGE_LEN) {
         /* set firstpagelen and otherpagelen to 0 to be flag */
         firstpagelen = otherpagelen = 0;
         pbeacon_s->BufferInfo.MPDUBufFlag = 0;
@@ -446,7 +449,7 @@ unsigned int phy_set_bcn_buf(unsigned char wnet_vif_id,unsigned char *pBeacon,
     if (otherpagelen == 0)
     {
         hif->hif_ops.hi_write_sram((unsigned char*)(SYS_TYPE)buffer,
-            (unsigned char*)(SYS_TYPE)BcnAddr, total_len);
+            (unsigned char*)(SYS_TYPE)BcnAddr, total_valid_len);
     }
     else
     {
@@ -1184,6 +1187,7 @@ int phy_set_suspend(unsigned char vid, unsigned char enable,
     if ((enable == 0) && (atomic_read(&hal_priv->drv_suspend_cnt) == 0))
     {
         ERROR_DEBUG_OUT("last suspend fail,don't need resume, just return -1\n");
+        hal_priv->hal_suspend_mode = HIF_SUSPEND_STATE_NONE;
         return -1;
     }
     /* wait for set driver sleep flag */
@@ -1250,7 +1254,16 @@ int phy_set_suspend(unsigned char vid, unsigned char enable,
     if (ret && (enable == 1) && (hal_priv->powersave_init_flag == 0))
     {
         hal_priv->hal_fw_ps_status = HAL_FW_IN_SLEEP;
+        AML_OUTPUT("HAL_FW_IN_SLEEP\n");
         atomic_set(&hal_priv->drv_suspend_cnt, 1);
+        {
+            if (hal_priv->hal_fw_usb_status == 0)
+            {
+                USB_BEGIN_LOCK()
+                hal_priv->hal_fw_usb_status = 1;
+                USB_END_LOCK()
+            }
+        }
     }
     else if (ret && (enable == 0) && (hal_priv->powersave_init_flag == 0))
     {
@@ -1296,8 +1309,9 @@ int phy_set_suspend(unsigned char vid, unsigned char enable,
         hif->HiStatus.Tx_Free_num = hif->HiStatus.Tx_Send_num;
         hif->HiStatus.Tx_Done_num = hif->HiStatus.Tx_Send_num;
     }
-    AML_OUTPUT("%s end, wow enable %d, mode %d, filter 0x%x, ret %d powersave_init_flag %d\n",
-        ((enable == 1) ? "suspend" : "resume"), enable, mode, filters, ret,powersave_init_flag_print);
+
+    AML_OUTPUT("%s end, enable:%d, mode:%d, vid:%d, filter:0x%x, ret:%d, powersave_init_flag:%d\n",
+        ((enable == 1) ? "suspend" : "resume"), enable, mode, vid, filters, ret, powersave_init_flag_print);
     return 0;
 }
 
@@ -1560,7 +1574,9 @@ unsigned int phy_interface_enable(unsigned char enable, unsigned char vid)
 unsigned char print_type = 0;
 unsigned int hal_set_fwlog_cmd(unsigned char mode)
 {
+#ifdef SDIO_MODE_ON
     struct hw_interface* hif = hif_get_hw_interface();
+#endif
     struct Fwlog_Mode_Control fwlog_mode;
     memset(&fwlog_mode, 0, sizeof(struct Fwlog_Mode_Control));
     AML_OUTPUT("mode %d \n", mode);
@@ -1570,19 +1586,23 @@ unsigned int hal_set_fwlog_cmd(unsigned char mode)
     {
         fwlog_mode.mode = 0;
         /* reset ram share */
+#ifdef SDIO_MODE_ON
         if(!aml_bus_type) {
             hif->hif_ops.hi_write_word(0x00a0d0e4, 0x0000007f);
         }
+#endif
     }
     else
     {
         fwlog_mode.mode = mode;
         if (mode == 1)
         {
+#ifdef SDIO_MODE_ON
             /* set ram share */
             if(!aml_bus_type) {
                 hif->hif_ops.hi_write_word(0x00a0d0e4, 0x8000007f);
             }
+#endif
             print_type = 0;
         }
         else if (mode == 3)
@@ -1834,6 +1854,7 @@ void parse_efuse_param(char * varbuf, int len)
 {
     Efuse_Cfg_Param efuse_cfg_param = {0};
 
+    AML_OUTPUT("read efuse cfg from aml_wifi_rf_sdio.txt\n");
     get_s32_item(varbuf, len, "efuse_9", &efuse_cfg_param.efuse_9);
     get_s32_item(varbuf, len, "efuse_a", &efuse_cfg_param.efuse_a);
     get_s32_item(varbuf, len, "efuse_b", &efuse_cfg_param.efuse_b);
@@ -1857,8 +1878,82 @@ void parse_efuse_param(char * varbuf, int len)
         HAL_BEGIN_LOCK();
         hi_set_cmd((unsigned char *)&efuse_cfg_param, sizeof(struct Efuse_Cfg_Param));
         HAL_END_LOCK();
+    }else{
+        AML_OUTPUT("do not config efuse value in aml_wifi_rf_sdio.txt\n");
     }
 
+}
+void set_coex_wf_zgb_mode(char mode)
+{
+    char temp_b;
+    char temp_a;
+    Coex_Wf_Zgb_Mode_Param coex_wf_zgb_mode_param = {0};
+    coex_wf_zgb_mode_param.Cmd = COEX_WF_ZGB_MODE_CMD;
+    coex_wf_zgb_mode_param.coex_work_mode = mode;
+    temp_a = (mode & 0x7) == 0 || (mode & 0x7) == 0x1;
+    temp_b = (mode & 0x38) == 0 || (mode & 0x38) == 0x8 || (mode & 0x38) == 0x10 || (mode & 0x38) == 0x18 || (mode & 0x38) == 0x20;
+    if (!temp_a || !temp_b)
+    {
+        AML_OUTPUT("set mode err\n");
+        return;
+    }
+    switch (mode & 0x7)
+    {
+        case 0:
+            AML_OUTPUT("set coex_wf_zgb_mode :%#x==>TX Abort\n",mode & 0x7);
+            break;
+        case 0x1:
+            AML_OUTPUT("set coex_wf_zgb_mode :%#x==>Priority low: TX Finish + Grant delayed, Priority high: TX Abort + minimal delay Grant\n",mode & 0x7);
+            break;
+    }
+    switch (mode & 0x38)
+    {
+        case 0:
+            AML_OUTPUT("set coex_wf_zgb_mode :%#x==>Dont TX WiFi Ack,NO CTS\n",mode & 0x38);
+            break;
+        case 0x8:
+            AML_OUTPUT("set coex_wf_zgb_mode :%#x==>Always TX WiFi Ack\n",mode & 0x38);
+            break;
+        case 0x10:
+            AML_OUTPUT("set coex_wf_zgb_mode :%#x==>Always TX WiFi Ack,NO CTS\n",mode & 0x38);
+            break;
+        case 0x18:
+            AML_OUTPUT("set coex_wf_zgb_mode :%#x==>Priority low: TX WiFi Ack,CTS, Priority high: dont TX WiFi Ack  (W155S2: Priority level sampled at rising edge Request)*\n",mode & 0x38);
+            break;
+        case 0x20:
+            AML_OUTPUT("set coex_wf_zgb_mode :%#x==>Priority low: TX WiFi Ack,not TX CTS, Priority high: dont TX WiFi Ack  (W155S2: Priority level sampled at rising edge Request)\n",mode & 0x38);
+            break;
+    }
+    HAL_BEGIN_LOCK();
+    hi_set_cmd((unsigned char *)&coex_wf_zgb_mode_param, sizeof(struct Coex_Wf_Zgb_Mode_Param));
+    HAL_END_LOCK();
+}
+
+void phy_set_tx_power_percentage(char percentage, unsigned short channel_num, unsigned char channel_bw, unsigned char vid)
+{
+    Tx_Power_Percentage_Param tx_power_percentage_param = {0};
+    Channel_Switch channel_switch = {0};
+
+    tx_power_percentage_param.Cmd = TX_POWER_PT_CMD;
+    tx_power_percentage_param.tx_power_percentage = percentage;
+
+    channel_switch.Cmd = CHANNEL_SWITCH_CMD;
+    channel_switch.channel = channel_num;
+    channel_switch.bw = channel_bw;
+    channel_switch.flag = CHANNEL_RSSI_PWR_FLAG;
+    channel_switch.vid = vid;
+    channel_switch.rssi = 0;
+
+    if (percentage > 100 || percentage < 10)
+    {
+        AML_OUTPUT("err: tx power percentage should range 0xA ~ 0x64\n");
+        return;
+    }
+    AML_OUTPUT("set tx power percentage %d \n",percentage);
+    HAL_BEGIN_LOCK();
+    hi_set_cmd((unsigned char *)&tx_power_percentage_param, sizeof(struct Tx_Power_Percentage_Param));
+    hi_set_cmd((unsigned char *)&channel_switch, sizeof(struct Channel_Switch));
+    HAL_END_LOCK();
 }
 
 unsigned char parse_cali_param(char *varbuf, int len, struct Cali_Param *cali_param)
@@ -2107,7 +2202,6 @@ unsigned char get_cali_param(struct Cali_Param *cali_param, struct WF2G_Txpwr_Pa
     int error = 0;
     int size, len;
     char *content =  NULL;
-
     unsigned int chip_id_l = 0;
     unsigned char chip_id_buf[100];
 
@@ -2119,6 +2213,7 @@ unsigned char get_cali_param(struct Cali_Param *cali_param, struct WF2G_Txpwr_Pa
     const struct firmware *fw = NULL;
     unsigned char chip_id_buf_all[100];
     struct device *dev = vm_cfg80211_get_parent_dev();
+
 #endif
 
     chip_id_l = efuse_manual_read(0xf);
@@ -2145,9 +2240,12 @@ unsigned char get_cali_param(struct Cali_Param *cali_param, struct WF2G_Txpwr_Pa
             default:
                 if(aml_bus_type) {
                     sprintf(chip_id_buf, "%s/aml_wifi_rf_usb.txt", conf_path);
-                } else {
+                }
+#ifdef SDIO_MODE_ON
+                else {
                     sprintf(chip_id_buf, "%s/aml_wifi_rf_sdio.txt", conf_path);
                 }
+#endif
         }
         AML_OUTPUT("aml wifi module SN:%04x  sn txt not found, the rf config: %s\n", chip_id_l, chip_id_buf);
     } else
@@ -2185,6 +2283,7 @@ unsigned char get_cali_param(struct Cali_Param *cali_param, struct WF2G_Txpwr_Pa
         goto err;
     }
 #else
+
     error = request_firmware(&fw, chip_id_buf, dev);
     if (error) {
          goto err;

@@ -18,6 +18,8 @@ static void drv_rx_flush_tid(struct drv_private *drv_priv, struct drv_rx_scorebo
 
 int drv_rx_init( struct drv_private *drv_priv, int nbufs)
 {
+    struct wifi_mac *wm_mac = wifi_mac_get_mac_handle();
+    wm_mac->wm_manual_rx_bufsize = 0;
     return 0;
 }
 
@@ -127,8 +129,8 @@ void drv_rx_addbarsp(struct drv_private *drv_priv, void * nsta, unsigned char ti
                         tid_index,
                         drv_sta->rx_scb[tid_index].seq_next,
                         drv_sta->rx_scb[tid_index].baw_size,
-                        BA_RESPONDER,
-                        BA_IMMIDIATE);
+                        BA_RESPONSER,
+                        BA_IMMEDIATE);
     }
     else
     {
@@ -152,7 +154,7 @@ void drv_rx_delba(
                     sta->sta_wnet_vif->wnet_vif_id,
                     drv_hal_nsta_staid((struct wifi_station *)drv_sta->net_nsta),
                     tid_index,
-                    delbaparamset->initiator?BA_RESPONDER:BA_INITIATOR);
+                    delbaparamset->initiator?BA_RESPONSER:BA_INITIATOR);
     if (delbaparamset->initiator)
         drv_rxampdu_del(drv_priv, drv_sta, tid_index);
     else

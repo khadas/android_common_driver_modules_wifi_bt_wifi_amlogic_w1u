@@ -83,14 +83,16 @@ int dut_dump_data(unsigned int addr, unsigned char *data, int len)
     unsigned int a_cnt = 0;
     //unsigned int i = 0;
     struct hw_interface* hif = hif_get_hw_interface();
+#ifdef SDIO_MODE_ON
     unsigned int sdio_base = 0;
-
+#endif
     ASSERT(data);
     ASSERT(len > 0);
 
     for (;;) {
         //AML_OUTPUT("read addr=0x%4x, data_len=%d\n", BASE_AHB_TESTBUS_CAPTURE+addr+ a_cnt, MAX_SDIO_ACCESS_LEN);
-        if(!aml_bus_type) {
+#ifdef SDIO_MODE_ON
+        if (!aml_bus_type) {
             if (sdio_base !=  ((BASE_AHB_TESTBUS_CAPTURE +  addr + a_cnt) & 0xffff0000)) {
                 sdio_base = (BASE_AHB_TESTBUS_CAPTURE + addr + a_cnt) & 0xffff0000;
                 hif->hif_ops.hi_write_reg32(RG_SCFG_FUNC5_BADDR_A,
@@ -98,30 +100,36 @@ int dut_dump_data(unsigned int addr, unsigned char *data, int len)
                 AML_OUTPUT("sdio base addr change ,sdio base addr=0x%08x\n", sdio_base);
             }
         }
-
+#endif
         if (remain <= MAX_SDIO_ACCESS_LEN) {
-            if(!aml_bus_type) {
+
+            if (aml_bus_type) {
+                hif->hif_ops.bt_hi_read_sram(d_ptr,
+                    (unsigned char*)(SYS_TYPE)((SYS_TYPE)(BASE_AHB_TESTBUS_CAPTURE + addr + a_cnt)),
+                    (SYS_TYPE)remain);
+            }
+#ifdef SDIO_MODE_ON
+            else {
                 hif->hif_ops.bt_hi_read_sram(d_ptr,
                     (unsigned char*)(SYS_TYPE)((SYS_TYPE)(BASE_AHB_TESTBUS_CAPTURE + addr + a_cnt) &  (SYS_TYPE)0xffff),
                     (SYS_TYPE)remain);
-            } else {
-                hif->hif_ops.bt_hi_read_sram(d_ptr,
-                    (unsigned char*)(SYS_TYPE)((SYS_TYPE)(BASE_AHB_TESTBUS_CAPTURE + addr + a_cnt)),
-                    (SYS_TYPE)remain);
             }
+#endif
             break;
         } else {
-            if(!aml_bus_type) {
+
+            if (aml_bus_type) {
+                hif->hif_ops.bt_hi_read_sram(d_ptr,
+                    (unsigned char*)(SYS_TYPE)((SYS_TYPE)(BASE_AHB_TESTBUS_CAPTURE + addr + a_cnt)),
+                    MAX_SDIO_ACCESS_LEN);
+            }
+#ifdef SDIO_MODE_ON
+            else {
                 hif->hif_ops.bt_hi_read_sram(d_ptr,
                     (unsigned char*)(SYS_TYPE)((SYS_TYPE)(BASE_AHB_TESTBUS_CAPTURE + addr + a_cnt) & (SYS_TYPE)0xffff),
                     MAX_SDIO_ACCESS_LEN);
-
-            } else {
-                hif->hif_ops.bt_hi_read_sram(d_ptr,
-                    (unsigned char*)(SYS_TYPE)((SYS_TYPE)(BASE_AHB_TESTBUS_CAPTURE + addr + a_cnt)),
-                    MAX_SDIO_ACCESS_LEN);
             }
-
+#endif
             remain -= MAX_SDIO_ACCESS_LEN;
             d_ptr += (unsigned long)MAX_SDIO_ACCESS_LEN;
             a_cnt += MAX_SDIO_ACCESS_LEN;
@@ -190,7 +198,7 @@ void dut_set_tbus(int trigger)
 comand:
 bit31:bit28  is stop_mode for rsv
 bit27:bit16  is delay time
-bit15:bit8    is testbus capture data bandwith
+bit15:bit8    is testbus capture data bandwidth
 bit7:bit4      is trigger ,tbc_stop_sel
 bit3:bit0      is test mode,   1, test mode,  0,capture adc data
 
@@ -267,14 +275,20 @@ int dut_stop_capture(void)
     //struct hw_interface* hif = hif_get_hw_interface();
     struct file *fp = NULL;
     char fp_path[100] = {'\0'};
+    static unsigned char index = 0;
+    #ifdef CONFIG_ROKU
+    char path[] = "/nvram";
+    #else
+    char path[] = "/data";
+    #endif
 
     if (g_bcap_name != 0) {
-        sprintf(fp_path,"/data/aml_capture_chn_0x%x.log", g_bcap_name);
+        sprintf(fp_path,"%s/aml_capture_chn_0x%x_%d.log", path, g_bcap_name,index++);
     } else {
         if (g_test_gain == 0) {
-            sprintf(fp_path,"/data/aml_capture_0x%x.log", g_test_bus);
+            sprintf(fp_path,"%s/aml_capture_0x%x_%d.log", path, g_test_bus,index++);
         } else {
-            sprintf(fp_path,"/data/aml_capture_0x%x_gain_0x%x.log", g_test_bus, g_test_gain);
+            sprintf(fp_path,"%s/aml_capture_0x%x_gain_0x%x_%d.log",path, g_test_bus, g_test_gain,index++);
         }
     }
 

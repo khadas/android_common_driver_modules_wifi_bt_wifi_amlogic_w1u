@@ -49,7 +49,7 @@ static struct ieee80211_supported_band aml_band_5ghz = {
 
 short rssi_threshold[3][10] = {
 	{555, -69, -75, -81, -82, -83, -85, -89, -94},
-	{-66, -67, -72, -73, -74, -79, -82, -86, -88},
+	{-58, -65, -75, -83, -84, -90, -90, -92, -94},
 	{-61, -62, -72, -76, -77, -81, -84, -88, -94},
 };
 
@@ -623,8 +623,10 @@ int check_is_rate_fitable(struct wifi_station *sta, struct ieee80211_tx_info *in
     max_rate = get_fitable_mcs_rate(sta, bw);
     mg = &mi->groups[0];
     mrs = &mg->rates[0];
-    if(mi->supported[0] && mi->max_tp_rate[0] % MCS_GROUP_RATES == 0 && mrs->attempts > 30 &&
-        (mrs->prob_ewma < MINSTREL_FRAC(30, 100)) && (sta->sta_flags & WIFINET_NODE_HT)
+    if (mi->supported[0] && mi->max_tp_rate[0] % MCS_GROUP_RATES == 0
+        && (mi->max_tp_rate[0] / MCS_GROUP_RATES == 0)
+        && mrs->attempts > 30
+        && (mrs->prob_ewma && (mrs->prob_ewma < MINSTREL_FRAC(30, 100))) && (sta->sta_flags & WIFINET_NODE_HT)
         && sta->sta_chbw == WIFINET_BWC_WIDTH20 && WIFINET_IS_CHAN_2GHZ(wnet_vif->vm_curchan)
         && (power < LEGACY_RATE_SET_TH_RSSI)) {
         sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy = true;
@@ -635,7 +637,7 @@ int check_is_rate_fitable(struct wifi_station *sta, struct ieee80211_tx_info *in
         if(mi->need_clear_rate_index && mi->need_clear_rate_index < max_rate)
             max_rate = mi->need_clear_rate_index;
         mi->need_clear_rate_index = 0;
-        if(sta->sta_wnet_vif->txtp_stat.vm_tx_speed > 0) {
+        if (sta->sta_wnet_vif->txtp_stat.vm_tx_speed > 0) {
             minstrel_clear_unfitable_rate_stats(mi, max_rate);
             AML_PRINT(AML_DBG_MODULES_RATE_CTR, "snr or rssi not fit, rssi:%d, snr:%d, max_rate:%d, rate_index:%d\n",
                 sta->sta_avg_bcn_rssi, sta->sta_avg_snr, max_rate, rate_index);

@@ -62,34 +62,34 @@ struct wlan_net_vif;
 struct wifi_scan_info;
 
 //sta flag
-#define WIFINET_NODE_AUTH 0x0001
-#define WIFINET_NODE_QOS 0x0002
-#define WIFINET_NODE_ERP 0x0004
-#define WIFINET_NODE_HT 0x0008
+#define WIFINET_NODE_AUTH BIT(0)
+#define WIFINET_NODE_QOS BIT(1)
+#define WIFINET_NODE_ERP BIT(2)
+#define WIFINET_NODE_HT BIT(3)
 
-#define WIFINET_NODE_PWR_MGT 0x0010
-#define WIFINET_NODE_AREF 0x0020
-#define WIFINET_NODE_UAPSD 0x0040
-#define WIFINET_NODE_UAPSD_TRIG 0x0080
+#define WIFINET_NODE_PWR_MGT BIT(4)
+#define WIFINET_NODE_AREF BIT(5)
+#define WIFINET_NODE_UAPSD BIT(6)
+#define WIFINET_NODE_UAPSD_TRIG BIT(7)
 
-#define WIFINET_NODE_UAPSD_SP 0x0100
-#define WIFINET_NODE_LDPC 0x0200
-#define WIFINET_NODE_OWL_WDSWAR 0x0400
-#define WIFINET_NODE_WDS 0x0800
+#define WIFINET_NODE_UAPSD_SP BIT(8)
+#define WIFINET_NODE_LDPC BIT(9)
+#define WIFINET_NODE_OWL_WDSWAR BIT(10)
+#define WIFINET_NODE_WDS BIT(11)
 
-#define WIFINET_NODE_VHT 0x2000
+#define WIFINET_NODE_VHT BIT(13)
 
 //sta ext flag
-#define WIFINET_NODE_MFP 0x0001
-#define WIFINET_NODE_MFP_CONFIRM_DEAUTH 0x0002
-#define WIFINET_NODE_REASSOC 0x0004
-#define WIFINET_NODE_RDG 0x0008
+#define WIFINET_NODE_MFP BIT(0)
+#define WIFINET_NODE_MFP_CONFIRM_DEAUTH BIT(1)
+#define WIFINET_NODE_REASSOC BIT(2)
+#define WIFINET_NODE_RDG BIT(3)
 
-#define WIFINET_NODE_40_INTOLERANT 0x0400
-#define WIFINET_NODE_PS_FLUSH_WAIT_NOA_END 0x0800
-#define WIFINET_NODE_UAPSD_WAIT_NOA_END 0x1000
-#define WIFINET_NODE_UAPSD_FLUSH_WAIT_NOA_END 0x2000
-#define WIFINET_NODE_TRIGGER_WAIT_NOA_END 0x4000
+#define WIFINET_NODE_40_INTOLERANT BIT(10)
+#define WIFINET_NODE_PS_FLUSH_WAIT_NOA_END BIT(11)
+#define WIFINET_NODE_UAPSD_WAIT_NOA_END BIT(12)
+#define WIFINET_NODE_UAPSD_FLUSH_WAIT_NOA_END BIT(13)
+#define WIFINET_NODE_TRIGGER_WAIT_NOA_END BIT(14)
 
 //other flag
 #define WIFINET_NODE_SM_EN BIT(0)
@@ -297,6 +297,9 @@ struct wifi_station
     #ifdef CONFIG_WFD
         unsigned char *sta_wfd_ie;
     #endif/* CONFIG_WFD */
+    #ifdef CONFIG_ROKU
+        unsigned char *sta_roku_ie;
+    #endif
 #endif /* CONFIG_P2P */
     unsigned char minstrel_init_flag;
     struct ieee80211_sta_rates sta_ieee_rates;
@@ -307,6 +310,8 @@ struct wifi_station
     unsigned char sta_vendor_bw;
     unsigned char sta_vendor_rate_code;
     unsigned char is_disconnecting;
+    unsigned long sta_bcn_num_connected;
+    unsigned long sta_bcn_start_connected;
 };
 
 #define WDS_AGING_TIME 600
@@ -468,6 +473,7 @@ int wifi_mac_sta_arp_agent_ex (SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3,
 #define WIFINET_VMACS_LOCK_DESTROY(_ic)
 #define WIFINET_VMACS_LOCK(_ic) do { OS_SPIN_LOCK(&(_ic)->wm_wnet_vifslock); } while (0)
 #define WIFINET_VMACS_UNLOCK(_ic) do { OS_SPIN_UNLOCK(&(_ic)->wm_wnet_vifslock); } while (0)
+#define WIFINET_VMACS_IS_LOCK(_ic) spin_is_locked(&(_ic)->wm_wnet_vifslock)
 
 #if defined(CONFIG_SMP)
 #define WIFINET_VMACS_LOCK_ASSERT(_ic) KASSERT(spin_is_locked(&(_ic)->wm_wnet_vifslock),("wifi_mac_com_wnet_vifs not locked!"))

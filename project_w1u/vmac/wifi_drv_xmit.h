@@ -95,6 +95,6 @@ int drv_hal_tx_frm_pause(struct drv_private *drv_priv, int pause);
 unsigned int drv_low_add_worktask( struct drv_private *drv_priv,void *func,void *func_cb,
     SYS_TYPE param1,SYS_TYPE param2,SYS_TYPE param3, SYS_TYPE param4,SYS_TYPE param5);
 unsigned int drv_lookup_rate(struct drv_private *drv_priv, struct aml_driver_nsta *drv_sta,   struct aml_ratecontrol *txdesc_rateinfo, unsigned char is_amsdu);
-
+void drv_special_data_pkt_is_complete(struct drv_txdesc *ptxdesc, unsigned char is_tx_ok);
 
 #endif

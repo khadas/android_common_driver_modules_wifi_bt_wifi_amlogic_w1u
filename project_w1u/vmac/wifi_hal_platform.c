@@ -27,7 +27,7 @@ struct platform_wifi_gpio amlhal_gpio =
     .gpio_reset = GPIOX_6,//234,//GPIOX_6
 #endif
 
-#if (USE_GPIO_IRQ==1)
+#ifndef USE_SDIO_IRQ
     .gpio_irq = GPIOX_7, //235, //GPIOX_7
     .gpio_irq_mode = WIFI_GPIO_IRQ_LOW,
     .irq_num = 97,
@@ -68,7 +68,8 @@ int aml_usb_ctlread_complete(struct urb *urb)
     exit:
         return IRQ_HANDLED;
 }
-#if (USE_GPIO_IRQ==1)
+
+#ifndef USE_SDIO_IRQ
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,29)
 int platform_wifi_request_gpio_irq (void *data)
 {
@@ -589,14 +590,16 @@ void wifi_cpu_clk_switch(unsigned int clk_cfg)
 
 #endif
 
-extern unsigned char wifi_in_insmod;
-extern unsigned char wifi_in_rmmod;
+
 #ifdef ICCM_CHECK
 unsigned char buf_iccm_rd[ICCM_BUFFER_RD_LEN];
 #endif
 unsigned char buf_tmp[SRAM_LEN] = {0};
 
-int hal_download_wifi_fw_img(void)
+#ifdef SDIO_MODE_ON
+extern unsigned char wifi_in_insmod;
+extern unsigned char wifi_in_rmmod;
+int hal_download_sdio_fw_img(void)
 {
     const struct firmware *fw;
     struct device *dev = vm_cfg80211_get_parent_dev();
@@ -814,7 +817,46 @@ int hal_download_wifi_fw_img(void)
     release_firmware(fw);
     return err;
 }
+#endif
 
+int hal_download_usb_fw_img(void)
+{
+    struct hal_private *hal_priv = hal_get_priv();
+
+    RG_DPLL_A5_FIELD_T rg_dpll_a5;
+    hal_priv->hif->hif_ops.hi_write_word(RG_WIFI_RST_CTRL, ~(0));
+    rg_dpll_a5.data = aml_aon_read_reg(RG_DPLL_A5);
+
+    if (rg_dpll_a5.b.ro_wifi_bb_pll_done != 1 ) {
+    //if (1) {
+        bbpll_init();
+        bbpll_start();
+        AML_OUTPUT("bbpll  init ok!\n");
+
+    } else {
+        AML_OUTPUT("bbpll  already init,not need to init!\n");
+    }
+
+    hal_set_sys_clk_for_fpga();
+    wifi_fw_download();
+
+#ifdef HAL_FPGA_VER
+    if (aml_wifi_is_enable_rf_test())
+        hal_dpd_memory_download();
+#endif
+
+    hi_cfg_firmware();
+    wifi_cpu_clk_switch(0x4f770033);
+    hal_priv->hif->hif_ops.hi_write_word(RG_INTF_MAC_CLK, 0x00030001);
+
+#ifdef HAL_SIM_VER
+    hal_set_sys_clk(10);
+#endif
+    AML_OUTPUT("-----start firmware\n");
+    start_wifi();
+
+    return 0;
+}
 
 #if defined (HAL_FPGA_VER)
 int mac_addr0 = 0x00;
@@ -845,7 +887,11 @@ static char * country_code = "WW";
 unsigned short dhcp_offload = 0;
 static int sdblksize = BLKSIZE;
 unsigned char aml_insmod_flag = 0;
+#ifdef SDIO_MODE_ON
 char *bus_type = "sdio";
+#else
+char *bus_type = "usb";
+#endif
 
 #ifdef DEBUG_MALLOC
     int kmalloc_count = 0;
@@ -952,6 +998,20 @@ unsigned int aml_wifi_get_con_mode(void)
     return con_mode;
 }
 
+void aml_wifi_set_con_mode(void *wifimac)
+{
+    unsigned int concurrent_mode = 0;
+    struct drv_private *drv_priv = ((struct wifi_mac *)wifimac)->drv_priv;
+    struct wlan_net_vif *main_vmac = drv_priv->drv_wnet_vif_table[NET80211_MAIN_VMAC];
+    struct wlan_net_vif *p2p_vmac = drv_priv->drv_wnet_vif_table[NET80211_P2P_VMAC];
+
+    concurrent_mode = BIT(main_vmac->vm_opmode) | BIT(p2p_vmac->vm_opmode);
+    if (con_mode != concurrent_mode) {
+        con_mode = concurrent_mode;
+        AML_OUTPUT(" con_mode = 0x%02x",con_mode);
+    }
+}
+
 char * aml_wifi_get_bus_type(void)
 {
    char *ch[] = {"usb","sdio"};
@@ -1003,13 +1063,14 @@ unsigned int aml_wifi_is_enable_rf_test(void)
 extern unsigned char wifi_in_insmod;
 extern unsigned char wifi_in_rmmod;
 extern unsigned char aml_bus_type;
+extern void Init_B2B_Resource(void);
 
 static int aml_insmod(void)
 {
     int ret = 0;
     struct hw_interface * hif = hif_get_hw_interface();
 
-#ifdef SDIO_BUILD_IN
+#if defined(SDIO_BUILD_IN) && defined(SDIO_MODE_ON)
     wifi_in_insmod = 1;
 #endif
 
@@ -1031,13 +1092,16 @@ static int aml_insmod(void)
     memset(hif, 0, sizeof(struct hw_interface));
 
     //dma interface or sdio interface init
-    if(aml_bus_type == 1) {
+    if (aml_bus_type == 1) {
         AML_OUTPUT("bus interface is USB!!!!!\n");
         ret = aml_usb_init();
-    } else if(aml_bus_type == 0) {
+    }
+#ifdef SDIO_MODE_ON
+    else if (aml_bus_type == 0) {
         AML_OUTPUT("bus interface is SDIO!!!!!\n");
-        ret = aml_sdio_init();
+        ret = aml_w1_init();
      }
+#endif
 #if 0
     if (strncmp(bus_type,"usb",3) == 0) {
         AML_OUTPUT("bus interface is USB!!!!!\n");
@@ -1064,11 +1128,44 @@ static int aml_insmod(void)
     return 0;
 
 insmod_failed:
-#ifdef SDIO_BUILD_IN
+#if defined(SDIO_BUILD_IN) && defined(SDIO_MODE_ON)
     wifi_in_insmod = 0;
 #endif
 
     return ret;
+}
+
+void aml_disable_wifi(void)
+{
+    if (aml_bus_type == 1) {
+        aml_usb_disable_wifi();
+    }
+#ifdef SDIO_MODE_ON
+    else if (aml_bus_type == 0) {
+        aml_sdio_disable_wifi();
+    }
+#endif
+}
+
+void aml_enable_wifi(void)
+{
+    struct hal_private *hal_priv = hal_get_priv();
+
+    AML_OUTPUT("aml_enable_wifi start\n");
+    if (aml_bus_type == 1) {
+        aml_usb_enable_wifi();
+    }
+#ifdef SDIO_MODE_ON
+    else if (aml_bus_type == 0) {
+        aml_sdio_enable_wifi();
+    }
+#endif
+    hal_priv->txcompletestatus->txdoneframecounter = 0;
+    hal_priv->HalTxFrameDoneCounter = 0;
+    hal_priv->txcompletestatus->txpagecounter = 0;
+    hal_priv->HalTxPageDoneCounter = 0;
+
+    AML_OUTPUT("aml_enable_wifi end\n");
 }
 
 static void aml_rmmod(void)
@@ -1076,7 +1173,7 @@ static void aml_rmmod(void)
 #ifdef DEBUG_MALLOC
     unsigned char i;
 #endif
-#ifdef SDIO_BUILD_IN
+#if defined(SDIO_BUILD_IN) && defined(SDIO_MODE_ON)
     wifi_in_rmmod = 1;
 #endif
     AML_OUTPUT("===================aml_rmmod start====================\n");
@@ -1095,7 +1192,7 @@ static void aml_rmmod(void)
         AML_OUTPUT("free name:%s, count:%d\n", f_pn_buf[i].name, f_pn_buf[i].count);
     }
 #endif
-#ifdef SDIO_BUILD_IN
+#if defined(SDIO_BUILD_IN) && defined(SDIO_MODE_ON)
     wifi_in_rmmod = 0;
 #endif
 }

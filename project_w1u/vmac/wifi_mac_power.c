@@ -12,6 +12,7 @@
  ****************************************************************************************
  */
 #include "wifi_mac_com.h"
+#include "linux/usb.h"
 
 struct workqueue_struct *pwrsave_sleep_wq = NULL;
 
@@ -44,7 +45,7 @@ static void wifi_mac_pwrsave_presleep(struct work_struct *work)
 
     if (wnet_vif->vm_mainsta == NULL)
     {
-        AML_OUTPUT("vm_mainsta is null, cancle sleep this time \n");
+        AML_OUTPUT("vm_mainsta is null, cancel sleep this time \n");
         os_timer_ex_start(&wnet_vif->vm_pwrsave.ips_timer_presleep);
         return;
     }
@@ -108,7 +109,7 @@ static void  wifi_mac_pwrsave_wakeup_ex(SYS_TYPE param1,
 {
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param1;
 
-    wifi_mac_pwrsave_sleep_wait_cancle(wnet_vif);
+    wifi_mac_pwrsave_sleep_wait_cancel(wnet_vif);
     wifi_mac_pwrsave_wakeup(wnet_vif, WKUP_FROM_TRANSMIT);
 
     if ((wnet_vif->vm_opmode == WIFINET_M_STA) && (wnet_vif->vm_state == WIFINET_S_CONNECTED))
@@ -116,7 +117,7 @@ static void  wifi_mac_pwrsave_wakeup_ex(SYS_TYPE param1,
 #ifdef CONFIG_P2P
         if (wnet_vif->vm_p2p->p2p_flag & P2P_OPPPS_START_FLAG_HI)
         {
-            vm_p2p_client_cancle_opps(wnet_vif->vm_p2p);
+            vm_p2p_client_cancel_opps(wnet_vif->vm_p2p);
         }
 #endif
     }
@@ -214,7 +215,7 @@ static int wifi_mac_pwrsave_sleep_wait (void *arg)
     return OS_TIMER_NOT_REARMED;
 }
 
-void wifi_mac_pwrsave_sleep_wait_cancle (struct wlan_net_vif *wnet_vif)
+void wifi_mac_pwrsave_sleep_wait_cancel (struct wlan_net_vif *wnet_vif)
 {
     WIFINET_PWRSAVE_LOCK(wnet_vif);
     if (wnet_vif->vm_pwrsave.ips_flag_waitbeacon_timer_start)
@@ -279,6 +280,7 @@ static int wifi_mac_pwrsave_set_state(struct wlan_net_vif *wnet_vif,
     WIFINET_PWRSAVE_UNLOCK(wnet_vif);
     wifi_mac_com_ps_set_state(wifimac, newstate, wnet_vif->wnet_vif_id);
     WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
+
     return status;
 }
 
@@ -329,7 +331,7 @@ int wifi_mac_pwrsave_wkup_and_NtfyAp (struct wlan_net_vif *wnet_vif,
 #ifdef CONFIG_P2P
         if (wnet_vif->vm_p2p->p2p_flag & P2P_OPPPS_START_FLAG_HI)
         {
-            vm_p2p_client_cancle_opps(wnet_vif->vm_p2p);
+            vm_p2p_client_cancel_opps(wnet_vif->vm_p2p);
         }
 #endif
     }
@@ -742,9 +744,29 @@ int wifi_mac_forward_txq_enqueue (struct sk_buff_head *fwdtxqueue, struct sk_buf
 }
 
 
+unsigned char sta_find_in_sta_tbl(struct wifi_station *find_sta) {
+    unsigned char index;
+    struct wifi_station *sta, *sta_next;
+    struct wifi_station_tbl *vm_sta_tbl = NULL;
+    struct drv_private *drv_priv = drv_get_drv_priv();
+
+    for (index = 0; index < 2; ++index) {
+      vm_sta_tbl = &drv_priv->drv_wnet_vif_table[index]->vm_sta_tbl;
+        WIFINET_NODE_LOCK(vm_sta_tbl);
+        list_for_each_entry_safe(sta, sta_next, &vm_sta_tbl->nt_nsta, sta_list) {
+            if (find_sta == sta) {
+                WIFINET_NODE_UNLOCK(vm_sta_tbl);
+                return 1;
+            }
+        }
+        WIFINET_NODE_UNLOCK(vm_sta_tbl);
+    }
+    return 0;
+}
+extern void aml_skb_unlink(struct sk_buff *skb, struct sk_buff_head *list);
 int wifi_mac_buffer_txq_send(struct sk_buff_head *txqueue)
 {
-    struct sk_buff *skb = NULL;
+    struct sk_buff *skb = NULL,*tmp;
     struct wifi_station *sta;
     struct wifi_mac *wifimac;
     unsigned int qlen_real = 0;
@@ -756,6 +778,24 @@ int wifi_mac_buffer_txq_send(struct sk_buff_head *txqueue)
     if (qlen_real == 0) {
         return qlen_real;
     }
+
+    WIFINET_SAVEQ_LOCK(txqueue);
+    skb_queue_walk_safe(txqueue,skb,tmp) {
+        sta = os_skb_get_nsta(skb);
+        if (!sta_find_in_sta_tbl(sta)) {
+            AML_OUTPUT("not find sta: %p free skb\n",sta);
+            aml_skb_unlink(skb,txqueue);
+            wifi_mac_free_skb(skb);
+        }
+    }
+
+    qlen_real = WIFINET_SAVEQ_QLEN(txqueue);
+    WIFINET_SAVEQ_UNLOCK(txqueue);
+
+    if (qlen_real == 0) {
+        return qlen_real;
+    }
+
 #ifdef  CONFIG_CONCURRENT_MODE
     skb = WIFINET_SAVEQ_GET_TAIL(txqueue);
     if (skb) {
@@ -870,31 +910,43 @@ void wifi_mac_pwrsave_send_pspoll(struct wifi_station *sta)
     wifi_mac_tx_mgmt_frm(wifimac, skb);
 }
 
+void wifi_mac_pwrsave_sta_uapsd_trigger_ex(SYS_TYPE param1,
+        SYS_TYPE param2,SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5)
+{
+    struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param1;
+    struct wifi_station *sta = wnet_vif->vm_mainsta;
+    int qosinfo = wnet_vif->vm_uapsdinfo;
+
+    AML_OUTPUT("send uapsd trigger\n");
+    wifi_mac_send_qosnulldata_as_trigger(sta, qosinfo);
+}
+
 int wifi_mac_pwrsave_sta_uapsd_trigger (void *arg)
 {
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)arg;
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
     struct wifi_station *sta = wnet_vif->vm_mainsta;
     struct wifi_mac_pwrsave_t *ps = &wnet_vif->vm_pwrsave;
     int qosinfo = wnet_vif->vm_uapsdinfo;
     int send_trigger = 0;
 
-    WIFINET_PWRSAVE_LOCK(wnet_vif);
-    if ((ps->ips_flag_uapsd_trigger == 0)
-        && (ps->ips_flag_send_ps_trigger == 0)
-        && (wifi_mac_pwrsave_is_sta_sleeping(sta->sta_wnet_vif) == 0)
-        && (sta ->sta_flags & WIFINET_NODE_UAPSD)
-        && WME_STA_UAPSD_ENABLED(qosinfo))
-    {
-        ps->ips_flag_uapsd_trigger = 1;
-        os_timer_ex_start_period(&ps->ips_timer_sleep_wait, ps->ips_ps_trigger_timeout);
-        send_trigger = 1;
+    if (wifi_mac_pwrsave_is_sta_sleeping(sta->sta_wnet_vif) == 0) {
+        WIFINET_PWRSAVE_LOCK(wnet_vif);
+        if ((ps->ips_flag_uapsd_trigger == 0)
+            && (ps->ips_flag_send_ps_trigger == 0)
+            && (sta ->sta_flags & WIFINET_NODE_UAPSD)
+            && WME_STA_UAPSD_ENABLED(qosinfo))
+        {
+            ps->ips_flag_uapsd_trigger = 1;
+            os_timer_ex_start_period(&ps->ips_timer_sleep_wait, ps->ips_ps_trigger_timeout);
+            send_trigger = 1;
+        }
+        WIFINET_PWRSAVE_UNLOCK(wnet_vif);
     }
-    WIFINET_PWRSAVE_UNLOCK(wnet_vif);
 
     if (send_trigger == 1)
     {
-        AML_OUTPUT("send uapsd trigger\n");
-        wifi_mac_send_qosnulldata_as_trigger(sta, qosinfo);
+        wifi_mac_add_work_task(wifimac, wifi_mac_pwrsave_sta_uapsd_trigger_ex, NULL, (SYS_TYPE)wnet_vif, 0, 0, 0, 0);
     }
     return OS_TIMER_REARMED;
 }
@@ -906,7 +958,7 @@ void wifi_mac_pwrsave_sta_trigger (struct wlan_net_vif *wnet_vif)
     char ps_timer_flag = 0;
 
     if ((sta ->sta_flags & WIFINET_NODE_UAPSD) &&
-        WME_STA_UAPSD_ENABLED(qosinfo))
+        WME_STA_UAPSD_ALL_AC_ENABLED(qosinfo))
     {
         DPRINTF(AML_DEBUG_PWR_SAVE, "%s%d, sta send trigger\n", __func__, __LINE__);
         wifi_mac_send_qosnulldata_as_trigger(sta, qosinfo);
@@ -1659,6 +1711,7 @@ int wifi_mac_pwrsave_wow_usr(struct wlan_net_vif *wnet_vif,
     return 0;
 }
 
+extern struct urb *g_urb;
 int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5)
@@ -1773,7 +1826,8 @@ int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
     WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
     return 0;
 }
-
+extern struct usb_device *g_udev;
+extern unsigned char hal_wake_fw_req(void);
 int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5)
@@ -1786,6 +1840,19 @@ int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
 
     AML_OUTPUT("\n");
     WIFINET_PWRSAVE_MUTEX_LOCK(wnet_vif);
+
+    printk("------usb state: 0x%x\n", g_udev->state);
+    while (g_udev->state != USB_STATE_CONFIGURED)
+    {
+        udelay(100);
+    }
+    printk("--------usb configured-------\n");
+
+    if (aml_bus_type)
+    {
+        usb_submit_urb(g_urb, GFP_ATOMIC);
+    }
+
     if (wifimac->wm_suspend_mode == WIFI_SUSPEND_STATE_NONE)
     {
         WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
