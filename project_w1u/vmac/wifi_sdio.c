@@ -1545,7 +1545,7 @@ void aml_sdio_disable_wifi(void)
 {
     unsigned char bt_alive = 0;
     wifi_sdio_access = 0;
-    printk("aml_sdio_disable_wifi start sdio access %d, chip en %d\n", wifi_sdio_access, chip_en_access);
+    AML_OUTPUT("wifi_sdio_access:%d, chip_en_access:%d\n", wifi_sdio_access, chip_en_access);
 
     //if (chip_en_access) {
     if (1) {

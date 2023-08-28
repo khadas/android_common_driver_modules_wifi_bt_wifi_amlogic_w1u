@@ -19,6 +19,14 @@ typedef struct version_info {
     unsigned short version_id;
 } version_info;
 
+#ifdef CHIP_RESET_SUPPORT
+struct auc_reset_ops {
+    int (*probe_cb)(void);
+    void (*disconnect_cb)(void);
+};
+#endif
+
+
 void platform_wifi_reset_cpu(void);
 int platform_wifi_request_gpio_irq (void *data);
 void platform_wifi_free_gpio_irq (void *data);

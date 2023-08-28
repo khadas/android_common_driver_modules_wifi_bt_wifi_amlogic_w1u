@@ -24,7 +24,6 @@
 #include <linux/list.h>
 
 #define DRV_RXDESC_NUM 256
-#define DRV_TXDESC_RATE_NUM 4
 #define DRIVER_NODE(_n) ((struct aml_driver_nsta *)(_n))
 
 
@@ -125,6 +124,8 @@
         } while (0)
 
 #define MIN_DWELL_DUR 10
+
+typedef void (*lp_shutdown_func)(void);
 
 struct drv_tx_scoreboard
 {
@@ -420,7 +421,7 @@ struct driver_ops
     void        (*set_cfg_txpowlimit)(struct drv_private *, unsigned short cfg_txpowlimit);
     void        (*set_macaddr)(struct drv_private *, unsigned char wnet_vif_id, unsigned char *macaddr);
 
-    void        (*key_delete)(struct drv_private *, unsigned char wnet_vif_id, unsigned short key_index, int staid);
+    void        (*key_delete)(struct drv_private *, unsigned char wnet_vif_id, unsigned short key_index, int staid, unsigned char group);
     int          (*key_set)(struct drv_private *, unsigned char wnet_vif_id, unsigned short key_index, struct hal_key_val *hk,
                            const unsigned char mac[WIFINET_ADDR_LEN]);
     int          (*rekey_data_set)(struct drv_private *, unsigned char wnet_vif_id, void *rekey_data);
@@ -597,7 +598,6 @@ struct drv_private
     int drv_ratectrl_size;
     unsigned char drv_ratectrl_mrr;/* multi-rate retry support */
     const struct drv_rate_table *drv_currratetable;   /* current rate table */
-    struct aml_ratecontrol minstrel_sample_rate[DRV_TXDESC_RATE_NUM];
     spinlock_t hr_timer_lock;
     spinlock_t minstrel_lock;
     unsigned long minstrel_lockflags;

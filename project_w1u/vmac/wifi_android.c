@@ -133,18 +133,9 @@ static int aml_android_get_link_speed(struct wlan_net_vif *wnet_vif, char *comma
 static int aml_android_set_country(struct wlan_net_vif *wnet_vif, char *command, int total_len)
 {
     char *country_code = command + strlen(android_wifi_cmd_str[ANDROID_WIFI_CMD_COUNTRY]) + 1;
-    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
-    if ((country_code[0] == wifimac->wm_country.iso[0]) && (country_code[1] == wifimac->wm_country.iso[1])) {
-        ERROR_DEBUG_OUT("no need to set country code due to the same country code\n");
-        return 0;
-    }
-
-    preempt_scan(wnet_vif->vm_ndev, 100, 100);
-
-    WIFI_CHANNEL_LOCK(wifimac);
-    wifi_mac_set_country(wifimac, country_code);
-    WIFI_CHANNEL_UNLOCK(wifimac);
+    DPRINTF(AML_DEBUG_WARNING, "%s set country <%s> by ioctl\n", __func__, country_code);
+    wifi_mac_set_country_code(country_code);
 
     return 0;
 }
@@ -191,7 +182,7 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
 }
 
 #define PRIVATE_COMMAND_MAX_LEN	8192
- int aml_android_priv_cmd(struct wlan_net_vif *wnet_vif, struct ifreq *ifr, int cmd)
+ int aml_android_priv_cmd(struct wlan_net_vif *wnet_vif, void __user *data, int cmd)
 {
     int ret = 0;
     char *command = NULL;
@@ -211,8 +202,8 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
         goto exit;
     }
 
-    if (!ifr->ifr_data) {
-        DPRINTF(AML_DEBUG_ANDROID,"%s %d ifr->ifr_data=NULL\n", __func__, __LINE__);
+    if (!data) {
+        DPRINTF(AML_DEBUG_ANDROID,"%s %d data=NULL\n", __func__, __LINE__);
         ret = -EINVAL;
         goto exit;
     }
@@ -225,7 +216,7 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
 #endif
     {
         compat_android_wifi_priv_cmd compat_priv_cmd;
-        if (copy_from_user(&compat_priv_cmd, ifr->ifr_data, sizeof(compat_android_wifi_priv_cmd))) {
+        if (copy_from_user(&compat_priv_cmd, data, sizeof(compat_android_wifi_priv_cmd))) {
             ret = -EFAULT;
             goto exit;
         }
@@ -236,8 +227,8 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
     } else
 #endif /* CONFIG_COMPAT */
     {
-        if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(struct android_wifi_priv_cmd))) {
-            DPRINTF(AML_DEBUG_ANDROID,"%s %d copy_from_user ifr->ifr_data fail\n", __func__, __LINE__);
+        if (copy_from_user(&priv_cmd, data, sizeof(struct android_wifi_priv_cmd))) {
+            DPRINTF(AML_DEBUG_ANDROID,"%s %d copy_from_user data fail\n", __func__, __LINE__);
             ret = -EFAULT;
             goto exit;
         }
@@ -263,7 +254,7 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
         goto exit;
     }
 
-    DPRINTF(AML_DEBUG_WARNING,"%s: Android private cmd \"%s\" on %s\n", __func__, command, ifr->ifr_name);
+    //DPRINTF(AML_DEBUG_WARNING,"%s: Android private cmd \"%s\" on %s\n", __func__, command, ifr->ifr_name);
 
     cmd_num = aml_android_cmdstr_to_num(command);
     DPRINTF(AML_DEBUG_ANDROID,"%s %d cmd_num=%d\n", __func__, __LINE__, cmd_num);

@@ -607,27 +607,23 @@ static struct wifi_channel * wifi_mac_find_chan_unlock( struct wifi_mac *wifimac
     return NULL;
 }
 
-void wifi_mac_set_country_code(char* arg)
+void wifi_mac_set_country_code_task(SYS_TYPE param1, SYS_TYPE param2, SYS_TYPE param3, SYS_TYPE param4, SYS_TYPE param5)
 {
     struct wifi_mac *wifimac = wifi_mac_get_mac_handle();
     struct drv_private* drv_priv = wifimac->drv_priv;
     struct wlan_net_vif *selected_wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_MAIN_VMAC];
-    unsigned short cur_chan = 0;
-    enum wifi_mac_bwc_width cur_bw = 0;
-    unsigned short cur_freq = 0;
+    struct wlan_net_vif *wnet_vif = NULL;//for iterator
+    struct wifi_channel old_chans[WIFI_MAX_VID] = {0};
+    struct wifi_channel *pchan = NULL;
+    unsigned char alpha[3] = {param1, param2, 0};
     unsigned char cur_txpwrplan = 0;
 
     if ((wifimac->wm_nrunning == 1) && (drv_priv->drv_wnet_vif_table[NET80211_P2P_VMAC]->vm_state == WIFINET_S_CONNECTED)) {
-            selected_wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_P2P_VMAC];
+        selected_wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_P2P_VMAC];
     }
 
-    if  (wifimac->wm_nrunning > 1) {
-        AML_OUTPUT("Setting country_code in this mode is not yet supported!\n");
-        return ;
-    }
-
-    AML_OUTPUT("arg=%s\n", arg);
-    if (arg && (arg[0] == wifimac->wm_country.iso[0]) && (arg[1] == wifimac->wm_country.iso[1])) {
+    AML_OUTPUT("alpha=%s\n", alpha);
+    if ((alpha[0] == wifimac->wm_country.iso[0]) && (alpha[1] == wifimac->wm_country.iso[1])) {
         ERROR_DEBUG_OUT("no need to set country code due to the same country code\n");
         return;
     }
@@ -636,20 +632,24 @@ void wifi_mac_set_country_code(char* arg)
 
     WIFI_CHANNEL_LOCK(wifimac);
 
-    if (wifimac->wm_nrunning == 1) {
-        cur_chan = selected_wnet_vif->vm_curchan->chan_pri_num;
-        cur_bw = selected_wnet_vif->vm_curchan->chan_bw;
-        cur_freq = selected_wnet_vif->vm_curchan->chan_cfreq1;
+    list_for_each_entry(wnet_vif, &wifimac->wm_wnet_vifs, vm_next) {
+        pchan = &(old_chans[wnet_vif->wnet_vif_id]);
+        if (!WIFINET_IS_CHAN_ERR(wnet_vif->vm_curchan)) {
+            memcpy(pchan, wnet_vif->vm_curchan, sizeof(struct wifi_channel));
+        }
     }
     cur_txpwrplan = drv_priv->drv_config.cfg_txpoweplan;
-
-    wifi_mac_set_country(wifimac, arg);
-
-    if (wifimac->wm_nrunning == 1) {
-        selected_wnet_vif->vm_curchan = wifi_mac_find_chan_unlock(wifimac,cur_chan, cur_bw, cur_freq);
-
-        if (!selected_wnet_vif->vm_curchan) {
-            wifi_mac_top_sm(selected_wnet_vif, WIFINET_S_INIT,0);
+    wifi_mac_set_country(wifimac, alpha);
+    list_for_each_entry(wnet_vif, &wifimac->wm_wnet_vifs, vm_next) {
+        pchan = &(old_chans[wnet_vif->wnet_vif_id]);
+        if (pchan->chan_cfreq1 != 0) {
+            wnet_vif->vm_curchan = wifi_mac_find_chan_unlock(wifimac, pchan->chan_pri_num, pchan->chan_bw, pchan->chan_cfreq1);
+            if (!wnet_vif->vm_curchan) {
+                wifi_mac_top_sm(wnet_vif, WIFINET_S_INIT,0);
+            } else {
+                AML_OUTPUT("vif[%d] now chan info => pri_num: %d, bw: %d, chan_cfreq1: %d\n", wnet_vif->wnet_vif_id,
+                    wnet_vif->vm_curchan->chan_pri_num, wnet_vif->vm_curchan->chan_bw, wnet_vif->vm_curchan->chan_cfreq1);
+            }
         }
     }
 
@@ -660,6 +660,12 @@ void wifi_mac_set_country_code(char* arg)
     WIFI_CHANNEL_UNLOCK(wifimac);
 
     return;
+}
+
+void wifi_mac_set_country_code(char* arg)
+{
+    struct wifi_mac *wifimac = wifi_mac_get_mac_handle();
+    wifi_mac_add_work_task(wifimac, wifi_mac_set_country_code_task, NULL, arg[0], arg[1], 0, 0, 0);
 }
 
 void wifi_mac_ap_set_11h(unsigned char channel)
@@ -1606,6 +1612,7 @@ int aml_wpa_set_country_code(struct wlan_net_vif *wnet_vif, char* buf, int len)
         FREE(arg, "cmd_arg");
         return -EINVAL;
     }
+    DPRINTF(AML_DEBUG_WARNING, "<%s> set country <%s> by supp-priv\n", __func__, arg[1]);
     wifi_mac_set_country_code(arg[1]);
 
     FREE(arg, "cmd_arg");
@@ -2107,3 +2114,12 @@ int aml_wpa_set_debug(struct wlan_net_vif *wnet_vif, char* buf, int len)
     FREE(arg, "cmd_arg");
     return 0;
 }
+
+void wifi_mac_set_cf_end(struct wlan_net_vif *wnet_vif, unsigned char is_enable)
+{
+    unsigned char vid = 0;
+
+    vid = wnet_vif->wnet_vif_id;
+    phy_set_cf_end(vid, is_enable);
+}
+

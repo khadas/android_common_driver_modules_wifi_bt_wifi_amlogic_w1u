@@ -88,6 +88,8 @@ unsigned int hal_cfg_cali_param(void);
 unsigned int hal_cfg_txpwr_cffc_param(void * chan, void * txpwr_plan);
 void set_coex_wf_zgb_mode(char mode);
 void phy_set_tx_power_percentage(char percentage, unsigned short channel_num, unsigned char channel_bw, unsigned char vid);
-
+int aml_send_me_shutdown(void);
+void phy_set_cf_end(unsigned char vid, unsigned char is_enable);
+unsigned char hal_ant_sel_en_get(void);
 
 #endif  //__AML_PHY_H__

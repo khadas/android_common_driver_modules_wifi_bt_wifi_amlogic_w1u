@@ -27,6 +27,7 @@ unsigned int  shutdown_i = 0;
 #define  I2C_CLK_QTR   0x4
 
 static DEFINE_MUTEX(wifi_bt_sdio_mutex);
+typedef void (*lp_shutdown_func)(void);
 
 #define AML_W1_BT_WIFI_MUTEX_ON() do {\
     mutex_lock(&wifi_bt_sdio_mutex);\
@@ -1222,7 +1223,7 @@ void config_pmu_reg_off(void)
         aml_w1_sdio_bottom_write8(SDIO_FUNC1, 0x221, host_req_status);
     }
 }
-
+#if 0
 extern int wifi_irq_num(void);
 static void aml_sdio_shutdown(struct device *device)
 {
@@ -1252,6 +1253,29 @@ static void aml_sdio_shutdown(struct device *device)
         ;
     }
     printk("=== shutdown_i:%d ===\n", shutdown_i);
+}
+#endif
+
+extern lp_shutdown_func g_lp_shutdown_func;
+
+//The shutdown interface will be called 7 times by the driver, and msg only needs to send once
+int g_sdio_shutdown_cnt = 0;
+void aml_sdio_shutdown(struct device *device)
+{
+    //sdio the shutdown interface will be called 7 times by the driver, and msg only needs to send once
+    if (g_sdio_shutdown_cnt++)
+    {
+        return;
+    }
+
+    //send msg only once
+    if (g_lp_shutdown_func != NULL)
+    {
+        g_lp_shutdown_func();
+    }
+
+    //notify bt wifi will go shutdown
+    aml_w1_sdio_write_word(RG_AON_A56, aml_w1_sdio_read_word(RG_AON_A56) | BIT(31));
 }
 
 static SIMPLE_DEV_PM_OPS(aml_sdio_pm_ops, aml_sdio_pm_suspend,

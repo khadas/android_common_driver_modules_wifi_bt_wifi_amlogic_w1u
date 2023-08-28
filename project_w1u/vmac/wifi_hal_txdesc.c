@@ -121,6 +121,20 @@ static const unsigned char ht_ba_txtime[WIFI_11N_MAX+1][2/*b_shortGI*/][2/*b_40M
     { {44 ,40  } , {44 ,40  } , }, /*mcs7*/
 };
 
+static const unsigned char vht_ba_txtime[WIFI_11AC_MAX+1]=
+{
+    68, /*mcs0*/
+    44, /*mcs1*/
+    44, /*mcs2*/
+    32, /*mcs3*/
+    32, /*mcs4*/
+    32, /*mcs5*/
+    32, /*mcs6*/
+    32, /*mcs7*/
+    32, /*mcs8*/
+    32, /*mcs9*/
+};
+
 static const unsigned char ht_ack_txtime[WIFI_11N_MAX+1][2][2] =
 {
     { {60 ,48  } , {58 ,47  } , }, /*mcs0*/
@@ -150,11 +164,12 @@ void hal_tx_desc_init(void)
     //
     DBG_ENTER();
 
-    memset(&wifi_conf_mib,0,sizeof(wifi_conf_mib));
+    memset(&wifi_conf_mib, 0, sizeof(wifi_conf_mib));
     wifi_conf_mib.dot11FragmentationThreshold = 512;
-    wifi_conf_mib.dot11PreambleType =PREAMBLE_LONG;
-    memset(&wifi_conf_mib.cmddata[0],-1, MAX_HI_CMD*sizeof(wifi_conf_mib.cmddata[0]));
+    wifi_conf_mib.dot11PreambleType = PREAMBLE_LONG;
+    memset(&wifi_conf_mib.cmddata[0], -1, MAX_HI_CMD * sizeof(wifi_conf_mib.cmddata[0]));
 
+    /*nonht*/
     control = &our_rate_controls[ WIFI_11B_1M];
     control->bit_time   = 262144;// = 2^18 / 1
     control->rts_rate   = WIFI_11B_1M;
@@ -163,8 +178,8 @@ void hal_tx_desc_init(void)
 
     control = &our_rate_controls[ WIFI_11B_2M ];
     control->bit_time   = 131072;// = 2^18 / 2
-    control->rts_rate   = WIFI_11B_2M;
-    control->ack_rate  = WIFI_11B_2M;
+    control->rts_rate   = WIFI_11B_1M;
+    control->ack_rate  = WIFI_11B_1M;
     control->tx_power = 0;
 
     control = &our_rate_controls[ WIFI_11B_5M ];
@@ -175,8 +190,8 @@ void hal_tx_desc_init(void)
 
     control = &our_rate_controls[ WIFI_11B_11M ];
     control->bit_time = 23831;// = 2^18/11 = 23831.272727...
-    control->rts_rate = WIFI_11B_11M;
-    control->ack_rate = WIFI_11B_11M;
+    control->rts_rate = WIFI_11B_5M;
+    control->ack_rate = WIFI_11B_5M;
     control->tx_power = 1;
 
     control = &our_rate_controls[ WIFI_11G_6M ];
@@ -187,8 +202,8 @@ void hal_tx_desc_init(void)
 
     control = &our_rate_controls[ WIFI_11G_9M ];
     control->bit_time = 29127;// = 2^18/9 = 29127.111...
-    control->rts_rate = WIFI_11G_9M;
-    control->ack_rate = WIFI_11G_9M;
+    control->rts_rate = WIFI_11G_6M;
+    control->ack_rate = WIFI_11G_6M;
     control->tx_power = 2;
 
     control = &our_rate_controls[ WIFI_11G_12M ];
@@ -211,113 +226,112 @@ void hal_tx_desc_init(void)
 
     control = &our_rate_controls[ WIFI_11G_36M ];
     control->bit_time = 7281;// = 2^18/36 = 7281.777...
-    control->rts_rate = WIFI_11G_12M;
-    control->ack_rate = WIFI_11G_12M;
+    control->rts_rate = WIFI_11G_24M;
+    control->ack_rate = WIFI_11G_24M;
     control->tx_power = 3;
 
     control = &our_rate_controls[ WIFI_11G_48M ];
     control->bit_time = 5461;// = 2^18/48 = 5461.333...
-    control->rts_rate = WIFI_11G_12M;
-    control->ack_rate = WIFI_11G_12M;
+    control->rts_rate = WIFI_11G_24M;
+    control->ack_rate = WIFI_11G_24M;
     control->tx_power = 4;
 
     control = &our_rate_controls[ WIFI_11G_54M ];
     control->bit_time = 4854;// = 2^18/54 = 4854.518518518...
-    control->rts_rate = WIFI_11G_12M;
-    control->ack_rate = WIFI_11G_12M;
+    control->rts_rate = WIFI_11G_24M;
+    control->ack_rate = WIFI_11G_24M;
     control->tx_power = 5;
-    //
-    ///mcs
-    //
+
+    /*ht*/
     htmcs_control = &our_htmcs_controls[GET_HT_MCS(WIFI_11N_MCS0)];
     htmcs_control->rts_rate = WIFI_11G_6M;
-    htmcs_control->ack_rate = WIFI_11N_MCS0;
+    htmcs_control->ack_rate = WIFI_11G_6M;
     htmcs_control->tx_power = 6;
 
     htmcs_control = &our_htmcs_controls[GET_HT_MCS(WIFI_11N_MCS1)];
-    htmcs_control->rts_rate = WIFI_11G_12M;
-    htmcs_control->ack_rate = WIFI_11N_MCS1;
+    htmcs_control->rts_rate = WIFI_11G_6M;
+    htmcs_control->ack_rate = WIFI_11G_6M;
     htmcs_control->tx_power = 6;
 
     htmcs_control = &our_htmcs_controls[GET_HT_MCS(WIFI_11N_MCS2)];
-    htmcs_control->rts_rate = WIFI_11G_12M;
-    htmcs_control->ack_rate = WIFI_11N_MCS1;
+    htmcs_control->rts_rate = WIFI_11G_6M;
+    htmcs_control->ack_rate = WIFI_11G_6M;
     htmcs_control->tx_power = 6;
 
     htmcs_control = &our_htmcs_controls[GET_HT_MCS(WIFI_11N_MCS3)];
-    htmcs_control->rts_rate = WIFI_11G_24M;
-    htmcs_control->ack_rate = WIFI_11N_MCS3;
+    htmcs_control->rts_rate = WIFI_11G_12M;
+    htmcs_control->ack_rate = WIFI_11G_12M;
     htmcs_control->tx_power = 7;
 
     htmcs_control = &our_htmcs_controls[GET_HT_MCS(WIFI_11N_MCS4)];
-    htmcs_control->rts_rate = WIFI_11G_24M;
-    htmcs_control->ack_rate = WIFI_11N_MCS3;
+    htmcs_control->rts_rate = WIFI_11G_12M;
+    htmcs_control->ack_rate = WIFI_11G_12M;
     htmcs_control->tx_power = 7;
 
     htmcs_control = &our_htmcs_controls[GET_HT_MCS(WIFI_11N_MCS5)];
-    htmcs_control->rts_rate = WIFI_11G_24M;
-    htmcs_control->ack_rate = WIFI_11N_MCS3;
+    htmcs_control->rts_rate = WIFI_11G_12M;
+    htmcs_control->ack_rate = WIFI_11G_12M;
     htmcs_control->tx_power = 7;
 
     htmcs_control = &our_htmcs_controls[GET_HT_MCS(WIFI_11N_MCS6)];
     htmcs_control->rts_rate = WIFI_11G_24M;
-    htmcs_control->ack_rate = WIFI_11N_MCS3;
+    htmcs_control->ack_rate = WIFI_11G_24M;
     htmcs_control->tx_power = 8;
 
     htmcs_control = &our_htmcs_controls[GET_HT_MCS(WIFI_11N_MCS7)];
     htmcs_control->rts_rate = WIFI_11G_24M;
-    htmcs_control->ack_rate = WIFI_11N_MCS3;
-    htmcs_control->tx_power =9;
+    htmcs_control->ack_rate = WIFI_11G_24M;
+    htmcs_control->tx_power = 9;
 
-    //vht mcs
+    /*vht*/
     vhtmcs_control = &our_vhtmcs_controls[GET_VHT_MCS(WIFI_11AC_MCS0)];
     vhtmcs_control->rts_rate = WIFI_11G_6M;
-    vhtmcs_control->ack_rate = WIFI_11AC_MCS0;
+    vhtmcs_control->ack_rate = WIFI_11G_6M;
     vhtmcs_control->tx_power = 10;
 
     vhtmcs_control = &our_vhtmcs_controls[GET_VHT_MCS(WIFI_11AC_MCS1)];
-    vhtmcs_control->rts_rate = WIFI_11G_12M;
-    vhtmcs_control->ack_rate = WIFI_11AC_MCS1;
+    vhtmcs_control->rts_rate = WIFI_11G_6M;
+    vhtmcs_control->ack_rate = WIFI_11G_6M;
     vhtmcs_control->tx_power = 10;
 
     vhtmcs_control = &our_vhtmcs_controls[GET_VHT_MCS(WIFI_11AC_MCS2)];
-    vhtmcs_control->rts_rate = WIFI_11G_12M;
-    vhtmcs_control->ack_rate = WIFI_11AC_MCS1;
+    vhtmcs_control->rts_rate = WIFI_11G_6M;
+    vhtmcs_control->ack_rate = WIFI_11G_6M;
     vhtmcs_control->tx_power = 10;
 
     vhtmcs_control = &our_vhtmcs_controls[GET_VHT_MCS(WIFI_11AC_MCS3)];
-    vhtmcs_control->rts_rate = WIFI_11G_24M;
-    vhtmcs_control->ack_rate = WIFI_11AC_MCS3;
+    vhtmcs_control->rts_rate = WIFI_11G_12M;
+    vhtmcs_control->ack_rate = WIFI_11G_12M;
     vhtmcs_control->tx_power = 11;
 
     vhtmcs_control = &our_vhtmcs_controls[GET_VHT_MCS(WIFI_11AC_MCS4)];
-    vhtmcs_control->rts_rate = WIFI_11G_24M;
-    vhtmcs_control->ack_rate = WIFI_11AC_MCS3;
+    vhtmcs_control->rts_rate = WIFI_11G_12M;
+    vhtmcs_control->ack_rate = WIFI_11G_12M;
     vhtmcs_control->tx_power = 11;
 
     vhtmcs_control = &our_vhtmcs_controls[GET_VHT_MCS(WIFI_11AC_MCS5)];
-    vhtmcs_control->rts_rate = WIFI_11G_24M;
-    vhtmcs_control->ack_rate = WIFI_11AC_MCS3;
+    vhtmcs_control->rts_rate = WIFI_11G_12M;
+    vhtmcs_control->ack_rate = WIFI_11G_12M;
     vhtmcs_control->tx_power = 11;
 
     vhtmcs_control = &our_vhtmcs_controls[GET_VHT_MCS(WIFI_11AC_MCS6)];
     vhtmcs_control->rts_rate = WIFI_11G_24M;
-    vhtmcs_control->ack_rate = WIFI_11AC_MCS3;
+    vhtmcs_control->ack_rate = WIFI_11G_24M;
     vhtmcs_control->tx_power = 12;
 
     vhtmcs_control = &our_vhtmcs_controls[GET_VHT_MCS(WIFI_11AC_MCS7)];
     vhtmcs_control->rts_rate = WIFI_11G_24M;
-    vhtmcs_control->ack_rate = WIFI_11AC_MCS3;
+    vhtmcs_control->ack_rate = WIFI_11G_24M;
     vhtmcs_control->tx_power = 13;
 
     vhtmcs_control = &our_vhtmcs_controls[GET_VHT_MCS(WIFI_11AC_MCS8)];
     vhtmcs_control->rts_rate = WIFI_11G_24M;
-    vhtmcs_control->ack_rate = WIFI_11AC_MCS3;
+    vhtmcs_control->ack_rate = WIFI_11G_24M;
     vhtmcs_control->tx_power = 14;
 
     vhtmcs_control = &our_vhtmcs_controls[GET_VHT_MCS(WIFI_11AC_MCS9)];
     vhtmcs_control->rts_rate = WIFI_11G_24M;
-    vhtmcs_control->ack_rate = WIFI_11AC_MCS3;
+    vhtmcs_control->ack_rate = WIFI_11G_24M;
     vhtmcs_control->tx_power = 15;
 
     DBG_EXIT();
@@ -457,7 +471,7 @@ static unsigned short Hal_TxDescriptor_HT_GetAckTime( unsigned char ackmcs,
 
     */
     ackmcs = GET_HT_MCS(ackmcs);
-    return (b_rifs?2:16) + ht_ack_txtime[ackmcs][b_shortGI][b_40M];//ack txtime not have Signal Extension
+    return (b_rifs ? 2 : 16) + ht_ack_txtime[ackmcs][b_shortGI][b_40M];//ack txtime not have Signal Extension
 }
 
 /*+SIFS+TXTIME(pclp+data+signalextension)*/
@@ -618,6 +632,7 @@ unsigned short Hal_TxDescriptor_GetAckTime(
     unsigned char b_40M)
 {
     unsigned char AckRate = Hal_TxDescriptor_GetAckRate(data_rate);
+
     if (IS_HT_RATE(AckRate) )
     {
         return Hal_TxDescriptor_HT_GetAckTime(AckRate, b_shortGI, b_rifs,b_40M);
@@ -628,13 +643,13 @@ unsigned short Hal_TxDescriptor_GetAckTime(
     }
     else
     {
-        if ((preambletype == PREAMBLE_SHORT)||IS_OFMD_RATE(data_rate))
+        if ((preambletype == PREAMBLE_SHORT) || IS_OFMD_RATE(data_rate))
         {
-            return our_ack_time_short[AckRate]+PHY_TEST;
+            return our_ack_time_short[AckRate] + PHY_TEST;
         }
         else
         {
-            return our_ack_time_11b_long[AckRate]+PHY_TEST;
+            return our_ack_time_11b_long[AckRate] + PHY_TEST;
         }
     }
 }
@@ -651,24 +666,24 @@ unsigned short Hal_TxDescriptor_GetBATime(
     if (IS_HT_RATE(ackrate))
     {
         ackrate = GET_HT_MCS(ackrate);
-        return (b_rifs?2:16)//sifs +ack frame Signal Extension
-               +ht_ba_txtime[ackrate][b_shortGI][bw]+PHY_TEST;//ack txtime not have Signal Extension
+        return (b_rifs ? 2 : 16)//sifs +ack frame Signal Extension
+               + ht_ba_txtime[ackrate][b_shortGI][bw] + PHY_TEST;//ack txtime not have Signal Extension
     }
     else if (IS_VHT_RATE(ackrate))
     {
         ackrate = GET_VHT_MCS(ackrate);
-        return (b_rifs?2:16)//sifs +ack frame Signal Extension
-               +ht_ba_txtime[ackrate][b_shortGI][bw]+PHY_TEST;//ack txtime not have Signal Extension
+        return (b_rifs ? 2 : 16)//sifs +ack frame Signal Extension
+               + vht_ba_txtime[ackrate] + PHY_TEST;//ack txtime not have Signal Extension
     }
     else
     {
-        if ((preambletype == PREAMBLE_SHORT)||IS_OFMD_RATE(data_rate))
+        if ((preambletype == PREAMBLE_SHORT) || IS_OFMD_RATE(data_rate))
         {
-            return    our_ba_txtime_short[ackrate] +PHY_TEST;//block ack tx time+SIFS
+            return our_ba_txtime_short[ackrate] + PHY_TEST;//block ack tx time + SIFS
         }
         else
         {
-            return   our_ba_txtime_11b_long[ackrate]+PHY_TEST ; //block ack tx time +SIFS
+            return our_ba_txtime_11b_long[ackrate] + PHY_TEST; //block ack tx time + SIFS
         }
     }
 }

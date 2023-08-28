@@ -165,6 +165,7 @@ wifi_mac_wmm_chanparams(struct wlan_net_vif *wnet_vif,
 #define VLAN_PRI_SHIFT  13
 #define VLAN_PRI_MASK   7
 
+#define ARP_OPCODE_SHIFT    7
 
 #define llc_control     llc_un.type_u.control
 #define llc_frmr_control    llc_un.type_frmr.frmr_control
@@ -275,7 +276,7 @@ int wifi_mac_set_quiet(struct wifi_station *sta, unsigned char *quiet_elm);
 int wifi_mac_set_country(struct wifi_mac *wifimac, char *isoName);
 unsigned int wifi_mac_all_txq_all_qcnt(struct wifi_mac *wifimac);
 void wifi_mac_update_protmode(struct wifi_mac *wifimac);
-void wifi_mac_vmac_delt(struct wlan_net_vif *wnet_vif);
+void wifi_mac_vmac_detach(struct wlan_net_vif *wnet_vif);
 void wifi_mac_scan_end(struct wifi_mac *wifimac);
 void wifi_mac_connect_start(struct wifi_mac *wifimac);
 void wifi_mac_connect_end(struct wifi_mac *wifimac);
@@ -345,6 +346,8 @@ void wifi_mac_wme_initparams(struct wlan_net_vif *);
 void wifi_mac_wme_initparams_locked(struct wlan_net_vif *);
 void wifi_mac_wme_updateparams(struct wlan_net_vif *);
 void wifi_mac_wme_updateparams_locked(struct wlan_net_vif *);
+int wifi_mac_init(struct net_device * dev);
+void wifi_mac_uninit(struct net_device * dev);
 int wifi_mac_open(struct net_device *);
 int wifi_mac_initial(struct net_device *, int force);
 int wifi_mac_stop(struct net_device *);
@@ -357,6 +360,10 @@ void wifi_mac_tbtt_handle(struct wlan_net_vif *wnet_vif);
 void wifi_mac_channel_switch_complete(struct wlan_net_vif *wnet_vif);
 void wme_update_ex(struct wifi_mac *wifimac,struct wlan_net_vif *wnet_vif );
 void wifi_mac_tx_addba_check(struct wifi_station *sta,unsigned char tid_index);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+int wifi_mac_ioctrl_wrapper(struct net_device *dev, struct ifreq *ifr,
+    void __user *data, int cmd);
+#endif
 int wifi_mac_ioctrl(struct net_device *dev, struct ifreq *ifr, int cmd);
 void wnet_vif_vht_cap_init( struct wlan_net_vif *wnet_vif );
 int wifi_mac_setup(struct wifi_mac *, struct wlan_net_vif *, int opmode);
@@ -365,6 +372,7 @@ void wifi_mac_set_reg_val(unsigned int reg_addr, enum wifi_mac_bwc_width bw);
 
 int vm_wlan_net_vif_setup_forchvif(struct wifi_mac *wifimac, struct wlan_net_vif *wnet_vif, const char *name,  int opmode);
 int vm_wlan_net_vif_register(struct wlan_net_vif *, char *);
+void vm_wlan_net_vif_detach(struct wlan_net_vif * );
 void vm_wlan_net_vif_unregister(struct wlan_net_vif *);
 void wifi_mac_build_country_ie(struct wlan_net_vif *);
 int wifi_mac_get_new_vmac_id(struct wifi_mac *wifimac);
@@ -384,8 +392,10 @@ void wifi_mac_roaming_trigger(struct wlan_net_vif * wnet_vif);
 void wifi_mac_sm_switch (SYS_TYPE param1,SYS_TYPE param2,SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
 int wifi_mac_trigger_recovery(void *arg);
 int wifi_mac_monitor_tp_rate(void *arg);
+int wifi_mac_ant_select(void *arg);
+int wifi_mac_ant_rssi_measure(void *arg);
 
 void wifi_mac_fw_recovery(struct wlan_net_vif *wnet_vif);
-int wifi_mac_connect_repair_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
+void wifi_mac_connect_repair_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
 void wifi_mac_filter_special_data_frame(struct sk_buff *skb, SPECIAL_FRAME_STATUS_E frame_status);
 #endif

@@ -30,6 +30,7 @@ namespace FW_NAME
 #include "patch_fi_cmd.h"
 #include "wifi_mac_if.h"
 #include "wifi_mac_chan.h"
+#include "chip_intf_reg.h"
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 #include <linux/firmware.h>
@@ -44,20 +45,33 @@ namespace FW_NAME
 MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 #endif
 
+#if defined (LINUX_PLATFORM)
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+#define WIFI_CONF_PATH "/lib/firmware/w1u"
+#else
+#define WIFI_CONF_PATH "w1u"
+#endif
+#else//LINUX_PLATFORM
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5, 15, 0))
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,29))
 #define WIFI_CONF_PATH "/system/etc/wifi/w1u"
-#elif (defined CONFIG_ROKU)
-#define WIFI_CONF_PATH "/lib/firmware/"
-#else
+#else//KERNEL_VERSION(3,14,29)
 #define WIFI_CONF_PATH "/vendor/etc/wifi/w1u"
-#endif
+#endif//KERNEL_VERSION(3,14,29)
+#else
+#define WIFI_CONF_PATH "w1u"
+#endif//KERNEL_VERSION(5,15,0)
 
-static char * conf_path = WIFI_CONF_PATH;
+#endif//LINUX_PLATFORM
+
+char * conf_path = WIFI_CONF_PATH;
 module_param(conf_path, charp, S_IRUGO);
 
 unsigned char g_tx_power_change_disable = 0;
 unsigned char g_wftx_pwrtbl_en = 0;
 unsigned char g_initial_gain_change_disable = 0;
+unsigned char g_ant_sel_en = 0;
+unsigned char g_ant_gpio_cfg = 0;
 static struct WF2G_Txpwr_Param g_wf2g_txpwr_param;
 static struct WF5G_Txpwr_Param g_wf5g_txpwr_param;
 extern unsigned char tpc_mode;
@@ -188,7 +202,8 @@ unsigned int phy_register_sta_id(unsigned char vid,unsigned short StaAid,unsigne
     RegStaIdParam CmdParam;
     struct hal_private * hal_priv =hal_get_priv();
 
-    AML_OUTPUT("[%d]aid:%d, mac[%02x:%02x:%02x:%02x:%02x:%02x]\n", vid, StaAid, pMac[0], pMac[1], pMac[2], pMac[3], pMac[4], pMac[5]);
+    AML_OUTPUT("vid:%d, aid:0x%x, mac[%02x:%02x:%02x:%02x:%02x:%02x]\n", vid, StaAid,
+                pMac[0], pMac[1], pMac[2], pMac[3], pMac[4], pMac[5]);
     CmdParam.Cmd = RegStaID_CMD;
     CmdParam.StaId = StaAid;
     CmdParam.vid = vid;
@@ -498,14 +513,15 @@ unsigned int phy_update_bcn_intvl(unsigned char wnet_vif_id,unsigned short BcnIn
 
 unsigned int phy_unregister_sta_id(unsigned char wnet_vif_id,unsigned short StaAid)
 {
-    PRINT("phy_unregister_sta_id StaAid %d\n",StaAid );
+    AML_OUTPUT("vid:%d, aid:%d\n", wnet_vif_id, StaAid);
+
     if((StaAid >0) && (StaAid<= WIFI_MAX_STA))
     {
         phy_set_param_cmd(UnRegStaID_CMD,wnet_vif_id, (unsigned int)StaAid);
     }
     else
     {
-        PRINT("WARNING!!phy_unregister_sta_id StaAid %d ERROR\n",StaAid );
+        ERROR_DEBUG_OUT("aid:%d\n", StaAid);
     }
     return 1;
 }
@@ -668,8 +684,9 @@ unsigned int phy_set_mac_bssid(unsigned char wnet_vif_id,unsigned char * Bssid)
     temp = 0;
     temp = Bssid[4] | ( Bssid[5] << 8 );
     hif->hif_ops.hi_write_word(addr_high, temp);
-    PRINT(" %s:wnet_vif_id= %d bssid=%02x:%02x:%02x:%02x:%02x:%02x\n",__func__,
-        wnet_vif_id, Bssid[0], Bssid[1], Bssid[2], Bssid[3], Bssid[4], Bssid[5]);
+
+    AML_OUTPUT("vid:%d, bssid[%02x:%02x:%02x:%02x:%02x:%02x]\n",
+               wnet_vif_id, Bssid[0], Bssid[1], Bssid[2], Bssid[3], Bssid[4], Bssid[5]);
     return 1;
 }
 
@@ -743,7 +760,7 @@ unsigned int phy_rst_mcast_key(unsigned char wnet_vif_id)
 //reset StaAid key
 unsigned int phy_clr_key(unsigned char wnet_vif_id,unsigned short StaAid)
 {
-    PRINT(" ++  %s StaAid = %x\n",__FUNCTION__,StaAid);
+    AML_OUTPUT("vid:%d, aid:0x%x\n", wnet_vif_id, StaAid);
     phy_set_param_cmd(Reset_Key_Cmd,wnet_vif_id, StaAid);
     return 1;
 }
@@ -774,7 +791,7 @@ unsigned int phy_set_ucast_key(unsigned char wnet_vif_id,unsigned short StaAid,
     HAL_BEGIN_LOCK();
     hi_set_cmd((unsigned char *)unitikey, sizeof(struct UniCastKeyCmd) );
     HAL_END_LOCK();
-    PRINT("phy_set_ucast_key wnet_vif_id %x encryType=%d StaAid %x \n",wnet_vif_id,encryType, StaAid);
+    AML_OUTPUT("vid:%d, encrytype:%d, aid:0x%x, kid:%d\n", wnet_vif_id, encryType, StaAid, keyId);
     hal_urep_cnt_init(&hal_priv->uRepCnt[wnet_vif_id][StaAid],encryType);
     hal_pn_win_init(AML_UCAST_TYPE, wnet_vif_id);
     return 1;
@@ -784,15 +801,14 @@ unsigned int phy_set_mcast_key(unsigned char wnet_vif_id, unsigned char *pKey,
     unsigned char keyLen, unsigned int keyId,unsigned char encryType,unsigned char AuthRole)
 {
     struct hal_private * hal_priv =hal_get_priv();
-
-//Multicast_Key_Set_Cmd
     unsigned char       cmdbuf[68]= {0};
     struct MultiCastKeyCmd *multikey = (struct MultiCastKeyCmd *)ALIGN_POINT(cmdbuf,4);
+
     if (( encryType !=  WIFI_WEP64)
         &&(encryType != WIFI_WEP128)
         &&(encryType != WIFI_WEP256))
         keyLen = 32;
-    PRINT("Multicast_Key_Set_Cmd wnet_vif_id %d encryType %x keyId %x\n",wnet_vif_id,encryType,keyId);
+    AML_OUTPUT("vid:%d, encrytype:%d, kid:%d\n", wnet_vif_id, encryType, keyId);
     multikey->Cmd = Multicast_Key_Set_Cmd;
     multikey->vid  = wnet_vif_id;
     multikey->AuthRole = AuthRole;
@@ -831,7 +847,7 @@ unsigned int phy_set_rekey_data(unsigned char wnet_vif_id, void *rekey_data, uns
     hi_set_cmd((unsigned char *)rekey_cmd, sizeof(struct RekeyDataCmd));
     HAL_END_LOCK();
 
-    PRINT("phy_set_rekey_data wnet_vif_id %x StaAid %x \n",wnet_vif_id, StaAid);
+    AML_OUTPUT("vid:%d, aid:%d\n", wnet_vif_id, StaAid);
     return 1;
 }
 
@@ -1046,6 +1062,20 @@ unsigned int phy_keep_alive(struct NullDataCmd null_data_param, int null_data_le
     hi_set_cmd((unsigned char *)&keep_alive_cmd, sizeof(struct KeepAliveCmd));
     HAL_END_LOCK();
     return 0;
+}
+
+void phy_read_key_table_info(unsigned char vid, unsigned char sta_id, unsigned char is_ukey)
+{
+    KeyTableCmd keytablecmd = {0};
+
+    keytablecmd.Cmd = KEY_ENTRY_READ_CMD;
+    keytablecmd.vid = vid;
+    keytablecmd.sta_id = sta_id;
+    keytablecmd.is_ukey = is_ukey;
+
+    HAL_BEGIN_LOCK();
+    hi_set_cmd((unsigned char *)&keytablecmd, sizeof(struct KeyTableCmd));
+    HAL_END_LOCK();
 }
 
 unsigned int phy_set_beacon_miss(unsigned char vid, unsigned char enable, int period)
@@ -1980,6 +2010,8 @@ unsigned char parse_cali_param(char *varbuf, int len, struct Cali_Param *cali_pa
     get_s8_item(varbuf, len, "digital_code_gain_limit", (char *)&cali_param->digital_gain_limit);
     get_s8_item(varbuf, len, "wftx_power_change_disable", &g_tx_power_change_disable);
     get_s8_item(varbuf, len, "initial_gain_change_disable", &g_initial_gain_change_disable);
+    get_s8_item(varbuf, len, "ant_sel_en", &g_ant_sel_en);
+    get_s8_item(varbuf, len, "ant_gpio_cfg", &g_ant_gpio_cfg);
 
     cali_param->version = version;
     cali_param->cali_config = cali_config;
@@ -2016,6 +2048,8 @@ unsigned char parse_cali_param(char *varbuf, int len, struct Cali_Param *cali_pa
     AML_OUTPUT("======>>>>>> platform_versionid = %d\n", cali_param->platform_versionid);
     AML_OUTPUT("======>>>>>> wftx_power_change_disable = %d\n", g_tx_power_change_disable);
     AML_OUTPUT("======>>>>>> initial_gain_change_disable = %d\n", g_initial_gain_change_disable);
+    AML_OUTPUT("======>>>>>> g_ant_sel_en = %d\n", g_ant_sel_en);
+    AML_OUTPUT("======>>>>>> g_ant_gpio_cfg = %d\n", g_ant_gpio_cfg);
     AML_OUTPUT("======>>>>>> digital gain = %s min_2g:0x%x max_2g:0x%x min_5g:0x%x max_5g:0x%x\n",
             (cali_param->digital_gain_limit.enable == 1 ? "enable" : "disable"),
             cali_param->digital_gain_limit.min_2g, cali_param->digital_gain_limit.max_2g,
@@ -2211,21 +2245,15 @@ unsigned char get_cali_param(struct Cali_Param *cali_param, struct WF2G_Txpwr_Pa
     mm_segment_t fs;
 #else
     const struct firmware *fw = NULL;
-    unsigned char chip_id_buf_all[100];
     struct device *dev = vm_cfg80211_get_parent_dev();
 
 #endif
 
     chip_id_l = efuse_manual_read(0xf);
     chip_id_l = chip_id_l & 0xffff;
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5, 15, 0))
     sprintf(chip_id_buf, "%s/aml_wifi_rf_%04x.txt", conf_path, chip_id_l);
-    if (isFileReadable(chip_id_buf, NULL) != 0) {
-#else
-    sprintf(chip_id_buf_all, "/lib/firmware/%s", chip_id_buf);
-    if (isFileReadable(chip_id_buf_all, NULL) != 0) {
-#endif
 
+    if (isFileReadable(chip_id_buf, NULL) != 0) {
         memset(chip_id_buf,'\0',sizeof(chip_id_buf));
         switch ((chip_id_l & 0xff00) >> 8) {
             case MODULE_ITON:
@@ -2283,10 +2311,14 @@ unsigned char get_cali_param(struct Cali_Param *cali_param, struct WF2G_Txpwr_Pa
         goto err;
     }
 #else
-
     error = request_firmware(&fw, chip_id_buf, dev);
     if (error) {
-         goto err;
+        // sn txt not found, the rf set default config
+        sprintf(chip_id_buf, "aml_wifi_rf.txt");
+        error = request_firmware(&fw, chip_id_buf, dev);
+        if (error) {
+            goto err;
+        }
     }
     size = fw->size;
     content = (char *)fw->data;
@@ -2400,6 +2432,54 @@ unsigned int hal_cfg_cali_param(void)
     return 0;
 }
 
+int aml_send_me_shutdown(void)
+{
+    int ret;
+    int count = 0;
+    bool msg_recv;
+    unsigned int value;
+    struct hw_interface* hif =hif_get_hw_interface();
+
+    //send shutdown_msg to fw
+    ret = phy_set_param_cmd(HOST_SHUTDOWN_REQ, 0, 0);
+
+    //wait fw set msg recv flag
+    do
+    {
+        value = hif->hif_ops.hi_read_word(RG_AON_A56);
+        if (value != 0xffffffff) {
+            msg_recv = value & BIT(30);
+        }
+        OS_SLEEP(10);
+        if (count++ > 100) {
+            printk("%s %d, ERROR wait shutdown_ind timeout:%d \n",
+                 __func__, __LINE__, msg_recv );
+            return ret;
+        }
+    }while (!msg_recv);
+    printk("%s %d, shutdown_msg_send_ok! \n",__func__, __LINE__);
+
+    return ret;
+}
+
+void phy_set_cf_end(unsigned char vid, unsigned char is_enable)
+{
+    struct Set_Cf_End cf_end_param = {0};
+
+    cf_end_param.Cmd = CF_END_CMD;
+    cf_end_param.vid = vid;
+    cf_end_param.enable = is_enable;
+
+    AML_OUTPUT("vid:%d, enable:%d\n", vid, is_enable);
+    HAL_BEGIN_LOCK();
+    hi_set_cmd((unsigned char *)&cf_end_param, sizeof(struct Set_Cf_End));
+    HAL_END_LOCK();
+}
+
+unsigned char hal_ant_sel_en_get(void)
+{
+    return g_ant_sel_en;
+}
 
 #ifdef HAL_SIM_VER
 #ifdef FW_NAME

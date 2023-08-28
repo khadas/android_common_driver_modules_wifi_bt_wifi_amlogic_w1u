@@ -27,9 +27,10 @@ void wifi_mac_security_vattach(struct wlan_net_vif *wnet_vif)
     int i;
 
     wnet_vif->vm_def_txkey = WIFINET_KEYIX_NONE;
+    wnet_vif->vm_def_utxkey = WIFINET_KEYIX_NONE;
     for (i = 0; i < WIFINET_WEP_NKID; i++)
         wifi_mac_security_resetkey(wnet_vif, &wnet_vif->vm_nw_keys[i], WIFINET_KEYIX_NONE);
-
+    wnet_vif->vm_key_bitmap = 0;
     wnet_vif->vif_ops.vm_key_update_begin = NULL;
     wnet_vif->vif_ops.vm_key_update_end = NULL;
 }
@@ -62,7 +63,9 @@ int wifi_mac_security_req(struct wlan_net_vif *wnet_vif, int cipher, int flags, 
         return 0;
     }
 
-    WIFINET_DPRINTF(AML_DEBUG_DEBUG," k->wk_keyix = %d new %s ,old %s\n", key->wk_keyix, cip->wm_name, key->wk_cipher->wm_name);
+    WIFINET_DPRINTF(AML_DEBUG_DEBUG, "kid:%d, cipher:%d, wk_flags:0x%x, flags:0x%x, new:%s, old:%s\n",
+                    key->wk_keyix, cipher, key->wk_flags, flags, cip->wm_name, key->wk_cipher->wm_name);
+
     oflags = key->wk_flags;
     flags &= WIFINET_KEY_COMMON;
 
@@ -122,6 +125,7 @@ void wifi_mac_security_delt_default_key(struct wlan_net_vif *wnet_vif)
     wifi_mac_KeyUpdateBegin(wnet_vif);
     for (i = 0; i < WIFINET_WEP_NKID; i++)
         (void) wifi_mac_security_delkey(wnet_vif, &wnet_vif->vm_nw_keys[i], wnet_vif->vm_mainsta);
+    wnet_vif->vm_key_bitmap = 0;
     wifi_mac_KeyUpdateEnd(wnet_vif);
 }
 
@@ -865,10 +869,10 @@ int wifi_mac_key_delete(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key
 {
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
     int staid = 0;
-    DPRINTF(AML_DEBUG_WARNING, "%s, sta_associd:%d, key_index:%d\n", __func__, stanfo->sta_associd, k->wk_keyix);
+    DPRINTF(AML_DEBUG_WARNING, "%s, vid:%d, aid:0x%x, kid:%d\n", __func__, wnet_vif->wnet_vif_id, stanfo->sta_associd, k->wk_keyix);
 
     staid = stanfo->sta_associd & 0xff;
-    wifimac->drv_priv->drv_ops.key_delete(wifimac->drv_priv,wnet_vif->wnet_vif_id, k->wk_keyix, staid);
+    wifimac->drv_priv->drv_ops.key_delete(wifimac->drv_priv,wnet_vif->wnet_vif_id, k->wk_keyix, staid, k->wk_flags & WIFINET_KEY_GROUP);
     return 1;
 }
 
@@ -917,12 +921,6 @@ int wifi_mac_key_set(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key *k
                 WIFINET_ADDR_COPY(gmac, peermac);
                 gmac[0] |= 0x01;
                 mac = gmac;
-                if (hk.kv_type == HAL_KEY_TYPE_WEP) {
-                    struct wifi_station *sta;
-                    sta = (wnet_vif->vm_mainsta);
-                    memcpy(&sta->sta_ucastkey,k,sizeof(struct wifi_mac_key));
-                    sta->sta_ucastkey.wk_flags |= WIFINET_KEY_NOFREE;
-                }
                 break;
 
             case WIFINET_M_IBSS:
@@ -956,12 +954,6 @@ int wifi_mac_key_set(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key *k
                 break;
 
             case WIFINET_M_HOSTAP:
-                if (hk.kv_type == HAL_KEY_TYPE_WEP) {
-                    struct wifi_station *sta;
-                    sta = (wnet_vif->vm_mainsta);
-                    memcpy(&sta->sta_ucastkey,k,sizeof(struct wifi_mac_key));
-                    sta->sta_ucastkey.wk_flags |= WIFINET_KEY_NOFREE;
-                }
                 WIFINET_ADDR_COPY(gmac, peermac);
                 gmac[0] |= 0x01;
                 mac = gmac;
@@ -994,6 +986,8 @@ int wifi_mac_key_set(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key *k
                     k->wk_keyix, &hk, mac) != 0);
         DPRINTF(AML_DEBUG_KEY, "<running> %s %d %d\n",__func__,__LINE__,status);
     }
+
+    wnet_vif->vm_key_bitmap |= (k->wk_flags & WIFINET_KEY_GROUP) ? BIT(k->wk_keyix) : BIT(k->wk_keyix + WIFINET_UKEY_BITMAP_OFT);
 
     if ((mac != NULL) && (cip->wm_cipher == WIFINET_CIPHER_TKIP) && ((k->wk_flags & WIFINET_KEY_GROUP) == 0))
     {

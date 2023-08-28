@@ -109,8 +109,10 @@ static void  wifi_mac_pwrsave_wakeup_ex(SYS_TYPE param1,
 {
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param1;
 
+    ASSERT(param2 < WAKEUP_REASON_MAX);
+
     wifi_mac_pwrsave_sleep_wait_cancel(wnet_vif);
-    wifi_mac_pwrsave_wakeup(wnet_vif, WKUP_FROM_TRANSMIT);
+    wifi_mac_pwrsave_wakeup(wnet_vif, (enum wifinet_ps_wk_reason)param2);
 
     if ((wnet_vif->vm_opmode == WIFINET_M_STA) && (wnet_vif->vm_state == WIFINET_S_CONNECTED))
     {
@@ -126,7 +128,13 @@ static void  wifi_mac_pwrsave_wakeup_ex(SYS_TYPE param1,
 void wifi_mac_pwrsave_wakeup_for_tx (struct wlan_net_vif *wnet_vif)
 {
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
-    wifi_mac_add_work_task(wifimac, wifi_mac_pwrsave_wakeup_ex, NULL, (SYS_TYPE)wnet_vif, 0, 0, 0, 0);
+    wifi_mac_add_work_task(wifimac, wifi_mac_pwrsave_wakeup_ex, NULL, (SYS_TYPE)wnet_vif, WKUP_FROM_TRANSMIT, 0, 0, 0);
+}
+
+void wifi_mac_pwrsave_wakeup_for_rx (struct wlan_net_vif *wnet_vif)
+{
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+    wifi_mac_add_work_task(wifimac, wifi_mac_pwrsave_wakeup_ex, NULL, (SYS_TYPE)wnet_vif, WKUP_FROM_RECEIVE, 0, 0, 0);
 }
 
 void wifi_mac_pwrsave_restore_sleep(struct wlan_net_vif *wnet_vif)
@@ -785,7 +793,7 @@ int wifi_mac_buffer_txq_send(struct sk_buff_head *txqueue)
         if (!sta_find_in_sta_tbl(sta)) {
             AML_OUTPUT("not find sta: %p free skb\n",sta);
             aml_skb_unlink(skb,txqueue);
-            wifi_mac_free_skb(skb);
+            wifi_mac_add_work_task(wifi_mac_get_mac_handle(), wifi_mac_free_skb_task, NULL, 0, (SYS_TYPE)skb, 0, 0, 0);
         }
     }
 
@@ -1467,7 +1475,7 @@ void wifi_mac_pwrsave_state_change(struct wifi_station *sta, int enable)
         sta->sta_flags &= ~WIFINET_NODE_PWR_MGT;
         if (wifi_mac_pwrsave_is_wnet_vif_sleeping(wnet_vif) == 0)
         {
-            wifi_mac_pwrsave_wakeup(wnet_vif, WKUP_FROM_RECEIVE);
+            wifi_mac_pwrsave_wakeup_for_rx(wnet_vif);
         }
     }
 
@@ -1828,7 +1836,7 @@ int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
 }
 extern struct usb_device *g_udev;
 extern unsigned char hal_wake_fw_req(void);
-int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
+void wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5)
 {
@@ -1841,22 +1849,21 @@ int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
     AML_OUTPUT("\n");
     WIFINET_PWRSAVE_MUTEX_LOCK(wnet_vif);
 
-    printk("------usb state: 0x%x\n", g_udev->state);
-    while (g_udev->state != USB_STATE_CONFIGURED)
-    {
-        udelay(100);
-    }
-    printk("--------usb configured-------\n");
-
     if (aml_bus_type)
     {
+        printk("------usb state: 0x%x\n", g_udev->state);
+        while (g_udev->state != USB_STATE_CONFIGURED)
+        {
+            udelay(100);
+        }
+        printk("--------usb configured-------\n");
         usb_submit_urb(g_urb, GFP_ATOMIC);
     }
 
     if (wifimac->wm_suspend_mode == WIFI_SUSPEND_STATE_NONE)
     {
         WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
-        return 0;
+        return ;
     }
 
     list_for_each_entry_safe(wnet_vif_tmp, wnet_vif_next, &wifimac->wm_wnet_vifs, vm_next)
@@ -1899,7 +1906,7 @@ int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
             WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
             wnet_vif->vm_scan_hang = 0;
             netif_wake_queue(wnet_vif->vm_ndev);
-            return 0;
+            return ;
         }
         wifimac->drv_priv->drv_ops.drv_set_suspend(wifimac->drv_priv, wnet_vif->wnet_vif_id, DISABLE,
             WIFI_SUSPEND_STATE_NONE, 0);
@@ -1915,7 +1922,7 @@ int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
     WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
     wnet_vif->vm_scan_hang = 0;
     netif_wake_queue(wnet_vif->vm_ndev);
-    return 0;
+    return ;
 }
 
 int wifi_mac_pwrsave_wow_check(struct wlan_net_vif *wnet_vif)

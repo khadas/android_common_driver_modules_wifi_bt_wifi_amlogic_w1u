@@ -33,7 +33,16 @@
 #include "wifi_mac_main_reg.h"
 #include "wifi_mac_tx_reg.h"
 #include "wifi_mac_xmit.h"
+#include "wifi_common.h"
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <net/sock.h>
+#include <asm/types.h>
+#include <linux/netlink.h>
+#include <linux/skbuff.h>
 
+
+#define AML_TRACE_NL_PROTOCOL (28)
 
 
 const unsigned char drv_bcast_mac[WIFINET_ADDR_LEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -42,10 +51,27 @@ static unsigned int drv_phy_reg_sta_id( struct drv_private *drv_priv,
     unsigned char wnet_vif_id,unsigned short StaAid, unsigned char *pMac, unsigned char encrypt);
 
 static struct drv_private drv_priv;
+extern lp_shutdown_func g_lp_shutdown_func;
 extern void hal_dpd_calibration(void);
 extern struct notifier_block aml_inetaddr_cb;
 extern struct notifier_block aml_inet6addr_cb;
 extern int hal_tx_flush(unsigned char vid);
+struct aml_trace_nl_info {
+    struct sock * fw_log_sock;
+    int user_pid;
+    int enable;
+};
+enum {
+    AML_TRACE_FW_LOG_START = 0xFF01,
+    AML_TRACE_FW_LOG_STOP,
+    AML_TRACE_FW_LOG_UPLOAD,
+};
+struct log_nl_msg_info {
+    int msg_type;
+    int msg_len;
+};
+
+struct aml_trace_nl_info g_trace_nl_info;
 
 struct drv_private* drv_get_drv_priv(void)
 {
@@ -233,6 +259,107 @@ drv_scan_end( struct drv_private *drv_priv)
         NULL, (SYS_TYPE)drv_priv, 0, 0, 0, 0);
 }
 
+// recv msg handl function
+static void aml_recv_netlink(struct sk_buff *skb)
+{
+    struct nlmsghdr *nlh;
+    struct log_nl_msg_info * nl_log_info = NULL;
+
+    nlh = nlmsg_hdr(skb); // get msg body
+    AML_OUTPUT("kernel rcv msg type: %d, pid: %d, len: %d, flag: %d, seq: %d\n",
+        nlh->nlmsg_type, nlh->nlmsg_pid, nlh->nlmsg_len, nlh->nlmsg_flags, nlh->nlmsg_seq);
+    nl_log_info = (struct nl_log_info*)NLMSG_DATA(nlh);
+    switch (nl_log_info->msg_type) {
+        case AML_TRACE_FW_LOG_START:
+            g_trace_nl_info.user_pid = nlh->nlmsg_pid;
+            g_trace_nl_info.enable = 1;
+            AML_OUTPUT("user space process (pid: %d) start recv fw log !!!!\n", g_trace_nl_info.user_pid);
+            break;
+        case AML_TRACE_FW_LOG_STOP:
+            g_trace_nl_info.enable = 0;
+            AML_OUTPUT("user space process (pid: %d) stop recv fw log !!!!\n", g_trace_nl_info.user_pid);
+            break;
+        default:
+            AML_OUTPUT("unknown msg (0x%x) from user space process (pid: %d), ignore !!!!\n",
+                nl_log_info->msg_type, g_trace_nl_info.user_pid);
+            break;
+    }
+
+    return;
+}
+
+int aml_log_nl_init(void)
+{
+    struct netlink_kernel_cfg cfg = {
+        .input = aml_recv_netlink,
+    };
+    memset(&g_trace_nl_info, 0, sizeof(struct log_nl_msg_info));
+    g_trace_nl_info.fw_log_sock = netlink_kernel_create(&init_net, AML_TRACE_NL_PROTOCOL, &cfg);
+    if (!g_trace_nl_info.fw_log_sock) {
+        AML_OUTPUT("aml trace netlink init failed");
+        return -1;
+    }
+
+    AML_OUTPUT("aml trace netlink init OK!\n");
+    return 0;
+}
+void aml_log_nl_deinit(void)
+{
+    if (g_trace_nl_info.fw_log_sock) {
+        netlink_kernel_release(g_trace_nl_info.fw_log_sock);
+    }
+    AML_OUTPUT("fw log upload socket deinit!!!\n");
+
+    return;
+}
+int aml_send_log_to_user(char *pbuf, uint16_t len, int msg_type)
+{
+    struct sk_buff *nl_skb;
+    struct nlmsghdr *nlh = NULL;   //msg head
+    struct log_nl_msg_info * nl_log_info = NULL;
+    int ret;
+    static int seq_num = 0;
+    int buf_len = NLMSG_SPACE(len + sizeof(struct log_nl_msg_info));
+
+    if (!g_trace_nl_info.fw_log_sock || !g_trace_nl_info.user_pid ||
+        !g_trace_nl_info.enable) {
+        AML_OUTPUT("kernel trace nl sock para invalid , can not upload msg to user\n");
+        return -1;
+    }
+    //create sk_buff
+    nl_skb = nlmsg_new(buf_len, GFP_ATOMIC);
+    if (!nl_skb)
+    {
+        AML_OUTPUT("netlink alloc failure\n");
+        return -1;
+    }
+
+    /* build netlink msg head */
+    nlh = nlmsg_put(nl_skb, 0, 0, AML_TRACE_NL_PROTOCOL, buf_len, 0);
+    if (nlh == NULL)
+    {
+        AML_OUTPUT("nlmsg_put failaure \n");
+        nlmsg_free(nl_skb);
+        return -1;
+    }
+    NETLINK_CB(nl_skb).portid = 0;
+    NETLINK_CB(nl_skb).dst_group = 0;
+    nl_log_info = (struct nl_log_info*)nlmsg_data(nlh);
+    nl_log_info->msg_len = len;
+    nl_log_info->msg_type = msg_type;
+    nlh->nlmsg_seq = seq_num++;
+
+    /* copy data and send it */
+    if (pbuf) {
+        memcpy(nlmsg_data(nlh) + sizeof(struct log_nl_msg_info), pbuf, len);
+    }
+    ret = netlink_unicast(g_trace_nl_info.fw_log_sock, nl_skb, g_trace_nl_info.user_pid, 0);
+
+    AML_OUTPUT("==== kernel upload msg to user result: %d, seq: %d\n", ret, seq_num - 1);
+    return ret;
+
+}
+
 unsigned char print_ctl = 0;
 extern unsigned char print_type;
 static void drv_print_fwlog_ex( SYS_TYPE param1,SYS_TYPE param2,SYS_TYPE param3,
@@ -240,8 +367,8 @@ static void drv_print_fwlog_ex( SYS_TYPE param1,SYS_TYPE param2,SYS_TYPE param3,
 {
     unsigned char* logbuf_ptr = (unsigned char *)param1;
     int databyte = (int)param2;
-    unsigned char new_string[64] = {0};
-    int i = 0;
+    //unsigned char new_string[64] = {0};
+    //int i = 0;
 
     if (print_type == 1) //auto
     {
@@ -253,9 +380,13 @@ static void drv_print_fwlog_ex( SYS_TYPE param1,SYS_TYPE param2,SYS_TYPE param3,
             logbuf_ptr += databyte;
         }
     }
-
+    if (g_trace_nl_info.enable) {
+        aml_send_log_to_user(logbuf_ptr, (int)param2, AML_TRACE_FW_LOG_UPLOAD);
+    } else {
+        storeFwlogToFile(logbuf_ptr, databyte);
+    }
     /* print process */
-    AML_OUTPUT("logbuf_ptr 0x%x\n", logbuf_ptr);
+    /*AML_OUTPUT("logbuf_ptr 0x%x\n", logbuf_ptr);
     AML_OUTPUT("fw_log:\n");
     while (databyte--)
     {
@@ -270,11 +401,11 @@ static void drv_print_fwlog_ex( SYS_TYPE param1,SYS_TYPE param2,SYS_TYPE param3,
         }
 
         logbuf_ptr++;
-    }
+    }*/
     /* exit the loop and need to print the remaining characters */
-    AML_OUTPUT("%s", new_string);
+    //AML_OUTPUT("%s", new_string);
 
-    AML_OUTPUT("\nfwlog_print end\n");
+    //AML_OUTPUT("\nfwlog_print end\n");
 }
 
 static void drv_print_fwlog(unsigned char *logbuf_ptr, int databyte)
@@ -566,7 +697,7 @@ int  drv_hal_tx_frm_pause(struct drv_private *drv_priv, int pause)
     return drv_priv->hal_priv->hal_ops.hal_txframe_pause(pause);
 }
 
-static int
+static void
 clear_staid_and_bssid_ex(SYS_TYPE param1,
     SYS_TYPE param2, SYS_TYPE param3,
     SYS_TYPE param4,SYS_TYPE param5)
@@ -580,7 +711,7 @@ clear_staid_and_bssid_ex(SYS_TYPE param1,
     wnet_vif = drv_priv->drv_wnet_vif_table[wnet_vif_id];
     if (wnet_vif == NULL)
     {
-        return -EINVAL;
+        return ;
     }
 
     driv_ps_wakeup(drv_priv);
@@ -589,7 +720,7 @@ clear_staid_and_bssid_ex(SYS_TYPE param1,
         drv_set_bssid(drv_priv, wnet_vif_id, bssid);
     }
     driv_ps_sleep(drv_priv);
-    return 0;
+    return ;
 }
 
 static int
@@ -602,7 +733,7 @@ drv_clear_staid_and_bssid(struct drv_private *drv_priv,
     return 0;
 }
 
-static int
+static void
 drv_wnet_vif_disconnect_ex(SYS_TYPE param1,
     SYS_TYPE param2, SYS_TYPE param3,
     SYS_TYPE param4,SYS_TYPE param5)
@@ -613,7 +744,7 @@ drv_wnet_vif_disconnect_ex(SYS_TYPE param1,
     driv_ps_wakeup(drv_priv);
     drv_hal_wnet_vifdisconnect(wnet_vif_id);
     driv_ps_sleep(drv_priv);
-    return 0;
+    return ;
 }
 
 static int
@@ -668,14 +799,12 @@ void drv_get_sts( struct drv_private *drv_priv,
         sta = connect_wnet->vm_mainsta;
         drv_sta = sta->drv_sta;
         AML_OUTPUT("\n--------drv statistic--------\n");
-        for (i=0; i< WME_NUM_AC; i++)
-        {
+        for (i=0; i< WME_NUM_AC;i++) {
             txlist = drv_txlist_initial(drv_priv,i);
             AML_OUTPUT("queen %d ac_queue_buffer_in_drv %d\n", i, txlist->txds_pending_cnt);
 
         }
-        for (i=0; i< WME_NUM_TID; i++)
-        {
+        for (i=0; i< WME_NUM_TID;i++) {
             tid = &drv_sta->tx_agg_st.tid[i];
             AML_OUTPUT("tid %d tid_queue_buffer_in_drv %d, msdu_count %d\n", i,WIFINET_SAVEQ_QLEN(&tid->tid_tx_buffer_queue), wifimac->msdu_cnt[i]);
 
@@ -1053,34 +1182,38 @@ drv_key_rst_ex(SYS_TYPE param1,SYS_TYPE param2,
     unsigned char wnet_vif_id = (unsigned char)param2;
     unsigned short key_index = (unsigned short )param3;
     int staid = (int)param4;
+    unsigned char group = (unsigned char)param5;
     struct wlan_net_vif *wnet_vif = drv_priv->drv_wnet_vif_table[wnet_vif_id];
 
     driv_ps_wakeup(drv_priv);
 
-    AML_OUTPUT("wnet_vif_id:%d, staid:%d, key_index:%d\n", wnet_vif_id, staid, key_index);
+    AML_OUTPUT("vid:%d, aid:%d, kid:%d, vm_opmode:%d, vm_phase_flags:0x%x\n",
+                wnet_vif_id, staid, key_index, wnet_vif->vm_opmode, wnet_vif->vm_phase_flags);
 
     if (staid == 0) {
         drv_hal_keyreset(wnet_vif_id, key_index);
-            if ((wnet_vif->vm_opmode == WIFINET_M_STA) &&
-                 (wnet_vif->vm_phase_flags & PHASE_DISCONNECTING) &&
-                 key_index) {
-                wnet_vif->vm_phase_flags &= ~PHASE_DISCONNECTING;
-                wifi_mac_scan_access(wnet_vif);
-            }
     } else {
         drv_hal_keyclear(wnet_vif_id, staid);
+    }
+    wnet_vif->vm_key_bitmap &= ~(group ? BIT(key_index) : BIT(key_index + WIFINET_UKEY_BITMAP_OFT));
+    if ((wnet_vif->vm_opmode == WIFINET_M_STA) &&
+         (wnet_vif->vm_phase_flags & PHASE_DISCONNECTING) &&
+         wnet_vif->vm_key_bitmap == 0) {
+        wnet_vif->vm_phase_flags &= ~PHASE_DISCONNECTING;
+        wifi_mac_scan_access(wnet_vif);
+        AML_OUTPUT("disconnect complete!\n");
     }
     driv_ps_sleep(drv_priv);
 }
 
 static void
 drv_key_rst( struct drv_private * drv_priv,unsigned char wnet_vif_id,
-    unsigned short key_index, int staid)
+    unsigned short key_index, int staid, unsigned char group)
 {
     drv_hal_add_workitem( (WorkHandler)drv_key_rst_ex,NULL,
                          (SYS_TYPE)drv_priv,(SYS_TYPE)wnet_vif_id,
                          (SYS_TYPE)key_index,(SYS_TYPE)staid,
-                         (SYS_TYPE)0);
+                         (SYS_TYPE)group);
 }
 
 static int
@@ -1392,6 +1525,22 @@ void aml_set_mac_control_register(void)
     drv_write_word(MAC_CONTROL, read_tmp);
 }
 
+void aml_lp_shutdown_send_req(void)
+{
+    int value = 0;
+
+    value = aml_send_me_shutdown();
+    if (!value)
+    {
+        printk("shut_msg send fail! \n");
+    }
+}
+
+void aml_interface_shutdown_init(void)
+{
+    g_lp_shutdown_func = aml_lp_shutdown_send_req;
+}
+
 int aml_driv_attach( struct drv_private *drv_priv, struct wifi_mac* wmac)
 {
     int i ;
@@ -1538,6 +1687,10 @@ int aml_driv_attach( struct drv_private *drv_priv, struct wifi_mac* wmac)
     aml_set_mac_control_register();
 
     drv_cfg_load_from_file();
+
+    // init sdio/usb/pcie interface
+    //aml_lp_shutdown_func_register
+    aml_interface_shutdown_init();
     return 0;
 
 bad:
@@ -1547,6 +1700,7 @@ bad:
 void aml_driv_detach( struct drv_private * drv_priv)
 {
     int i;
+    g_lp_shutdown_func = NULL;
 
     drv_stop(drv_priv);
     if (drv_priv->net_ops) {
@@ -1912,7 +2066,7 @@ static void drv_intr_bcn_send_ok(void * dpriv,unsigned char vma_id)
     struct wifi_mac *wifimac;
     struct sk_buff *skb;
     unsigned char rate = 0;
-    unsigned short flag;
+    unsigned short flag = 0;
 
     wnet_vif  = drv_priv->drv_wnet_vif_table[vma_id];
     if((wnet_vif== NULL)||(wnet_vif->vm_state != WIFINET_S_CONNECTED))
@@ -1930,7 +2084,7 @@ static void drv_intr_bcn_send_ok(void * dpriv,unsigned char vma_id)
         if(skb)
         {
             drv_priv->net_ops->wifi_mac_update_beacon(drv_priv->wmac, vma_id,skb, 0);
-            drv_hal_put_bcn_buf(vma_id, os_skb_data(skb), os_skb_get_pktlen(skb), rate, wnet_vif->vm_bandwidth);
+            drv_hal_put_bcn_buf(vma_id, os_skb_data(skb), os_skb_get_pktlen(skb), rate, flag);
         }
         else
         {
@@ -2330,6 +2484,13 @@ static void drv_intr_fw_event(void *dpriv, void *event)
             break;
         }
 
+        case WOW_WAKE_EVENT:
+        {
+            struct wow_wake_event *wow_event = (struct wow_wake_event *)fw_event;
+            wifimac->wow_wakeup_reason = wow_event->reason;
+            break ;
+        }
+
         default:
             break;
     }
@@ -2410,11 +2571,12 @@ static void drv_intr_bt_info_change(void * dpriv, unsigned char wnet_vif_id,unsi
             break;
         }
 
-        if (p_wifi_mac->bt_lk != (!((reg_val2 & BIT(31))>>31) && ((reg_val & BIT(24))>>24)))
+        if ((p_wifi_mac->bt_lk != (!((reg_val2 & BIT(31)) >> 31) && (((reg_val & BIT(24)) >> 24) || ((reg_val & BIT(25)) >> 25))))
+            || (bt_lk_change == 1))
         {
-             p_wifi_mac->bt_lk = (!((reg_val2 & BIT(31))>>31) && ((reg_val & BIT(24))>>24));
+             p_wifi_mac->bt_lk = (!((reg_val2 & BIT(31)) >>   31) && (((reg_val & BIT(24)) >> 24) || ((reg_val & BIT(25)) >> 25)));
              wifi_mac_set_channel_rssi(p_wifi_mac, (unsigned char)(wnet_vif->vm_mainsta->sta_avg_bcn_rssi));
-             AML_OUTPUT("p_wifi_mac->bt_lk,value=%d %d %d\n",p_wifi_mac->bt_lk, !((reg_val2 & BIT(31))>>31), ((reg_val & BIT(24))>>24));
+             AML_OUTPUT("p_wifi_mac->bt_lk,value=%d %d %d %d\n", p_wifi_mac->bt_lk, !((reg_val2 & BIT(31)) >> 31), ((reg_val & BIT(24)) >> 24), ((reg_val & BIT(25)) >> 25));
         }
 
         if (bt_lk_change == 1) {/*BT link info change*/
@@ -2620,6 +2782,8 @@ struct aml_hal_call_backs hal_call_back_table =
     .intr_beacon_miss_handle = drv_intr_beacon_miss,
     .drv_intr_bt_info_change  = drv_intr_bt_info_change,
     .drv_pwrsave_wake_req = drv_pwrsave_wake_req,
+    .drv_trace_nl_init = aml_log_nl_init,
+    .drv_trace_nl_deinit = aml_log_nl_deinit,
 };
 
 struct aml_hal_call_backs* get_hal_call_back_table(void)

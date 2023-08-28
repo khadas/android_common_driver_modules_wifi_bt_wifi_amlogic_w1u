@@ -1427,6 +1427,10 @@ struct wifi_mac_ie_vht_ch_sw_wrp
  * 802.11ac Wide Bandwidth Channel Switch Element
  */
 
+enum wifi_mac_new_channel_width {
+    NEW_CHANNEL_BANDWIDTH40 = 0,
+    NEW_CHANNEL_BANDWIDTH80 = 1,
+};
 
 struct wifi_mac_ie_vht_wide_bw_switch {
     unsigned char    elem_id;

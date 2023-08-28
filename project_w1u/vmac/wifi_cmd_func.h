@@ -137,4 +137,5 @@ extern int aml_set_tx_power_plan(struct wlan_net_vif *wnet_vif, char* buf, int l
 extern int aml_wpa_set_debug(struct wlan_net_vif *wnet_vif, char* buf, int len);
 extern int aml_wpa_get_efuse(struct wlan_net_vif *wnet_vif, char* buf, int len);
 extern int aml_wpa_set_efuse(struct wlan_net_vif *wnet_vif, char* buf, int len);
+extern void wifi_mac_set_cf_end(struct wlan_net_vif *wnet_vif, unsigned char is_enable);
 #endif

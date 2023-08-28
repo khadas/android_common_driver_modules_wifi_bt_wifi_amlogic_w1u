@@ -81,6 +81,32 @@ typedef struct
     int num;
 }reg_addr_attr_t;
 
+struct pt_cali_bits {
+    unsigned int channel:8,
+                 bw:2,
+                 rsvd1:6,
+                 band:1,
+                 rsvd2:14,
+                 link_flag:1;
+};
+
+#define LOW_DAC_MCS_OFT (2)//mcs0-2 dac3, mcs3-9 dac5
+#define LOW_MCS_GAIN_COMPENSATE (-2)//dBm
+
+struct digital_gain_reg_bits {
+    unsigned int rsvd1:16,
+                 enable:1,
+                 rsvd2:7,
+                 gain:8;
+};
+
+struct key_gain_efuse_power_map {
+    unsigned char param_name[30];
+    unsigned char default_abs_power;
+    unsigned char word_addr;
+    unsigned char byte_oft;
+};
+
 enum aml_iwpriv_subcmd
 {
     AML_IWP_ADDBA_REQ = 1,
@@ -166,6 +192,25 @@ enum aml_iwpriv_subcmd
     AML_IWP_GET_EN_RF_TEST = 81,
     AML_IWP_SET_RX_SIZE = 82,
     AML_IWP_MEM_DUMP = 83,
+    AML_IWP_SET_PT_CALIBRATION = 84,
+    AML_IWP_SET_TX_PATH = 85,
+    AML_IWP_SET_TX_BW = 86,
+    AML_IWP_SET_TX_MODE = 87,
+    AML_IWP_SET_TX_RATE = 88,
+    AML_IWP_SET_TX_TYPE = 89,
+    AML_IWP_SET_TX_LEN = 90,
+    AML_IWP_SET_TX_NUM = 91,
+    AML_IWP_PT_TX_START = 92,
+    AML_IWP_PT_TX_END = 93,
+    AML_IWP_SET_RX_PATH = 94,
+    AML_IWP_PT_RX_START = 95,
+    AML_IWP_PT_RX_END = 96,
+    AML_IWP_SET_STBC = 97,
+    AML_IWP_SET_TX_PWR = 98,
+    AML_IWP_SET_CF_END = 99,
+    AML_IWP_SET_FLOW_CTRL = 100,
+    AML_IWP_GET_KEY_ENTRY = 101,
+    AML_IWP_SET_DELTA_TX_PWR = 102,
 };
 
 extern void dump_spec_regs_val(struct wlan_net_vif *wnet_vif, int reg_domain);

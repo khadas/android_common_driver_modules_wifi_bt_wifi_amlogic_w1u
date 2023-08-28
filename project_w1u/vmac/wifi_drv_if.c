@@ -365,6 +365,16 @@ void drv_hal_workitem_free(void)
 
 }
 
+unsigned char drv_hal_workitem_is_working(void)
+{
+    struct hal_private *hal_priv = hal_get_priv();
+    struct _CO_SHARED_FIFO* pWorkFifo = &hal_priv->WorkFifo;
+    unsigned char is_working = 0;
+
+    is_working = CO_SharedFifoEmpty(pWorkFifo, CO_WORK_FREE);
+    return is_working;
+}
+
 int drv_hal_add_workitem(WorkHandler task, WorkHandler taskcallback, SYS_TYPE param1,
     SYS_TYPE param2, SYS_TYPE param3, SYS_TYPE param4, SYS_TYPE param5)
 {

@@ -125,6 +125,8 @@ struct vm_wlan_net_vif_params
 
 #define WIFINET_TXPOWER_MAX  100
 
+#define WIFINET_TX_LIVE_TIME 700//ms
+
 #define WIFINET_TXSTREAM  1
 #define WIFINET_RXSTREAM  1
 #define WIFINET_DTIM_DEFAULT  1
@@ -496,6 +498,8 @@ struct wifi_mac
 
     struct drv_txdesc *txdesc_bufptr;/* TX descriptors buffer point*/
     struct list_head txdesc_freequeue;/* transmit buffer */
+    unsigned short txdesc_free_cnt;
+    unsigned char txdesc_flag;
     spinlock_t tx_desc_buf_lock;
     unsigned long tx_desc_buf_lock_flags;
 
@@ -514,7 +518,14 @@ struct wifi_mac
     unsigned char wm_recovery_req;
     enum wifi_mac_recovery_state recovery_stat;
     struct os_timer_ext wm_monitor_fw;
+#ifdef CHIP_RESET_SUPPORT
+    unsigned char request_upper_recovery;/* write to file sys*/
+#endif
+
     struct os_timer_ext wm_tp_rate;
+    struct os_timer_ext wm_ant_select;
+    struct os_timer_ext wm_ant_rssi_measure;
+
     spinlock_t fw_stat_lock;
 
 #if defined(SU_BF) || defined(MU_BF)
@@ -522,6 +533,7 @@ struct wifi_mac
 #endif
     struct rf_test_recover rf_test_recover;
     unsigned char wm_zgb_exist_flag;
+    unsigned int wow_wakeup_reason;
 };
 
 struct wifi_net_vif_ops
@@ -718,9 +730,13 @@ struct wlan_net_vif
     int vm_mqueue_flag_send;
 #endif
 
+    /* Default unicast key id */
+    unsigned char vm_def_utxkey;
+    /* Default multicast key id */
     unsigned char vm_def_txkey;
     unsigned char vm_def_mgmt_txkey;
     struct wifi_mac_key vm_nw_keys[WIFINET_WEP_NKID];
+    unsigned int vm_key_bitmap;
     unsigned int current_keytype;
     /* wpa2 pmk list */
     struct aml_pmk_list *pmk_list;

@@ -231,8 +231,10 @@ void hal_soft_rx_cs(struct hal_private *hal_priv, struct sk_buff *skb)
     if ((RxPrivHdr_bit->mic_err) || (RxPrivHdr_bit->keymiss_err) || (RxPrivHdr_bit->icv_err)
         || (hal_priv->hal_call_back->intr_rx_handle == NULL))
     {
-        if (!(print_count++ % 100))
-            PRINT("mic_err = %d, keymiss_err %d wnet_vif_id %d\n",RxPrivHdr_bit->mic_err, RxPrivHdr_bit->keymiss_err,wnet_vif_id);
+        if (!(print_count++ % 100)) {
+            AML_OUTPUT("vid:%d, mic_err:%d, keymiss_err:%d, icv_err:%d\n", wnet_vif_id,
+                       RxPrivHdr_bit->mic_err, RxPrivHdr_bit->keymiss_err, RxPrivHdr_bit->icv_err);
+        }
 
         if (RxPrivHdr_bit->mic_err) {
             pkt_drop = hal_priv->hal_call_back->pmf_encrypt_pkt_handle(hal_priv->drv_priv, skb, RxPrivHdr_bit->RxRSSI_ant0,
@@ -1416,8 +1418,9 @@ void  hal_tx_frame(void)
 #endif
                 aggr_page_num += pTxDPape->TxPriv.aggr_page_num;
 #if defined (HAL_FPGA_VER)
-                AML_PRINT(AML_DBG_MODULES_TX, "TxPriv.aggr_page_num:%d <= txPageFreeNum:%d, TxPriv.AggrNum:%d <= q_fifo_set_cnt:%d, "\
+                AML_PRINT(AML_DBG_MODULES_TX, "vif_id(%d), queue(%d), TxPriv.aggr_page_num:%d <= txPageFreeNum:%d, TxPriv.AggrNum:%d <= q_fifo_set_cnt:%d, "\
                     "AggrNum:%d + mpdu_num:%d, aggr_page_num:%d, len:%d, sn:%d(0x%04x)\n",
+                    pTxDPape->TxPriv.vid, txqueueid,
                     pTxDPape->TxPriv.aggr_page_num, hal_priv->txPageFreeNum, pTxDPape->TxPriv.AggrNum, q_fifo_set_cnt,
                     AggrNum, mpdu_num, aggr_page_num, pTxDPape->TxPriv.AggrLen, pTxDPape->TxPriv.SN, pTxDPape->TxPriv.SN);
 #endif
@@ -2511,43 +2514,54 @@ int hal_reinit_priv(void) {
 
 extern unsigned int rf_read_register(unsigned int addr);
 extern void rf_write_register(unsigned int addr,unsigned int data);
+#ifdef SDIO_MODE_ON
+extern unsigned char wifi_sdio_access;
+#endif
+extern unsigned char wifi_usb_access;
 void hal_exit_priv(void)
 {
     struct hal_private *hal_priv = hal_get_priv();
-    struct hw_interface *hif = hif_get_hw_interface();
 #ifdef PROJECT_T9026
     RG_PMU_A22_FIELD_T pmu_a22;
 #endif
-    unsigned int reg_val = 0;
 
     if (!hal_priv)
     {
         PRINT("%s %d\n", __func__, __LINE__);
         return;
     }
+    AML_OUTPUT("in\n");
+#ifdef SDIO_MODE_ON
+    if ((aml_bus_type == 0 && wifi_sdio_access == 1) || (aml_bus_type == 1 && wifi_usb_access == 1))
+#else
+    if (wifi_usb_access == 1)
+#endif
+    {
+        struct hw_interface *hif = hif_get_hw_interface();
+        unsigned int reg_val = 0;
+        /*switch rf to SX mode or sleep mode,because of interfence BT*/
+        reg_val = rf_read_register(RG_TOP_A2);
+        reg_val = reg_val &(~0x1f);
+        /*RF enter sx mode*/
+       // reg_val = reg_val |(0x15 );
 
-    /*switch rf to SX mode or sleep mode,because of interfence BT*/
-    reg_val = rf_read_register(RG_TOP_A2);
-    reg_val = reg_val &(~0x1f);
-    /*RF enter sx mode*/
-   // reg_val = reg_val |(0x15 );
+        /*RF enter sleep mode*/
+        //reg_val = reg_val |(0x10 );
 
-    /*RF enter sleep mode*/
-    //reg_val = reg_val |(0x10 );
+        /*2.4G sx mode*/
+        reg_val |= 0x15;
+        rf_write_register(RG_TOP_A2, reg_val);
 
-    /*2.4G sx mode*/
-    reg_val |= 0x15;
-    rf_write_register(RG_TOP_A2, reg_val);
+        /*infor BT ,wifi not work*/
+        reg_val  = hif->hif_ops.hi_read_word(RG_PMU_A16);
+        reg_val &= (~BIT(31));
+        hif->hif_ops.hi_write_word(RG_PMU_A16, reg_val);
 
-    /*infor BT ,wifi not work*/
-    reg_val  = hif->hif_ops.hi_read_word(RG_PMU_A16);
-    reg_val &= (~BIT(31));
-    hif->hif_ops.hi_write_word(RG_PMU_A16, reg_val);
-
-   /*close all WIFI coexist thread*/
-    reg_val  = hif->hif_ops.hi_read_word(RG_COEX_WF_OWNER_CTRL);
-    reg_val &= (~BIT(28) );
-    hif->hif_ops.hi_write_word(RG_COEX_WF_OWNER_CTRL, reg_val);
+       /*close all WIFI coexist thread*/
+        reg_val  = hif->hif_ops.hi_read_word(RG_COEX_WF_OWNER_CTRL);
+        reg_val &= (~BIT(28) );
+        hif->hif_ops.hi_write_word(RG_COEX_WF_OWNER_CTRL, reg_val);
+    }
 
     hal_kill_thread();
 

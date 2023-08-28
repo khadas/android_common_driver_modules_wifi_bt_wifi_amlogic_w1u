@@ -74,5 +74,5 @@ enum ANDROID_WIFI_CMD
 };
 
 
-int aml_android_priv_cmd(struct wlan_net_vif *wnet_vif, struct ifreq *ifr, int cmd);
+int aml_android_priv_cmd(struct wlan_net_vif *wnet_vif, void __user *data, int cmd);
 #endif //_IEEE80211_ANDROID_H_

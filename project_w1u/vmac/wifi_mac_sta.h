@@ -20,6 +20,7 @@
 #endif
 #include "wifi_mac_encrypt.h"
 #include <net/mac80211.h>
+#include "rc80211_minstrel.h"
 
 #define WIFINET_INACT_WAIT 1
 #define WIFINET_INACT_INIT (30/WIFINET_INACT_WAIT)
@@ -186,6 +187,8 @@ struct wifi_station
     unsigned short sta_flags;
     unsigned short sta_flags_ext;
 
+    unsigned char *sta_assoc_req;
+    unsigned int sta_assoc_req_ielen;
     unsigned short sta_associd;
     unsigned char sta_txpower;
     unsigned short sta_vlan;
@@ -261,6 +264,7 @@ struct wifi_station
     unsigned char sta_lmax_tx_pwr_80M;
     unsigned char sta_lmax_tx_pwr_80P80M;
 
+    bool sta_is_adding_key;
     //ch sw element
     unsigned char sta_new_country_sub_ie[SUB_IE_MAX_LEN];
     unsigned char sta_wide_bw_ch_sw_sub_ie[SUB_IE_MAX_LEN];
@@ -297,16 +301,16 @@ struct wifi_station
     #ifdef CONFIG_WFD
         unsigned char *sta_wfd_ie;
     #endif/* CONFIG_WFD */
-    #ifdef CONFIG_ROKU
+    /* roku platform indicate connect must include roku ie */
         unsigned char *sta_roku_ie;
-    #endif
 #endif /* CONFIG_P2P */
     unsigned char minstrel_init_flag;
     struct ieee80211_sta_rates sta_ieee_rates;
     struct minstrel_ht_sta_priv *sta_minstrel_ht_priv;
     struct minstrel_priv *sta_minstel_pri;
     struct minstrel_sta_info *sta_minstrel_info;
-    struct ieee80211_sta ieee_sta;
+    struct ieee80211_sta_aml ieee_sta;
+    struct aml_ratecontrol minstrel_sample_rate[MAX_THR_RATES];
     unsigned char sta_vendor_bw;
     unsigned char sta_vendor_rate_code;
     unsigned char is_disconnecting;
@@ -396,6 +400,7 @@ void wifi_mac_sta_auth(struct wifi_station *);
 void wifi_mac_StationUnauthorize(struct wifi_station *);
 void wifi_mac_create_wifi(struct wlan_net_vif*, struct wifi_channel *);
 void wifi_mac_rst_bss(struct wlan_net_vif *);
+void wifi_mac_rst_bss_ex(SYS_TYPE param1, SYS_TYPE param2, SYS_TYPE param3, SYS_TYPE param4, SYS_TYPE param5);
 void wifi_mac_rst_main_sta(struct wlan_net_vif *wnet_vif);
 int wifi_mac_connect(struct wlan_net_vif *, struct wifi_scan_info *);
 void wifi_mac_sta_leave(struct wifi_station *, int reassoc);
@@ -433,7 +438,7 @@ struct wifi_station *wifi_mac_find_mgmt_tx_sta(struct wlan_net_vif *wnet_vif, co
 
 void wifi_mac_list_sta( struct wlan_net_vif *wnet_vif);
 void wifi_mac_sta_keep_alive(struct wlan_net_vif *wnet_vif, int enable, int period);
-int wifi_mac_sta_keep_alive_ex (SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3, SYS_TYPE param4,SYS_TYPE param5);
+void wifi_mac_sta_keep_alive_ex (SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3, SYS_TYPE param4,SYS_TYPE param5);
 void wifi_mac_set_arp_agent(struct wlan_net_vif *wnet_vif, int enable);
 int wifi_mac_sta_arp_agent_ex (SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3, SYS_TYPE param4,SYS_TYPE param5);
 

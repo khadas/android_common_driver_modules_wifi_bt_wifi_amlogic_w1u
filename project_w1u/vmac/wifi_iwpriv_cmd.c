@@ -6,6 +6,7 @@
 #include "version.h"
 #include "wifi_drv_capture.h"
 #include "wifi_csi.h"
+#include "wifi_common.h"
 
 
 extern void print_driver_version(void);
@@ -16,8 +17,17 @@ extern int udp_cnt;
 extern unsigned char g_tx_power_change_disable;
 extern unsigned char g_initial_gain_change_disable;
 
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 extern int vm_cfg80211_set_bitrate_mask(struct wiphy *wiphy, struct net_device *dev,
     const unsigned char *peer, const struct cfg80211_bitrate_mask *mask);
+#else
+extern int vm_cfg80211_set_bitrate_mask(struct wiphy *wiphy, struct net_device *dev,
+                unsigned int link_id, const unsigned char *peer,
+                const struct cfg80211_bitrate_mask *mask);
+#endif
+
+
 void wifi_mac_pwrsave_set_inactime(struct wlan_net_vif *wnet_vif, unsigned int time);
 
 unsigned char g_iwpriv_get_spec_regs_flag = 0;
@@ -199,6 +209,35 @@ void dump_spec_regs_val(struct wlan_net_vif *wnet_vif, int reg_domain)
     }
 }
 
+void aml_iwpriv_set_cf_end(struct wlan_net_vif *wnet_vif, unsigned char is_enable)
+{
+    AML_OUTPUT("vid:%d, enable:%d\n", wnet_vif->wnet_vif_id, is_enable);
+
+    wifi_mac_set_cf_end(wnet_vif, is_enable);
+}
+
+void aml_iwpriv_set_flow_ctrl(struct wlan_net_vif *wnet_vif, unsigned char is_enable)
+{
+    struct wifi_mac * wifimac = wnet_vif->vm_wmac;
+
+    TX_DESC_BUF_LOCK(wifimac);
+    if (is_enable)
+    {
+        wifimac->txdesc_flag |= TXDESC_FLOW_CTRL_EN;
+    }
+    else if (!is_enable && !(wifimac->txdesc_flag & TXDESC_STOP_ALL_QUEUES))
+    {
+        wifimac->txdesc_flag &= ~TXDESC_FLOW_CTRL_EN;
+    }
+    else if (!is_enable && (wifimac->txdesc_flag & TXDESC_STOP_ALL_QUEUES))
+    {
+        AML_OUTPUT("wait wake queue, don't disable, please retry!!!\n");
+    }
+    TX_DESC_BUF_UNLOCK(wifimac);
+
+    AML_OUTPUT("vid:%d, enable:%d, txdesc_flag:0x%x\n", wnet_vif->wnet_vif_id, is_enable, wifimac->txdesc_flag);
+}
+
 int aml_iwpriv_get_spec_regs(struct wlan_net_vif *wnet_vif, int addr_range)
 {
     int reg_domain = -1;
@@ -233,6 +272,693 @@ int aml_iwpriv_get_spec_regs(struct wlan_net_vif *wnet_vif, int addr_range)
 
     return 0;
 }
+
+void aml_iwpriv_set_pt_calibration(unsigned int channel, unsigned char bw)
+{
+    struct hw_interface *hif = hif_get_hw_interface();
+    struct pt_cali_bits *ptbits = NULL;
+    unsigned int cali = 0;
+    unsigned int bw_reg = 0;
+
+    if (!aml_wifi_is_enable_rf_test()) {
+        AML_OUTPUT("Now not in pt mode, exit\n");
+        return;
+    }
+
+    if (channel < 0 || (channel > 14 && channel < 36) || channel > 165) {
+        AML_OUTPUT("Calibration error channel!\n");
+        return;
+    } else if (bw != 20 && bw != 40 && bw != 80) {
+        AML_OUTPUT("Calibration error bw!\n");
+        return;
+    }
+
+    //20MHz:0 40MHz:1 80MHz:2
+    gB2BTestCasePacket.channel_bw = (bw == 20 ? 0 : (bw == 40 ? 1 : 2));
+    gB2BTestCasePacket.channel = channel;
+
+    ptbits = (struct pt_cali_bits *)&cali;
+    ptbits->link_flag = 1;
+    ptbits->band = gB2BTestCasePacket.channel < 36 ? 0 : 1;
+    ptbits->bw = gB2BTestCasePacket.channel_bw;
+    ptbits->channel = gB2BTestCasePacket.channel;
+    hif->hif_ops.hi_write_word(0x00a100f4, cali);
+
+    bw_reg = BIT(31) | gB2BTestCasePacket.channel_bw << 28 | (gB2BTestCasePacket.channel_bw == 0 ? 0 : BIT(24));
+    hif->hif_ops.hi_write_word(0x00a0b22c, bw_reg);
+
+    AML_OUTPUT("PT tx calibration: 0x%x, band: %s, channel: %d, bw: %d0MHz\n",
+        cali, ptbits->band ? "5GHz" : "2.4GHz", ptbits->channel, BIT(ptbits->bw + 1));
+
+}
+
+void aml_iwpriv_set_tx_path(unsigned int antenna, unsigned int channel)
+{
+    struct pt_cali_bits *ptbits = NULL;
+    unsigned int reg_data = 0;
+    struct hw_interface *hif = hif_get_hw_interface();
+
+    AML_OUTPUT("antenna = %d, channel = %d\n", antenna, channel);
+
+    if ((channel > 14 && channel < 36) || channel > 165) {
+        AML_OUTPUT("error channel!\n");
+        return;
+    }
+
+    if (antenna != 0) {
+        AML_OUTPUT("W1u just support one antenna, set antenna to 0!\n");
+        antenna = 0;
+    }
+
+    if (aml_wifi_is_enable_rf_test()) {
+        gB2BTestCasePacket.channel = channel;
+
+        reg_data = hif->hif_ops.hi_read_word(0x00a100f4);
+        ptbits = (struct pt_cali_bits*)&reg_data;
+        ptbits->link_flag = 1;
+        ptbits->band = gB2BTestCasePacket.channel < 36 ? 0 : 1;
+        ptbits->channel = gB2BTestCasePacket.channel;
+        hif->hif_ops.hi_write_word(0x00a100f4, reg_data);
+
+        AML_OUTPUT("<PT> Set tx path to : antenna %d, channel %d\n", antenna, channel);
+    }
+}
+
+void aml_iwpriv_set_tx_bw(unsigned int bw)
+{
+    struct pt_cali_bits *ptbits = NULL;
+    unsigned int reg_data = 0;
+    struct hw_interface *hif = hif_get_hw_interface();
+    unsigned int bw_reg = 0;
+
+    AML_OUTPUT("bw = %d\n", bw);
+    if (bw > 2) {
+        AML_OUTPUT("Set TX BW Error: not support bw %d!\n", bw);
+        AML_OUTPUT("  [0]:20MHz, [1]:40MHz, [2]:80MHz\n");
+        return;
+    }
+
+    if (aml_wifi_is_enable_rf_test()) {
+        gB2BTestCasePacket.channel_bw = bw;
+
+        reg_data = hif->hif_ops.hi_read_word(0x00a100f4);
+        ptbits = (struct pt_cali_bits*)&reg_data;
+        ptbits->link_flag = 1;
+        ptbits->bw = gB2BTestCasePacket.channel_bw;
+        hif->hif_ops.hi_write_word(0x00a100f4, reg_data);
+
+        bw_reg = BIT(31) | bw << 28 | (bw == 0 ? 0 : BIT(24));
+        hif->hif_ops.hi_write_word(0x00a0b22c, bw_reg);
+
+        AML_OUTPUT("<PT> Set bw to %d0M\n", BIT(bw + 1));
+    }
+}
+
+static unsigned int pt_tx_mode = 0;
+void aml_iwpriv_set_tx_mode(unsigned int mode)
+{
+    AML_OUTPUT("mode = %d\n", mode);
+    if (mode > 3) {
+        AML_OUTPUT("Now just support modes [0]:11b, [1]:11g, [2]:11n, [3]:11ac, input %d\n", mode);
+        return;
+    }
+    if (aml_wifi_is_enable_rf_test()) {
+        switch (mode) {
+            case 0:
+                pt_tx_mode = 0;
+                break;
+            case 1:
+                pt_tx_mode = 0;
+                break;
+            case 2:
+                pt_tx_mode = WIFI_11N_MASK;
+                break;
+            case 3:
+                pt_tx_mode = WIFI_11AC_MASK;
+                break;
+        }
+        AML_OUTPUT("<PT> Set mode to %d\n", mode);
+    }
+}
+
+int legacy_mbps_rate2mask(unsigned int datarate)
+{
+    unsigned int map_list[] = {
+            /* 11b rate mask */ WIFI_11B_1M, WIFI_11B_2M, WIFI_11B_5M, WIFI_11B_11M,
+            /* 11g rate mask */ WIFI_11G_6M, WIFI_11G_9M, WIFI_11G_12M, WIFI_11G_18M, WIFI_11G_24M, WIFI_11G_36M, WIFI_11G_48M, WIFI_11G_54M
+        };
+    unsigned int datarate_list[] = {
+            /* 11b rate mbps */ 1, 2, 5, 11,
+            /* 11g rate mbps */ 6, 9, 12, 18, 24, 36, 48, 54
+    };
+    int map_index = 0;
+
+    for (map_index = 0; map_index < sizeof(map_list)/sizeof(map_list[0]); map_index ++) {
+        if (datarate_list[map_index] == datarate) {
+            return map_list[map_index];
+        }
+    }
+    return -1;
+}
+
+void aml_iwpriv_set_tx_rate(unsigned int rate)
+{
+    int map_rate = -1;
+
+    AML_OUTPUT("rate = %d\n", rate);
+
+    if (aml_wifi_is_enable_rf_test()) {
+        switch (pt_tx_mode) {
+            case 0:
+                if (rate > 54) {
+                    break;
+                }
+                map_rate = legacy_mbps_rate2mask(rate);
+                break;
+            case WIFI_11N_MASK:
+                if (rate > WIFI_11N_MAX) {
+                    break;
+                }
+                map_rate = WIFI_11N_MASK | rate;
+                break;
+            case WIFI_11AC_MASK:
+                if (rate > WIFI_11AC_MAX) {
+                    break;
+                }
+                map_rate = WIFI_11AC_MASK | rate;
+                break;
+        }
+        if (map_rate == -1) {
+            AML_OUTPUT("Set tx rate fail\n");
+            AML_OUTPUT("  11b: [1/2/5/11 (mbps)], 11g: [6, 9, 12, 18, 24, 36, 48, 54 (mbps)]\n");
+            AML_OUTPUT("  11n: [0-7 (mcs)], 11ac: [0-9 (mcs)]\n");
+            return;
+        }
+        gB2BTestCasePacket.data_rate = map_rate;
+        AML_OUTPUT("<PT> Set data rate to 0x%04x\n", map_rate);
+    }
+
+}
+/* AMPDU or MPDU */
+void aml_iwpriv_set_tx_type(unsigned int type)
+{
+    AML_OUTPUT("type = %d\n", type);
+    if (aml_wifi_is_enable_rf_test()) {
+        if (type <1 || type > 11) {
+            AML_OUTPUT("Not support test type\n");
+            return;
+        }
+        gB2BTestCasePacket.packet_type = type;
+        AML_OUTPUT("<PT> Set pkt_type(mpdu/ampdu) to %d\n", type);
+    }
+}
+
+void aml_iwpriv_set_tx_len(unsigned int len)
+{
+    AML_OUTPUT("len = %d\n", len);
+    if (aml_wifi_is_enable_rf_test()) {
+        gB2BTestCasePacket.pkt_length = len;
+        AML_OUTPUT("<PT> Set pkt_len(mpdu_len) to %d\n", len);
+    }
+}
+
+void aml_iwpriv_set_tx_num(unsigned int num)
+{
+    AML_OUTPUT("num = %d\n", num);
+    if (aml_wifi_is_enable_rf_test()) {
+        gB2BTestCasePacket.send_frame_num = num;
+        AML_OUTPUT("<PT> Set frame num to %d\n", num);
+    }
+}
+
+void aml_iwpriv_pt_tx_start(void)
+{
+    AML_OUTPUT("\n");
+    if (!aml_wifi_is_enable_rf_test()) {
+        return;
+    }
+    if (gB2BTestCasePacket.packet_type < 1 || gB2BTestCasePacket.packet_type > 11) {
+        gB2BTestCasePacket.packet_type = TYPE_COMMON;
+    }
+    if (gB2BTestCasePacket.send_frame_num == 0) {
+        gB2BTestCasePacket.send_frame_num = 0xffffffff;
+    }
+    AML_OUTPUT("<PT> To be send data packets and test type : %d\n", gB2BTestCasePacket.packet_type);
+    AML_OUTPUT("<PT> Please make sure set bssid mac address as the same with dest.\n");
+    AML_OUTPUT("<PT> Before calling prepare_test_hal_layer_thr_init.\n");
+    prepare_test_hal_layer_thr_init(gB2BTestCasePacket.packet_type);
+}
+
+void aml_iwpriv_pt_tx_end(void)
+{
+    AML_OUTPUT("\n");
+    if (!aml_wifi_is_enable_rf_test()) {
+        return;
+    }
+    AML_OUTPUT("<PT> Before stop tx\n");
+    Task_Schedule(TYPE_STOP_TX);
+}
+
+void aml_iwpriv_set_rx_path(unsigned char antenna, unsigned int channel)
+{
+    struct pt_cali_bits *ptbits = NULL;
+    unsigned int reg_data = 0;
+    struct hw_interface *hif = hif_get_hw_interface();
+
+    AML_OUTPUT("antenna = %d, channel = %d\n", antenna, channel);
+
+    if ((channel > 14 && channel < 36) || channel > 165) {
+        AML_OUTPUT("error channel!\n");
+        return;
+    }
+
+    if (antenna != 0) {
+        AML_OUTPUT("W1u just support one antenna, set antenna to 0!\n");
+        antenna = 0;
+    }
+
+    if (aml_wifi_is_enable_rf_test()) {
+        reg_data = hif->hif_ops.hi_read_word(0x00a100f4);
+        ptbits = (struct pt_cali_bits*)&reg_data;
+        ptbits->link_flag = 1;
+        ptbits->band = channel < 36 ? 0 : 1;
+        ptbits->channel = channel;
+        hif->hif_ops.hi_write_word(0x00a100f4, reg_data);
+
+        AML_OUTPUT("<PT> Set rx to : antenna %d, channel %d\n", antenna, channel);
+    }
+
+}
+
+void aml_iwpriv_pt_rx_start(struct net_device *dev, unsigned char qos)
+{
+    struct wlan_net_vif *wnet_vif = aml_iwpriv_get_vif(dev->name);
+
+    AML_OUTPUT("qos = %d\n", qos);
+    if (!aml_wifi_is_enable_rf_test()) {
+        return;
+    }
+    wnet_vif->vif_ops.pt_rx_start(!!qos);
+}
+
+void aml_iwpriv_pt_rx_end(struct net_device *dev)
+{
+    struct wlan_net_vif *wnet_vif = aml_iwpriv_get_vif(dev->name);
+
+    AML_OUTPUT("\n");
+    if (!aml_wifi_is_enable_rf_test()) {
+        return;
+    }
+    wnet_vif->vif_ops.pt_rx_stop();
+}
+
+void aml_iwpriv_set_stbc(struct net_device *dev, unsigned int enable)
+{
+    struct wifi_mac *wifimac = wifi_mac_get_mac_handle();
+    struct wlan_net_vif *wnet_vif = aml_iwpriv_get_vif(dev->name);
+
+    AML_OUTPUT("This action should be executed before connecting to ap or creating ap\n");
+    if (1 == enable) {
+        AML_OUTPUT("enable stbc\n");
+        wifimac->wm_flags_ext2 |= WIFINET_VHTCAP_RX_STBC;
+        wnet_vif->vm_htcap |= WIFINET_HTCAP_C_RXSTBC_1SS;
+    } else if (0 == enable) {
+        AML_OUTPUT("disable stbc\n");
+        wifimac->wm_flags_ext2 &= ~WIFINET_VHTCAP_RX_STBC;
+        wnet_vif->vm_htcap &= ~WIFINET_HTCAP_C_RXSTBC_1SS;
+    }
+    wnet_vif->vm_tx_stbc = GET_VHT_CAP_TX_STBC(wifimac->wm_flags_ext2);
+    wnet_vif->vm_rx_stbc = GET_VHT_CAP_RX_STBC(wifimac->wm_flags_ext2);
+}
+
+static unsigned int delta_pwr_map[] = // Power change delta_P, digital gain need adjust delta_pwr_map[delta_P]/100 times.
+        {
+            1000, 1122, 1258, 1412, 1584, 1778, 1995, 2238, 2511, 2818,
+            3162, 3548, 3981, 4466, 5011, 5623, 6309, 7079, 7943, 8912,
+            10000, 11220, 12589, 14125, 15848, 17782, 19952, 22387, 25118, 28183,
+            31622, 35481, 39810, 44668, 50118, 56234, 63095, 70794, 79432, 89125,
+            100000, 112201, 125892, 141253, 158489, 177827, 199526, 223872, 251188// Gain max 0xff
+        };
+
+void aml_set_delta_pwr(int delta_pwr, int base_pwr, unsigned char base_gain)
+{
+    struct hw_interface *hif = hif_get_hw_interface();
+    unsigned char map_size = sizeof(delta_pwr_map)/sizeof(delta_pwr_map[0]);
+    unsigned int reg_data = 0;
+    struct digital_gain_reg_bits *gain_bits = NULL;
+    // Power increase or decrease
+    unsigned char increase = delta_pwr > 0 ? 1 : 0;
+    unsigned int abs_pwr = increase ? delta_pwr : (-1 * delta_pwr);
+    // Original gain and gain after adjusting delta_pwr
+    unsigned int old_gain, target_gain = 0;
+    // The delta_pwr increase and decrease limit values which calculated based on the current gain
+    int limit_delta_pwr_in, limit_delta_pwr_de = 0;
+    unsigned int index = 0;
+    unsigned char limit_find = 0;
+
+    if (abs_pwr > sizeof(delta_pwr_map)) {
+        AML_OUTPUT("Set tx power failed, arg should in [-%d, %d]!\n", map_size - 1, map_size - 1);
+        return;
+    }
+
+    if (base_gain) {
+        gain_bits = (struct digital_gain_reg_bits *)&reg_data;
+        gain_bits->gain = base_gain;
+    } else {
+        reg_data = hif->hif_ops.hi_read_word(0x00a0e4b8);
+        gain_bits = (struct digital_gain_reg_bits *)&reg_data;
+    }
+    old_gain = gain_bits->gain;
+
+    if (increase) {
+        target_gain = old_gain * delta_pwr_map[abs_pwr] / 1000;
+    } else {
+        target_gain = old_gain * 1000 / delta_pwr_map[abs_pwr];
+    }
+
+    if (target_gain == 0 || target_gain > 0xff) {
+        //Find the adjustment range of gain
+        for (index = 0; index < map_size; index ++) {
+            if (delta_pwr_map[index] <= old_gain * 1000) {
+                // The limit of old_gain can only be reduced to 0x01
+                // Old_gain / _times_ >= 1
+                limit_delta_pwr_de = index;
+            } else {
+                limit_find |= BIT(0);
+            }
+            if (delta_pwr_map[index] * old_gain / 1000 <= 0xff) {
+                // The limit of old_gain can only be increased to 0xff
+                // old_gain * _times_ <= 0xff
+                limit_delta_pwr_in = index;
+            } else {
+                limit_find |= BIT(1);
+            }
+            if (limit_find == 0x3) {
+                break;
+            }
+        }
+        limit_delta_pwr_de = -1 * limit_delta_pwr_de;
+        if (base_gain != 0) {
+            limit_delta_pwr_de += base_pwr;
+            limit_delta_pwr_in += base_pwr;
+            limit_delta_pwr_de = limit_delta_pwr_de > 0 ? limit_delta_pwr_de : 1;
+            AML_OUTPUT("    Tx pwr %d need digital gain 0x%x, tx pwr limit in [%d, %d]!\n",
+                base_pwr, base_gain, limit_delta_pwr_de, limit_delta_pwr_in);
+        } else {
+            AML_OUTPUT("    Digital gain now 0x%x, delta tx pwr limit in [%d, %d]!\n",
+                old_gain, limit_delta_pwr_de, limit_delta_pwr_in);
+        }
+        return;
+    }
+
+    reg_data = 0;
+    gain_bits->enable = 1;
+    gain_bits->gain = target_gain;
+    hif->hif_ops.hi_write_word(0x00a0e4b8, reg_data);
+
+    AML_OUTPUT("Digital gain reg set: 0x%08x\n", reg_data);
+}
+
+void aml_iwpriv_set_delta_tx_pwr(int delta_pwr)
+{
+    AML_OUTPUT("delta_pwr = %d\n", delta_pwr);
+    aml_set_delta_pwr(delta_pwr, 0, 0);
+}
+
+int aml_get_efuse_gain_map_index(unsigned int rate, unsigned int channel, unsigned int bw)
+{
+    unsigned char band = 1;
+    unsigned char band_5g = 0;
+
+    if (channel <= 14) {
+        band = 0;
+    } else if (channel <= 48) {
+        band_5g = 0;
+    } else if (channel <= 64) {
+        band_5g = 1;
+    } else if (channel <= 112) {
+        band_5g = 2;
+    } else if (channel <= 144) {
+        band_5g = 3;
+    } else if (channel <= 165) {
+        band_5g = 4;
+    } else {
+        //error channel
+        return -1;
+    }
+
+    if (band == 0) {//2.4GHz
+        if (WIFINET_BWC_WIDTH20 == bw) {
+            if (rate <= WIFI_11BG_MAX) {//2.4GHz 20M legacy
+                return 0;
+            } else if (IS_HT_RATE(rate)) {//2.4GHz 20M 11N
+                return 1;
+            } else {
+                return -1;
+            }
+        } else if (WIFINET_BWC_WIDTH40 == bw) {
+            if (IS_HT_RATE(rate)) {//2.4GHz 40M 11N
+                return 2;
+            } else {
+                return -1;
+            }
+        } else {
+            return -1;
+        }
+    } else if (band == 1) {//5GHz
+        if (band_5g == 0) {//5G_BAND0 20M/40M/80M
+            return 3;
+        } else if (band_5g == 1) {//5G_BAND1 20M/40M/80M
+            return 4;
+        } else if (band_5g == 2) {
+            if (WIFINET_BWC_WIDTH20 == bw) {//5G_BAND2 20M
+                return 5;
+            } else if (WIFINET_BWC_WIDTH40 == bw) {//5G_BAND2 40M
+                return 6;
+            } else if (WIFINET_BWC_WIDTH80 == bw) {//5g_BAND2 80M
+                return 7;
+            }
+        } else if (band_5g == 3) {//5G_BAND3 20M/40M/80M
+            return 8;
+        } else if (band_5g == 4) {//5G_BAND4 20M/40M/80M
+            return 9;
+        } else {
+            return -1;
+        }
+    }
+    return -1;
+}
+
+void aml_calc_code_rate_gain(unsigned int rate, unsigned int channel, unsigned char *key_gain)
+{
+    unsigned int increase = LOW_MCS_GAIN_COMPENSATE >= 0 ? 2 : 0;
+    unsigned int ratio = delta_pwr_map[(increase - 1) * LOW_MCS_GAIN_COMPENSATE];
+    unsigned int target_gain = *key_gain;
+
+    if (channel <= 14) {
+        return;
+    }
+
+    if (IS_HT_RATE(rate) || IS_VHT_RATE(rate)) {
+        if ((rate & ~WIFI_RATE_MASK) <= LOW_DAC_MCS_OFT) {
+            if (increase != 0) {
+                target_gain = target_gain * ratio / 1000;
+            } else {
+                target_gain = target_gain * 1000 / ratio;
+            }
+            *key_gain = target_gain & 0xff;
+        }
+    }
+}
+
+extern unsigned char get_s8_item(char * varbuf, int len, char * item, char * item_value);
+extern unsigned char get_s32_item(char *varbuf, int len, char *item, unsigned int *item_value);
+extern unsigned int process_cali_content(char *varbuf, unsigned int len);
+
+#define EFUSE_POWER_MAP(_map_index, _param_name, _power, _efuse_addr, _byte_oft) \
+                                   {_param_name, _power, _efuse_addr, _byte_oft}
+
+static struct key_gain_efuse_power_map kg_efuse_map[] =
+{
+   EFUSE_POWER_MAP(0, "pwr_band2_11b_20M",  18, 0x0b, 0), //11b/g 20M 2.4G
+   EFUSE_POWER_MAP(1, "pwr_band2_11n_20M",  17, 0x0a, 2), //11n 20M 2.4G
+   EFUSE_POWER_MAP(2, "pwr_band2_11n_40M",  17, 0x0a, 3), //11n 40M 2.4G
+   EFUSE_POWER_MAP(3, "pwr_band5_5200",     14, 0x0c, 0), //band0{36, 40, 44, 48} 20M/40M/80M
+   EFUSE_POWER_MAP(4, "pwr_band5_5300",     14, 0x0c, 1), //band1{52, 56, 60, 64} 20M/40M/80M
+   EFUSE_POWER_MAP(5, "pwr_band5_5530_20M", 15, 0x0b, 1), //band2{100, 104, 108, 112} 20M
+   EFUSE_POWER_MAP(6, "pwr_band5_5530_40M", 14, 0x0b, 2), //band2{100, 104, 108, 112} 40M
+   EFUSE_POWER_MAP(7, "pwr_band5_5530_80M", 14, 0x0b, 3), //band2{100, 104, 108, 112} 80M
+   EFUSE_POWER_MAP(8, "pwr_band5_5660",     14, 0x0c, 2), //band3{116, 120, 124, 128, 132, 136, 140, 144} 20M/40M/80M
+   EFUSE_POWER_MAP(9, "pwr_band5_5780",     14, 0x0c, 3), //band4{149, 153, 157, 161, 165} 20M/40M/80M
+};
+
+extern char * conf_path;
+
+void aml_get_key_power(unsigned int rate, unsigned int channel, unsigned int bw,
+    unsigned char * key_gain, unsigned int * key_power)
+{
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+    struct file *fp;
+    struct kstat stat;
+    mm_segment_t fs;
+#else
+    const struct firmware *fw = NULL;
+    struct device *dev = vm_cfg80211_get_parent_dev();
+#endif
+
+    int error = 0;
+    int size, len = 0;
+    char *content = NULL;
+    unsigned int chip_id_l = 0;
+    unsigned char chip_id_buf[100];
+
+    unsigned char txt_efuse_name[10] = {0};
+    unsigned char txt_efuse_invalid = 1;
+    unsigned int efuse_param = 0;
+
+    unsigned map_idx = 0;
+    struct key_gain_efuse_power_map * pwr_map = NULL;
+
+    map_idx = aml_get_efuse_gain_map_index(rate, channel, bw);
+    if (map_idx < 0 || map_idx >= ARRAY_LENGTH(kg_efuse_map)) {
+        AML_OUTPUT("ERROR, current tx_rate: %x, tx_channel: %d, tx_bw: %d\n", rate, channel, bw);
+        return;
+    }
+
+    pwr_map = &(kg_efuse_map[map_idx]);
+    *key_power = pwr_map->default_abs_power;
+
+    chip_id_l = efuse_manual_read(0xf);
+    chip_id_l &= 0xffff;
+    sprintf(chip_id_buf, "%s/aml_wifi_rf_%04.txt", conf_path, chip_id_l);
+
+    if (isFileReadable(chip_id_buf, NULL) != 0) {
+        memset(chip_id_buf,'\0',sizeof(chip_id_buf));
+        switch ((chip_id_l & 0xff00) >> 8) {
+            case MODULE_ITON:
+                sprintf(chip_id_buf, "%s/aml_wifi_rf_iton.txt", conf_path);
+                break;
+            case MODULE_AMPAK:
+                sprintf(chip_id_buf, "%s/aml_wifi_rf_ampak.txt", conf_path);
+                break;
+            case MODULE_FN_LINK:
+                sprintf(chip_id_buf, "%s/aml_wifi_rf_fn_link.txt", conf_path);
+                break;
+            default:
+                if (aml_bus_type) {
+                    sprintf(chip_id_buf, "%s/aml_wifi_rf_usb.txt", conf_path);
+                }
+#ifdef SDIO_MODE_ON
+                else {
+                    sprintf(chip_id_buf, "%s/aml_wifi_rf_sdio.txt", conf_path);
+                }
+#endif
+        }
+        AML_OUTPUT("aml wifi module SN:%04x  sn txt not found, the rf config: %s\n", chip_id_l, chip_id_buf);
+    } else
+        AML_OUTPUT("aml wifi module SN:%04x  the rf config: %s\n", chip_id_l, chip_id_buf);
+
+    do {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+        fs = get_fs();
+        set_fs(KERNEL_DS);
+        fp = filp_open(chip_id_buf, O_RDONLY, 0);
+
+        if (IS_ERR(fp)) {
+            fp = NULL;
+            break;
+        }
+        error = vfs_stat(chip_id_buf, &stat);
+        if (error) {
+            filp_close(fp, NULL);
+            break;
+        }
+
+        size = (int)stat.size;
+        if (size <= 0) {
+            filp_close(fp, NULL);
+            break;
+        }
+
+        content = ZMALLOC(size, chip_id_buf, GFP_KERNEL);
+
+        if (content == NULL) {
+            filp_close(fp, NULL);
+            break;
+        }
+        if (vfs_read(fp, content, size, &fp->f_pos) != size) {
+            FREE(content, "wifi_cali_param");
+            filp_close(fp, NULL);
+            break;
+        }
+#else
+        error = request_firmware(&fw, chip_id_buf, dev);
+        if (error) {
+            // sn txt not found, the rf set default config
+            sprintf(chip_id_buf, "aml_wifi_rf.txt");
+            error = request_firmware(&fw, chip_id_buf, dev);
+            if (error) {
+                 break;
+            }
+        }
+        size = fw->size;
+        content = (char *)fw->data;
+#endif
+        len = process_cali_content(content, size);
+
+        /* get key power from rf txt */
+        get_s8_item(content, len, pwr_map->param_name, key_power);
+
+        /* get key gain from rf txt */
+        sprintf(txt_efuse_name, "efuse_%x", pwr_map->word_addr);
+        txt_efuse_invalid = get_s32_item(content, len, txt_efuse_name, &efuse_param);
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+        FREE(content, "wifi_cali_param");
+        filp_close(fp, NULL);
+        set_fs(fs);
+#endif
+    } while (0);
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+    set_fs(fs);
+#endif
+
+    if (txt_efuse_invalid) {
+        efuse_param = efuse_manual_read(pwr_map->word_addr);
+        AML_OUTPUT("read key gain from efuse: 0x%x, byte_oft = %d\n", efuse_param, pwr_map->byte_oft);
+    } else {
+        AML_OUTPUT("read key gain from txt: 0x%x, byte_oft = %d\n", efuse_param, pwr_map->byte_oft);
+    }
+
+    *key_gain = efuse_param >> (8 * pwr_map->byte_oft);
+    *key_gain &= 0x000000ff;
+    aml_calc_code_rate_gain(rate, channel, key_gain);
+}
+
+void aml_iwpriv_set_tx_pwr(int pwr)
+{
+    unsigned int tx_rate = gB2BTestCasePacket.data_rate;
+    unsigned int tx_channel = gB2BTestCasePacket.channel;
+    unsigned char tx_bw = gB2BTestCasePacket.channel_bw;
+    unsigned int key_gain, key_power = 0;
+
+    AML_OUTPUT("power = %d\n", pwr);
+
+    if (!aml_wifi_is_enable_rf_test()) {
+        AML_OUTPUT("Now not in pt mode, exit\n");
+        return;
+    }
+
+    aml_get_key_power(tx_rate, tx_channel, tx_bw, &key_gain, &key_power);
+    if (key_gain == 0) {
+        AML_OUTPUT("please check efuse_gain/txt_gain\n");
+        return;
+    }
+
+    aml_set_delta_pwr(pwr - key_power, key_power, key_gain);
+}
+
 
 int aml_iwpriv_set_efuse(int addr, int value)
 {
@@ -350,8 +1076,9 @@ static int aml_mem_dump(struct net_device *dev, int addr, int size)
          ERROR_DEBUG_OUT("%s: malloc buf erro\n", __func__);
          return 0;
     }
-
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
     fp = filp_open(info_path, O_CREAT | O_WRONLY | O_TRUNC | O_SYNC, 0644);
+#endif
     if (IS_ERR(fp)) {
         ERROR_DEBUG_OUT("%s: mactrace file(%s) open failed: PTR_ERR(fp) = %d\n", __func__, info_path, PTR_ERR(fp));
         goto err;
@@ -389,6 +1116,7 @@ static int aml_mem_dump(struct net_device *dev, int addr, int size)
         }
 
         if ((REG_DUMP_SIZE - len) < 38) {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
             ret = kernel_write(fp, la_buf, len, &fp->f_pos);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
@@ -396,17 +1124,20 @@ static int aml_mem_dump(struct net_device *dev, int addr, int size)
 #else
             ret = fp->f_op->write(fp, la_buf, len, &fp->f_pos);
 #endif
+#endif
             len = 0;
             memset(la_buf, 0, REG_DUMP_SIZE);
         }
     }
     if (len != 0) {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
             ret = kernel_write(fp, la_buf, len, &fp->f_pos);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
             ret = __vfs_write(fp, la_buf, len, &fp->f_pos);
 #else
             ret = fp->f_op->write(fp, la_buf, len, &fp->f_pos);
+#endif
 #endif
     }
 
@@ -621,8 +1352,10 @@ int aml_set_ldpc(struct wlan_net_vif *wnet_vif, unsigned int set)
 int aml_set_beamforming(struct wlan_net_vif *wnet_vif, unsigned int set1,unsigned int set2)
 {
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+    struct hw_interface *hif = hif_get_hw_interface();
     int usr_data1 = 0;
     int usr_data2 = 0;
+    unsigned int reg_data = 0;
 
     usr_data1 = set1;
     usr_data2 = set2;
@@ -653,6 +1386,26 @@ int aml_set_beamforming(struct wlan_net_vif *wnet_vif, unsigned int set1,unsigne
         } else {
             wifimac->wm_flags_ext2 &= ~WIFINET_VHTCAP_MU_BFMEE;
             AML_OUTPUT("disable mu mimo\n");
+        }
+
+        if (usr_data1 != 0) {
+            //enable bmfm
+            reg_data = hif->hif_ops.hi_read_word(0x00a00224);
+            reg_data &= ~ BIT(28);
+            hif->hif_ops.hi_write_word(0x00a00224, reg_data);
+
+            reg_data = hif->hif_ops.hi_read_word(0x00a092a4);
+            reg_data &= ~ BIT(28);
+            hif->hif_ops.hi_write_word(0x00a092a4, reg_data);
+        } else {
+            //disable bmfm
+            reg_data = hif->hif_ops.hi_read_word(0x00a00224);
+            reg_data |= BIT(28);
+            hif->hif_ops.hi_write_word(0x00a00224, reg_data);
+
+            reg_data = hif->hif_ops.hi_read_word(0x00a092a4);
+            reg_data |= BIT(28);
+            hif->hif_ops.hi_write_word(0x00a092a4, reg_data);
         }
     } else {
         ERROR_DEBUG_OUT("initial parameter!\n");
@@ -791,7 +1544,11 @@ aml_iwpriv_set_lagecy_bitrate_mask(struct net_device *dev, unsigned int set)
     memset(&mask, 0, sizeof(struct cfg80211_bitrate_mask));
     mask.control[band].legacy = (1<<aml_iwpriv_legacy_2g_rate_to_bitmap(set));
     AML_OUTPUT("opmode %d, band %d\n", wnet_vif->vm_opmode, band);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
     vm_cfg80211_set_bitrate_mask(NULL, dev, NULL, &mask);
+#else
+    vm_cfg80211_set_bitrate_mask(NULL, dev, 0, NULL, &mask);
+#endif
 
     return 0;
 }
@@ -813,7 +1570,11 @@ aml_iwpriv_set_ht_bitrate_mask(struct net_device *dev, unsigned int set)
 
     AML_OUTPUT("opmode %d, band %d\n", wnet_vif->vm_opmode, band);
     mask.control[band].ht_mcs[0] = (1<<aml_iwpriv_ht_rate_to_bitmap(set));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
     vm_cfg80211_set_bitrate_mask(NULL, dev, NULL, &mask);
+#else
+    vm_cfg80211_set_bitrate_mask(NULL, dev, 0, NULL, &mask);
+#endif
 
     return 0;
 }
@@ -835,7 +1596,11 @@ aml_iwpriv_set_vht_bitrate_mask(struct net_device *dev, unsigned int set)
 
     AML_OUTPUT("opmode %d, band %d\n", wnet_vif->vm_opmode, band);
     mask.control[band].vht_mcs[0] = (1<<aml_iwpriv_vm_vht_rate_to_bitmap(set));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
     vm_cfg80211_set_bitrate_mask(NULL, dev, NULL, &mask);
+#else
+    vm_cfg80211_set_bitrate_mask(NULL, dev, 0, NULL, &mask);
+#endif
 
     return 0;
 }
@@ -909,6 +1674,8 @@ unsigned char aml_iwpriv_set_mac_mode(unsigned int set)
     return 0;
 }
 
+extern bool isFirstWrtFwlog;
+extern unsigned short print_ctl;
 static int aml_iwpriv_send_para1(struct net_device *dev,
     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
 {
@@ -1202,7 +1969,8 @@ static int aml_iwpriv_send_para1(struct net_device *dev,
 
             } else if (set == 0) {
                 wifimac->drv_priv->hal_priv->hal_ops.hal_set_fwlog_cmd(0);
-
+                isFirstWrtFwlog = true;
+                print_ctl = 0;
             }
             break;
 
@@ -1220,6 +1988,43 @@ static int aml_iwpriv_send_para1(struct net_device *dev,
             break;
         case AML_IWP_SET_RX_SIZE:
             wifimac->wm_manual_rx_bufsize = set;
+            break;
+        case AML_IWP_SET_TX_BW:
+            aml_iwpriv_set_tx_bw(set);
+            break;
+        case AML_IWP_SET_TX_MODE:
+            aml_iwpriv_set_tx_mode(set);
+            break;
+        case AML_IWP_SET_TX_RATE:
+            aml_iwpriv_set_tx_rate(set);
+            break;
+        case AML_IWP_SET_TX_TYPE:
+            aml_iwpriv_set_tx_type(set);
+            break;
+        case AML_IWP_SET_TX_LEN:
+            aml_iwpriv_set_tx_len(set);
+            break;
+        case AML_IWP_SET_TX_NUM:
+            aml_iwpriv_set_tx_num(set);
+            break;
+        case AML_IWP_PT_RX_START:
+            aml_iwpriv_pt_rx_start(dev, set);
+            break;
+        case AML_IWP_SET_STBC:
+            aml_iwpriv_set_stbc(dev, set);
+            break;
+        case AML_IWP_SET_TX_PWR:
+            aml_iwpriv_set_tx_pwr(set);
+            break;
+        case AML_IWP_SET_DELTA_TX_PWR:
+            aml_iwpriv_set_delta_tx_pwr(set);
+            break;
+        case AML_IWP_SET_CF_END:
+            aml_iwpriv_set_cf_end(wnet_vif, set);
+            break;
+        case AML_IWP_SET_FLOW_CTRL:
+            aml_iwpriv_set_flow_ctrl(wnet_vif, set);
+            break;
     }
 
     return 0;
@@ -1271,6 +2076,18 @@ static int aml_iwpriv_send_para2(struct net_device *dev,
         case AML_IWP_MEM_DUMP:
             aml_mem_dump(dev, set1, set2);
             break;
+
+        case AML_IWP_SET_PT_CALIBRATION:
+            aml_iwpriv_set_pt_calibration(set1, set2);
+            break;
+
+        case AML_IWP_SET_TX_PATH:
+            aml_iwpriv_set_tx_path(set1, set2);
+            break;
+
+        case AML_IWP_SET_RX_PATH:
+            aml_iwpriv_set_rx_path(set1, set2);
+            break;
     }
 
     return 0;
@@ -1307,6 +2124,39 @@ static int aml_iwpriv_set_reg_legacy(struct net_device *dev,
             set_reg(wnet_vif, legacy_set1, legacy_set2);
             break;
     }
+    return 0;
+}
+
+extern void phy_read_key_table_info(unsigned char vid, unsigned char sta_id, unsigned char is_ukey);
+static void aml_iwpriv_get_key_entry(unsigned char vid, unsigned char sta_id, unsigned char is_ukey)
+{
+    AML_OUTPUT("vid:%d  sta_id:%d  is_key:%d\n", vid, sta_id, is_ukey);
+    phy_read_key_table_info(vid, sta_id, is_ukey);
+}
+
+static int aml_iwpriv_send_para3(struct net_device *dev,
+    struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+{
+    struct wlan_net_vif *wnet_vif = NULL;
+    struct wifi_mac *wifimac = NULL;
+
+    int *param = (int *)extra;
+    int sub_cmd = param[0];
+    int set1 = param[1];
+    int set2 = param[2];
+    int set3 = param[3];
+
+    wifimac = wifi_mac_get_mac_handle();
+    wnet_vif = aml_iwpriv_get_vif(dev->name);
+
+    AML_OUTPUT("sub_cmd:[%d], param1:[%d], param2:[%d], param3:[%d]\n", param[0], param[1], param[2],param[3]);
+
+    switch (sub_cmd) {
+        case AML_IWP_GET_KEY_ENTRY:
+            aml_iwpriv_get_key_entry(set1, set2, set3);
+            break;
+    }
+
     return 0;
 }
 
@@ -1443,6 +2293,18 @@ static int aml_iwpriv_get(struct net_device *dev,
         case AML_IWP_GET_EN_RF_TEST:
             snprintf(buf, 13, "en_rf_test=%d", aml_wifi_is_enable_rf_test());
             AML_OUTPUT("%s\n",buf);
+            break;
+
+        case AML_IWP_PT_TX_START:
+            aml_iwpriv_pt_tx_start();
+            break;
+
+        case AML_IWP_PT_TX_END:
+            aml_iwpriv_pt_tx_end();
+            break;
+
+        case AML_IWP_PT_RX_END:
+            aml_iwpriv_pt_rx_end(dev);
             break;
     }
 
@@ -1601,7 +2463,7 @@ static int aml_ap_get_udp_info(struct net_device *dev,
 static int aml_set_country_code(struct net_device *dev,
     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
 {
-    AML_OUTPUT("%s\n",extra);
+    AML_OUTPUT("set country <%s> by iwpriv\n",extra);
     wifi_mac_set_country_code(extra);
 
     return 0;
@@ -1731,67 +2593,76 @@ static int aml_set_bt_dev_id(struct net_device *dev,
 int aml_iwpriv_set_debug_switch(char *switch_str)
 {
     int debug_switch = 0;
-    if(strstr(switch_str,"_off")!=NULL)
-        debug_switch = AML_DBG_OFF;
-    else if(strstr(switch_str,"_on")!=NULL)
-        debug_switch = AML_DBG_ON;
-    else
-        ERROR_DEBUG_OUT("input error\n");
-    return debug_switch;
 
+    if (strstr(switch_str,"_off") != NULL) {
+        debug_switch = AML_DBG_OFF;
+    } else if (strstr(switch_str,"_on") != NULL) {
+        debug_switch = AML_DBG_ON;
+    } else {
+        ERROR_DEBUG_OUT("input error\n");
+    }
+
+    return debug_switch;
 }
 
 int aml_set_debug_modules(char *debug_str)
 {
-    if(debug_str == NULL || strlen(debug_str) <= 0) {
+    if (debug_str == NULL || strlen(debug_str) <= 0) {
         ERROR_DEBUG_OUT("debug modules is NULL\n");
         return -1;
     }
-    if(strstr(debug_str,"p2p")!=NULL) {
-        if(aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
-            g_dbg_modules &= ~1;
+    if (strstr(debug_str,"p2p") != NULL) {
+        if (aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
+            g_dbg_modules &= ~AML_DBG_MODULES_P2P;
             return 0;
         }
         g_dbg_modules |= AML_DBG_MODULES_P2P;
-    } else if(strstr(debug_str,"mir")!=NULL) {
-        if(aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
-            g_dbg_modules &= ~(BIT(1));
+    } else if (strstr(debug_str,"mir") != NULL) {
+        if (aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
+            g_dbg_modules &= ~AML_DBG_MODULES_RATE_CTR;
             return 0;
         }
         g_dbg_modules |= AML_DBG_MODULES_RATE_CTR;
-    } else if(strstr(debug_str,"wtx")!=NULL) {
-        if(aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
-            g_dbg_modules &= ~(BIT(2));
+    } else if (strstr(debug_str,"wtx") != NULL) {
+        if (aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
+            g_dbg_modules &= ~AML_DBG_MODULES_TX;
             return 0;
         }
         g_dbg_modules |= AML_DBG_MODULES_TX;
-    } else if(strstr(debug_str,"htx")!=NULL) {
-        if(aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
-            g_dbg_modules &= ~(BIT(3));
+    } else if (strstr(debug_str,"htx") != NULL) {
+        if (aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
+            g_dbg_modules &= ~AML_DBG_MODULES_HAL_TX;
             return 0;
         }
         g_dbg_modules |= AML_DBG_MODULES_HAL_TX;
-    } else if(strstr(debug_str,"txe") != NULL) {
-        if(aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
-            g_dbg_modules &= ~(BIT(4));
+    } else if (strstr(debug_str,"txe") != NULL) {
+        if (aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
+            g_dbg_modules &= ~AML_DBG_MODULES_TX_ERROR;
             return 0;
         }
         g_dbg_modules |= AML_DBG_MODULES_TX_ERROR;
-    } else if(strstr(debug_str,"scn") != NULL) {
+    } else if (strstr(debug_str,"scn") != NULL) {
         if(aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
-            g_dbg_modules &= ~(BIT(5));
+            g_dbg_modules &= ~AML_DBG_MODULES_SCAN;
             return 0;
         }
         g_dbg_modules |= AML_DBG_MODULES_SCAN;
-    } else if(strstr(debug_str,"bcn") != NULL) {
+    } else if (strstr(debug_str,"bcn") != NULL) {
         if (aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
-            g_dbg_modules &= ~(BIT(6));
+            g_dbg_modules &= ~AML_DBG_MODULES_BCN;
             return 0;
         }
         g_dbg_modules |= AML_DBG_MODULES_BCN;
+    } else if (strstr(debug_str,"flt") != NULL) {
+        if (aml_iwpriv_set_debug_switch(debug_str) == AML_DBG_OFF) {
+            g_dbg_modules &= ~AML_DBG_MODULES_FILTER;
+            return 0;
+        }
+        g_dbg_modules |= AML_DBG_MODULES_FILTER;
     } else {
         ERROR_DEBUG_OUT("input error\n");
     }
+
     return 0;
 }
 
@@ -2059,6 +2930,7 @@ static iw_handler aml_iwpriv_private_handler[] = {
     aml_iwpriv_set_debug,
     aml_iwpriv_start_capture,
     aml_iwpriv_get_csi_info,
+    aml_iwpriv_send_para3,
 };
 
 static const struct iw_priv_args aml_iwpriv_private_args[] = {
@@ -2222,8 +3094,45 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
     AML_IWP_GET_SPEC_REGS,
     IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "get_spec_regs"},
 {
+    AML_IWP_SET_CF_END,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_cf_end"},
+{
+    AML_IWP_SET_FLOW_CTRL,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_flow_ctrl"},
+{
     AML_IWP_SET_RX_SIZE,
     IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_rx_buf"},
+{
+    AML_IWP_SET_TX_BW,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_tx_bw"},
+{
+    AML_IWP_SET_TX_MODE,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_tx_mode"},
+{
+    AML_IWP_SET_TX_RATE,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_tx_rate"},
+{
+    AML_IWP_SET_TX_TYPE,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_tx_type"},
+{
+    AML_IWP_SET_TX_LEN,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_tx_len"},
+{
+    AML_IWP_SET_TX_NUM,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_tx_num"},
+{
+    AML_IWP_PT_RX_START,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "pt_rx_start"},
+{
+    AML_IWP_SET_STBC,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_stbc"},
+{
+    AML_IWP_SET_TX_PWR,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_tx_pwr"},
+{
+    AML_IWP_SET_DELTA_TX_PWR,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_delta_pwr"},
+
 
 /*iwpriv get command*/
 {
@@ -2295,7 +3204,15 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
 {
     AML_IWP_GET_EN_RF_TEST,
     0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, "get_en_rf_test"},
-
+{
+    AML_IWP_PT_TX_START,
+    0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, "pt_tx_start"},
+{
+    AML_IWP_PT_TX_END,
+    0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, "pt_tx_end"},
+{
+    AML_IWP_PT_RX_END,
+    0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, "pt_rx_end"},
 
 {
     SIOCIWFIRSTPRIV + 4,
@@ -2337,6 +3254,15 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
     AML_IWP_SET_BEAMFORMING,
     IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2, 0, "set_beamforming"},
 #endif
+{
+    AML_IWP_SET_PT_CALIBRATION,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2, 0, "set_pt_cali"},
+{
+    AML_IWP_SET_TX_PATH,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2, 0, "set_tx_path"},
+{
+    AML_IWP_SET_RX_PATH,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2, 0, "pt_set_rx"},
 
 
     /*iwpriv set command, there is 4 parameters*/
@@ -2363,6 +3289,14 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
 {
      SIOCIWFIRSTPRIV + 18,
     0, IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_MASK, "get_csi_info"},
+
+    /*iwpriv set command, there is 3 parameters*/
+{
+    SIOCIWFIRSTPRIV + 19,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 3, 0, ""},
+{
+    AML_IWP_GET_KEY_ENTRY,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 3, 0, "get_key_entry"},
 
 };
 #endif

@@ -1,5 +1,9 @@
 #include "usb_common.h"
+#include "chip_intf_reg.h"
 
+#ifdef CHIP_RESET_SUPPORT
+struct auc_reset_ops g_auc_reset_ops;
+#endif
 
 struct auc_hif_ops g_auc_hif_ops;
 struct usb_device *g_udev = NULL;
@@ -9,6 +13,8 @@ unsigned char wifi_usb_access = 1;
 struct crg_msc_cbw *g_cmd_buf = NULL;
 unsigned char *g_kmalloc_buf;
 unsigned char auc_driver_probed = 0;
+typedef void (*lp_shutdown_func)(void);
+lp_shutdown_func g_lp_shutdown_func = NULL;
 
 void auc_build_cbw(struct crg_msc_cbw *cbw_buf,
                                unsigned char dir,
@@ -178,7 +184,7 @@ int auc_reg_write(unsigned int addr, unsigned int value, unsigned int len)
 #endif
 }
 
-void usb_write_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
+void _auc_write_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
 {
 #if defined (HAL_FPGA_VER)
     int ret;
@@ -226,7 +232,7 @@ void usb_write_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
 #endif
 }
 
-void usb_read_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
+void _auc_read_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
 {
 #if defined (HAL_FPGA_VER)
     int ret;
@@ -276,12 +282,12 @@ void usb_read_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
 void auc_write_sram(unsigned char *buf, unsigned char *sram_addr, SYS_TYPE_U len)
 {
     unsigned int addr = (unsigned int)(unsigned long)sram_addr;
-    usb_write_sram(addr, buf, len);
+    _auc_write_sram(addr, buf, len);
 }
 void auc_read_sram(unsigned char *buf,unsigned char *sram_addr, SYS_TYPE_U len)
 {
     unsigned int addr = (unsigned int)(unsigned long)sram_addr;
-    usb_read_sram(addr, buf, len);
+    _auc_read_sram(addr, buf, len);
 }
 
 void auc_write_word(unsigned int addr,unsigned int data)
@@ -312,10 +318,9 @@ void auc_ops_init(void)
 
 }
 
-
-
 static int auc_probe(struct usb_interface *interface, const struct usb_device_id *id)
 {
+    PRINT_U("usb plug in!\n");
     g_udev = usb_get_dev(interface_to_usbdev(interface));
 
     USB_LOCK_INIT();
@@ -338,11 +343,24 @@ static int auc_probe(struct usb_interface *interface, const struct usb_device_id
     auc_driver_probed = 1;
 
     PRINT_U("%s(%d)\n",__func__,__LINE__);
+#ifdef CHIP_RESET_SUPPORT
+    wifi_usb_access = 1;
+    if (g_auc_reset_ops.probe_cb) {
+        return g_auc_reset_ops.probe_cb();
+    }
+#endif
     return 0;
 }
 
 static void auc_disconnect(struct usb_interface *interface)
 {
+    PRINT_U("usb plug out!\n");
+#ifdef CHIP_RESET_SUPPORT
+    wifi_usb_access = 0;
+    if (g_auc_reset_ops.disconnect_cb) {
+        g_auc_reset_ops.disconnect_cb();
+    }
+#endif
     USB_LOCK_DESTROY();
     FREE(g_kmalloc_buf, "usb_read_sram");
     FREE(g_cmd_buf,"cmd stage");
@@ -370,6 +388,18 @@ static int auc_reset_resume(struct usb_interface *intf)
     return 0;
 }
 
+void auc_shutdown(struct device *dev)
+{
+    // notify fw to enter shutdown mode
+      if (g_lp_shutdown_func != NULL)
+      {
+          g_lp_shutdown_func();
+      }
+
+      //notify bt wifi will shutdown
+      auc_write_word(RG_AON_A56, auc_read_word(RG_AON_A56)|BIT(31));
+}
+
 static const struct usb_device_id auc_devices[] =
 {
     {USB_DEVICE(W1u_VENDOR,W1u_PRODUCT)},
@@ -392,6 +422,7 @@ static struct usb_driver aml_usb_common_driver = {
     .resume = auc_resume,
 #endif
     .reset_resume = auc_reset_resume,
+    .drvwrap.driver.shutdown = auc_shutdown,
 };
 
 
@@ -408,9 +439,9 @@ int aml_usb_insmod(void)
             return -ENOMEM;
         }
 #endif
-    err = usb_register(&aml_usb_common_driver);
     auc_driver_insmoded = 1;
     auc_wifi_in_insmod = 0;
+    err = usb_register(&aml_usb_common_driver);
     PRINT_U("%s(%d) aml usb driver insmod\n",__func__, __LINE__);
 
     if (err) {
@@ -438,6 +469,12 @@ EXPORT_SYMBOL(auc_send_cmd);
 EXPORT_SYMBOL(auc_usb_mutex);
 EXPORT_SYMBOL(wifi_usb_access);
 EXPORT_SYMBOL(auc_driver_probed);
+
+#ifdef CHIP_RESET_SUPPORT
+EXPORT_SYMBOL(g_auc_reset_ops);
+#endif
+
+EXPORT_SYMBOL(g_lp_shutdown_func);
 
 //module_init(aml_common_insmod);
 //module_exit(aml_common_rmmod);

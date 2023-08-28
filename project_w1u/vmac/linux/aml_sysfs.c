@@ -72,14 +72,37 @@ static DEVICE_ATTR(cur_channel, S_IRUGO, show_cur_channel, NULL);
 static ssize_t show_bandwidth(struct device *d, struct device_attribute *attr,
                  char *buf)
 {
-    struct wlan_net_vif *wnet_vif = NULL;
-    unsigned short bandwidth;
+    unsigned char bandwidth[32];
+    struct wlan_net_vif *wnet_vif = g_wnet_vif0;
 
-    wnet_vif = g_wnet_vif0;
-    bandwidth = g_wnet_vif0->vm_bandwidth;
-    if (!wnet_vif)
+    if (!wnet_vif || !wnet_vif->vm_curchan) {
+        ERROR_DEBUG_OUT("wnet_vif/vm_curchan is null !!! \n");
         return -EFAULT;
-    return sprintf(buf, "bandwidth :%d\n", bandwidth);
+    }
+
+    switch (g_wnet_vif0->vm_curchan->chan_bw)
+    {
+        case WIFINET_BWC_WIDTH20:
+            sprintf(bandwidth, "bandwidth :20\n");
+            break;
+        case WIFINET_BWC_WIDTH40:
+            sprintf(bandwidth, "bandwidth :40\n");
+            break;
+        case WIFINET_BWC_WIDTH80:
+            sprintf(bandwidth, "bandwidth :80\n");
+            break;
+        case WIFINET_BWC_WIDTH160:
+            sprintf(bandwidth, "bandwidth :160\n");
+            break;
+        case WIFINET_BWC_WIDTH80P80:
+            sprintf(bandwidth, "bandwidth :80+80\n");
+            break;
+        default:
+            ERROR_DEBUG_OUT("unsupported  bandwidth \n");
+            break;
+    }
+
+    return sprintf(buf, "%s", bandwidth);
 }
 
 static DEVICE_ATTR(bandwidth, S_IRUGO, show_bandwidth, NULL);
@@ -735,11 +758,8 @@ static ssize_t store_go_hidden_mode(struct device *d, struct device_attribute *a
 
     return len;
 }
-#ifdef CONFIG_ROKU
-static DEVICE_ATTR(go_hidden_mode, S_IWUGO|S_IRUGO, show_go_hidden_mode, store_go_hidden_mode);
-#else
+
 static DEVICE_ATTR(go_hidden_mode, S_IWUSR|S_IWGRP|S_IRUGO, show_go_hidden_mode, store_go_hidden_mode);
-#endif
 
 static struct attribute *aml_sysfs_entries[] = {
         &dev_attr_hang_info.attr,

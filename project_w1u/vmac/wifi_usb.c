@@ -94,7 +94,7 @@ void usb_stor_control_msg(unsigned long data)
     g_cr->bRequest = CMD_USB_IRQ;
     g_cr->wValue = 0;
     g_cr->wIndex = 0;
-    g_cr->wLength = cpu_to_le16(sizeof(int));
+    g_cr->wLength = 2 * sizeof(int);
 
     /*fill a control urb*/
     usb_fill_control_urb(g_urb,
@@ -576,7 +576,7 @@ int wifi_fw_download(void)
     }
 
     src = (unsigned char *)fw->data;
-    if (fw->size <= ICCM_RAM_LEN + DCCM_LEN) {
+    if (fw->size < ICCM_RAM_LEN + DCCM_LEN) {
         AML_OUTPUT("fw size:0x%x is too short!\n", fw->size);
         release_firmware(fw);
         err = 2;
@@ -1256,6 +1256,7 @@ extern int aml_usb_insmod(void);
 extern void set_usb_wifi_power(int is_on);
 extern struct crg_msc_cbw *g_cmd_buf;
 extern struct mutex auc_usb_mutex;
+extern unsigned char auc_driver_probed;
 
 int aml_usb_init(void)
 {
@@ -1268,6 +1269,11 @@ int aml_usb_init(void)
     }
 
     PRINT("usb build!!\n");
+
+    if (auc_driver_probed == 0) {
+        PRINT("There is no usb device was probed!!\n");
+        return -1;
+    }
 
     hif->udev = g_udev;
     g_cbw_buf = g_cmd_buf;
@@ -1417,8 +1423,10 @@ void aml_usb_exit(void)
     AML_OUTPUT("--------aml_usb:disconnect-------\n");
     hal_priv->powersave_init_flag = 1;
 
-    hif->hif_ops.hi_write_word(RG_PMU_A22, 0x704);
-    hif->hif_ops.hi_write_word(RG_PMU_A16, 0x0);
+    if (wifi_usb_access) {
+        hif->hif_ops.hi_write_word(RG_PMU_A22, 0x704);
+        hif->hif_ops.hi_write_word(RG_PMU_A16, 0x0);
+    }
 
     hal_free();
     g_cbw_buf = NULL;

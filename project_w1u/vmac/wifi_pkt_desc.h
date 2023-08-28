@@ -53,6 +53,7 @@ struct wifi_mac_pkt_info
     unsigned short tcp_dst_port;
     unsigned int tcp_seqnum;
     unsigned int tcp_ack_seqnum;
+    unsigned char op_type;
 };
 
 struct wifi_drv_pkt_info
@@ -145,5 +146,6 @@ extern struct drv_txdesc *wifi_mac_alloc_txdesc(struct wifi_mac *wifimac);
 extern void wifi_mac_recycle_txdesc(struct sk_buff *skbbuf);
 extern struct sk_buff *wifi_mac_alloc_skb(struct wifi_mac *wifimac, unsigned int size);
 extern void wifi_mac_free_skb(struct sk_buff *skb);
+extern void wifi_mac_free_skb_task(SYS_TYPE param1, SYS_TYPE param2, SYS_TYPE param3, SYS_TYPE param4, SYS_TYPE param5);
 
 #endif//_WIFI_PKT_DESC_H_

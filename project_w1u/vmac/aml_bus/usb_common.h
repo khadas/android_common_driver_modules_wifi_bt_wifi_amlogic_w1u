@@ -75,6 +75,13 @@ struct mutex auc_usb_mutex;
 #define USB_CTRL_IN_REQTYPE (USB_DIR_IN | USB_TYPE_VENDOR | (USB_RECIP_ENDPOINT & 0x1f))
 #define USB_CTRL_OUT_REQTYPE (USB_DIR_OUT | USB_TYPE_VENDOR | (USB_RECIP_ENDPOINT & 0x1f))
 
+#ifdef CHIP_RESET_SUPPORT
+struct auc_reset_ops {
+    int (*probe_cb)(void);
+    void (*disconnect_cb)(void);
+};
+#endif
+
 
 struct amlw1u_hif_scatter_item {
     struct sk_buff *skbbuf;

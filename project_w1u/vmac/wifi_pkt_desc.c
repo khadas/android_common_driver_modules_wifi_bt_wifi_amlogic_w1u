@@ -34,6 +34,7 @@ struct drv_txdesc *wifi_mac_alloc_txdesc(struct wifi_mac *wifimac)
 
     ptxdesc = list_first_entry(&wifimac->txdesc_freequeue, struct drv_txdesc, txdesc_queue);
     list_del_init(&ptxdesc->txdesc_queue);
+    wifimac->txdesc_free_cnt--;
     TX_DESC_BUF_UNLOCK(wifimac);
 
     return ptxdesc;
@@ -56,6 +57,7 @@ void wifi_mac_recycle_txdesc(struct sk_buff *skbbuf)
 
         TX_DESC_BUF_LOCK(wifimac);
         list_splice_tail_init(&tx_queue, &wifimac->txdesc_freequeue);
+        wifimac->txdesc_free_cnt++;
         TX_DESC_BUF_UNLOCK(wifimac);
 
         txinfo->ptxdesc = NULL;
@@ -89,4 +91,11 @@ void wifi_mac_free_skb(struct sk_buff *skb) {
     wifi_mac_recycle_txdesc(skb);
     os_skb_free(skb);
     return;
+}
+
+void wifi_mac_free_skb_task(SYS_TYPE param1, SYS_TYPE param2, SYS_TYPE param3, SYS_TYPE param4, SYS_TYPE param5) {
+    struct sk_buff *skb = (struct sk_buff *)param2;
+
+    wifi_mac_free_skb(skb);
+    return ;
 }

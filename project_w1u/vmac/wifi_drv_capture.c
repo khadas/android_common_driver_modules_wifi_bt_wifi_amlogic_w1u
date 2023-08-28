@@ -7,6 +7,9 @@ MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 
 #ifdef WIFI_CAPTURE
 
+static char * capture_path = "/data";
+module_param(capture_path, charp, S_IRUGO);
+
 unsigned char readbuf[TESTBUSBUF_LEN] = {0};
 unsigned char testbuf[TESTBUSBUF_LEN] = {0};
 int g_test_bus = 0;
@@ -276,22 +279,19 @@ int dut_stop_capture(void)
     struct file *fp = NULL;
     char fp_path[100] = {'\0'};
     static unsigned char index = 0;
-    #ifdef CONFIG_ROKU
-    char path[] = "/nvram";
-    #else
-    char path[] = "/data";
-    #endif
+
 
     if (g_bcap_name != 0) {
-        sprintf(fp_path,"%s/aml_capture_chn_0x%x_%d.log", path, g_bcap_name,index++);
+        sprintf(fp_path,"%s/aml_capture_chn_0x%x_%d.log", capture_path, g_bcap_name,index++);
     } else {
         if (g_test_gain == 0) {
-            sprintf(fp_path,"%s/aml_capture_0x%x_%d.log", path, g_test_bus,index++);
+            sprintf(fp_path,"%s/aml_capture_0x%x_%d.log", capture_path, g_test_bus,index++);
         } else {
-            sprintf(fp_path,"%s/aml_capture_0x%x_gain_0x%x_%d.log",path, g_test_bus, g_test_gain,index++);
+            sprintf(fp_path,"%s/aml_capture_0x%x_gain_0x%x_%d.log",capture_path, g_test_bus, g_test_gain,index++);
         }
     }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
     AML_OUTPUT("cap_log file %s\n", fp_path);
     fp = filp_open(fp_path, O_RDWR | O_CREAT | O_APPEND | O_TRUNC, 0777);
 
@@ -299,6 +299,7 @@ int dut_stop_capture(void)
         AML_OUTPUT("create file error\n");
         return -1;
     }
+#endif
 
     //ram_share =  hif->hif_ops.hi_read_word(TBC_RAM_SHARE);
 
@@ -434,14 +435,14 @@ int  dut_stop_tbus_to_get_sram(struct file *filep, int stop_ctrl, int save_file)
             for (j = 0 ; j < 8; j++) {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
                 vfs_write(filep, &wt_file[j], sizeof(unsigned char), &file_pos);
-#else
+#elif defined (LINUX_PLATFORM)
                 kernel_write(filep, &wt_file[j], sizeof(unsigned char), &file_pos);
 #endif
             }
             pdata++;
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
             vfs_write(filep, (char*)&enter, sizeof(unsigned char), &file_pos);
-#else
+#elif defined (LINUX_PLATFORM)
             kernel_write(filep, (char*)&enter, sizeof(unsigned char), &file_pos);
 #endif
         }
@@ -591,6 +592,7 @@ int dut_bt_stop_capture(void)
         }
     }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
     AML_OUTPUT("cap_log file %s\n", fp_path);
     fp = filp_open(fp_path,O_RDWR | O_CREAT | O_APPEND | O_TRUNC, 0777);
 
@@ -598,6 +600,7 @@ int dut_bt_stop_capture(void)
         ERROR_DEBUG_OUT("create file error/n");
         return -1;
     }
+#endif
 
 
     dut_stop_tbus_to_get_sram(fp, 0, 1);

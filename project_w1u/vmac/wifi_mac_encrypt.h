@@ -76,6 +76,8 @@ struct wifi_mac_key
 #define WIFINET_CIPHER_MAX      (WIFINET_CIPHER_NONE+1)
 #define WIFINET_KEYIX_NONE  ((unsigned char) -1)
 
+#define WIFINET_UKEY_BITMAP_OFT 16
+
 struct wifi_mac_rekey_data
 {
     unsigned char  kek[16];

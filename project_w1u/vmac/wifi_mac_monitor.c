@@ -225,20 +225,36 @@ out:
     return ndev;
 }
 
-static int vm_cfg80211_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
+static int __vm_cfg80211_ioctl(struct net_device *ndev, void __user *data, int cmd)
 {
     struct wlan_net_vif *wnet_vif = vm_netdev_priv(ndev);
-    
+
     DPRINTF(AML_DEBUG_IOCTL, "%s %d cmd 0x%x\n", __func__, __LINE__, cmd);
     switch (cmd)
     {
         case SIOCANDROID_PRIV:
-            return  aml_android_priv_cmd(wnet_vif, ifr, cmd);
+            return  aml_android_priv_cmd(wnet_vif, data, cmd);
             break;
     }
 
     return -1;
 }
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int vm_cfg80211_ioctl_wrapper(struct net_device *ndev, struct ifreq *ifr,
+        void __user *data, int cmd)
+{
+    return __vm_cfg80211_ioctl(ndev, data, cmd);
+}
+
+#else
+
+static int vm_cfg80211_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
+{
+    return __vm_cfg80211_ioctl(ndev, ifr->ifr_data, cmd);
+}
+
+#endif
 
 static const struct net_device_ops vm_cfg80211_go_if_ops =
 {
@@ -246,7 +262,11 @@ static const struct net_device_ops vm_cfg80211_go_if_ops =
     .ndo_stop = vm_cfg80211_monitor_if_close,
     .ndo_start_xmit = vm_cfg80211_go_if_xmit_entry,
     .ndo_set_mac_address = vm_cfg80211_monitor_set_mac_addr,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+    .ndo_siocdevprivate         = vm_cfg80211_ioctl_wrapper,
+#else
     .ndo_do_ioctl               = vm_cfg80211_ioctl,
+#endif
 };
 struct net_device *vm_cfg80211_add_p2p_go_if(struct wlan_net_vif *wnet_vif ,
 const char *name, enum nl80211_iftype type)

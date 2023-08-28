@@ -1059,7 +1059,7 @@ minstrel_get_sample_rate(struct minstrel_priv *mp, struct minstrel_ht_sta *mi, s
 }
 
 static void
-minstrel_ht_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
+minstrel_ht_get_rate(void *priv, struct ieee80211_sta_aml *sta, void *priv_sta,
                      struct ieee80211_tx_info *info)
 {
     struct minstrel_ht_sta_priv *msp = priv_sta;
@@ -1091,7 +1091,7 @@ minstrel_ht_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
 static void
 minstrel_ht_update_cck(struct minstrel_priv *mp, struct minstrel_ht_sta *mi,
 		       struct ieee80211_supported_band *sband,
-		       struct ieee80211_sta *sta)
+		       struct ieee80211_sta_aml *sta)
 {
 	int i;
 #if LINUX_VERSION_CODE > KERNEL_VERSION(3,14,29)
@@ -1106,7 +1106,7 @@ minstrel_ht_update_cck(struct minstrel_priv *mp, struct minstrel_ht_sta *mi,
 	mi->cck_supported = 0;
 	mi->cck_supported_short = 0;
 	for (i = 0; i < 4; i++) {
-		if (!rate_supported(sta, sband->band, mp->cck_rates[i]))
+		if (!rate_supported_aml(sta, sband->band, mp->cck_rates[i]))
 			continue;
 
 		mi->cck_supported |= BIT(i);
@@ -1120,7 +1120,7 @@ minstrel_ht_update_cck(struct minstrel_priv *mp, struct minstrel_ht_sta *mi,
 static void
 minstrel_ht_update_caps(void *priv, struct ieee80211_supported_band *sband,
 			/*struct cfg80211_chan_def *chandef,*/
-                        struct ieee80211_sta *sta, void *priv_sta)
+					struct ieee80211_sta_aml *sta, void *priv_sta)
 {
 	struct minstrel_priv *mp = priv;
 	struct minstrel_ht_sta_priv *msp = priv_sta;
@@ -1277,7 +1277,7 @@ use_legacy:
 
 static void
 minstrel_ht_rate_init(void *priv, struct ieee80211_supported_band *sband,
-                      struct ieee80211_sta *sta, void *priv_sta)
+			struct ieee80211_sta_aml *sta, void *priv_sta)
 {
 	minstrel_ht_update_caps(priv, sband, /*chandef,*/ sta, priv_sta);
 }
@@ -1285,14 +1285,14 @@ minstrel_ht_rate_init(void *priv, struct ieee80211_supported_band *sband,
 static void
 minstrel_ht_rate_update(void *priv, struct ieee80211_supported_band *sband,
 			/*struct cfg80211_chan_def *chandef,*/
-                        struct ieee80211_sta *sta, void *priv_sta,
+			struct ieee80211_sta_aml *sta, void *priv_sta,
                         u32 changed)
 {
 	minstrel_ht_update_caps(priv, sband, /*chandef,*/ sta, priv_sta);
 }
 
 static void *
-minstrel_ht_alloc_sta(void *priv, struct ieee80211_sta *sta, gfp_t gfp)
+minstrel_ht_alloc_sta(void *priv, struct ieee80211_sta_aml *sta, gfp_t gfp)
 {
     struct ieee80211_supported_band *sband;
     struct minstrel_ht_sta_priv *msp;

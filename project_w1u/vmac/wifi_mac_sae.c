@@ -178,7 +178,7 @@ int aml_cfg80211_flush_pmksa(struct wiphy *wiphy, struct net_device *dev)
     return 0;
 }
 
-#if (KERNEL_VERSION(4, 17, 0) <= LINUX_VERSION_CODE)
+#if (KERNEL_VERSION(4, 17, 0) <= CFG80211_VERSION_CODE)
 /**
  * wifi_mac_trigger_sae() - Sends SAE info to supplicant
  * This API is used to send required SAE info to trigger SAE in supplicant.

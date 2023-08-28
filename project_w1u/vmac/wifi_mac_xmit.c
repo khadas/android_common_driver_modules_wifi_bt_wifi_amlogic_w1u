@@ -18,6 +18,8 @@
 #include "wifi_cmd_func.h"
 #include "chip_bt_pmu_reg.h"
 
+#define REKEY_EAPOL_2 0x0302
+
 int wifi_mac_classify(struct wifi_station *sta, struct sk_buff *skb)
 {
     struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
@@ -175,6 +177,8 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
             AML_OUTPUT("send eapol frame,len:%d, key_info:%04x\n", (p_eap[2]<<8)|p_eap[3], (p_eap[5]<<8)|p_eap[6]);
         }
 
+        if (sta->wnet_vif_id == 0 && ((p_eap[5] << 8) | p_eap[6]) == REKEY_EAPOL_2 && sta->sta_is_adding_key == true)
+            sta->sta_is_adding_key = false;
     } else if (eh->ether_type == __constant_htons(ETHERTYPE_IP)) {
         if (iphdrp->protocol == IPPROTO_TCP) {
             AML_PRINT(AML_DBG_MODULES_TX, "tcp src:%d, dst:%d, seq:%u, tcp ack:%u\n",  __constant_htons(th->source),  __constant_htons(th->dest),
@@ -225,7 +229,8 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
 
                 while ((dhcp_p[offset] != 255) && (offset < offset_max)) {
                     if (dhcp_p[offset] == 53) {
-                        AML_OUTPUT("dhcp send status : %d\n", dhcp_p[offset + 2]);
+                        mac_pkt_info->op_type = dhcp_p[offset + 2];
+                        AML_OUTPUT("dhcp send status:%d\n", dhcp_p[offset + 2]);
                         break;
                     }
 
@@ -233,7 +238,6 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
                 }
 
                 mac_pkt_info->b_dhcp = 1;
-
             } else {
                 for (j = 0; j < udp_cnt; j++) {
                     if ((uh->source == __constant_htons(aml_udp_info[j].src_port)) && (uh->dest == __constant_htons(aml_udp_info[j].dst_port)) && (aml_udp_info[j].out)) {
@@ -247,6 +251,7 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
 
     } else if (eh->ether_type == __constant_htons(ETHERTYPE_ARP)) {
         mac_pkt_info->b_arp = 1;
+        mac_pkt_info->op_type = *(skb->data + ETHER_HDR_LEN + ARP_OPCODE_SHIFT);
     }
 }
 
@@ -258,9 +263,11 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
     unsigned char tid_index = os_skb_get_tid(skb);
     struct aml_driver_nsta *drv_sta = sta->drv_sta;
     struct drv_tx_scoreboard *tid = DRV_GET_TIDTXINFO(drv_sta, tid_index);
+    unsigned char res = 0;
+
     if (tid->tid_tx_buff_sending) {
         wnet_vif->vm_devstats.tx_dropped++;
-        wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[os_skb_get_tid(skb)]++;
+        wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[tid_index]++;
         return NETDEV_TX_BUSY;
     }
 
@@ -271,10 +278,21 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
 
     /*check the txlist_x threshhold: been sent to hal and to be sent to hal*/
     /* check msdu pending num*/
-    if (wifimac->drv_priv->drv_ops.txlist_isfull(wifimac->drv_priv, wifimac->wm_ac2q[os_skb_get_priority(skb)], (skb), sta->drv_sta)
-        || (wifimac->msdu_cnt[os_skb_get_tid(skb)] > MAX_MSDU_CNT)) {
+    if (wifimac->drv_priv->drv_ops.txlist_isfull(wifimac->drv_priv, wifimac->wm_ac2q[os_skb_get_priority(skb)], (skb), sta->drv_sta)) {
+        if (wifimac->txdesc_flag & TXDESC_FLOW_CTRL_EN) {
+            res = NETDEV_TX_OK;
+        } else {
+            wnet_vif->vm_devstats.tx_dropped++;
+            wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[tid_index]++;
+            res = NETDEV_TX_BUSY;
+        }
+        return res;
+    }
+
+    if (wifimac->msdu_cnt[tid_index] > MAX_MSDU_CNT) {
         wnet_vif->vm_devstats.tx_dropped++;
-        wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[os_skb_get_tid(skb)]++;
+        wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[tid_index]++;
+        AML_OUTPUT("tid:%d, msdu_cnt:%d\n", tid_index, wifimac->msdu_cnt[tid_index]);
         return NETDEV_TX_BUSY;
     }
 
@@ -285,7 +303,7 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
         if (qlen_real + pending_cnt > 200) {
             //AML_OUTPUT("qlen_real:%d, pending_cnt:%d\n", qlen_real, pending_cnt);
             wnet_vif->vm_devstats.tx_dropped++;
-            wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[os_skb_get_tid(skb)]++;
+            wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[tid_index]++;
             return NETDEV_TX_BUSY;
         }
     }
@@ -357,7 +375,39 @@ int wifi_mac_tcp_csum(struct sk_buff *skb)
     return 0;
 }
 
-int wifi_mac_hardstart(struct sk_buff *skb, struct net_device *dev)
+void wifi_mac_wake_queues(struct wlan_net_vif * wnet_vif)
+{
+    struct wifi_mac * wifimac = wnet_vif->vm_wmac;
+
+    TX_DESC_BUF_LOCK(wifimac);
+    if (wifimac->txdesc_free_cnt > TXDESC_THRESHOLD_WAKE)
+    {
+        if (wifimac->txdesc_flag & TXDESC_STOP_ALL_QUEUES)
+        {
+            netif_tx_wake_all_queues(wnet_vif->vm_ndev);
+            wifimac->txdesc_flag &= ~TXDESC_STOP_ALL_QUEUES;
+        }
+    }
+    TX_DESC_BUF_UNLOCK(wifimac);
+}
+
+void wifi_mac_is_queues_full(struct wlan_net_vif * wnet_vif)
+{
+    struct wifi_mac * wifimac = wnet_vif->vm_wmac;
+
+    TX_DESC_BUF_LOCK(wifimac);
+    if (wifimac->txdesc_free_cnt < TXDESC_THRESHOLD_STOP)
+    {
+        if (!(wifimac->txdesc_flag & TXDESC_STOP_ALL_QUEUES))
+        {
+            netif_tx_stop_all_queues(wnet_vif->vm_ndev);
+            wifimac->txdesc_flag |= TXDESC_STOP_ALL_QUEUES;
+        }
+    }
+    TX_DESC_BUF_UNLOCK(wifimac);
+}
+
+netdev_tx_t wifi_mac_hardstart(struct sk_buff *skb, struct net_device *dev)
 {
     struct wlan_net_vif *wnet_vif = netdev_priv(dev);
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
@@ -432,6 +482,10 @@ int wifi_mac_hardstart(struct sk_buff *skb, struct net_device *dev)
     if (wifi_mac_is_allow_send(wnet_vif, sta, skb)) {
         error = 10;
         goto bad;
+    }
+
+    if (wifimac->txdesc_flag & TXDESC_FLOW_CTRL_EN) {
+        wifi_mac_is_queues_full(wnet_vif);
     }
 
     ptxdesc = wifi_mac_alloc_txdesc(wifimac);
@@ -1828,18 +1882,23 @@ wifi_mac_add_htcap(unsigned char *frm, struct wifi_station *sta)
 unsigned char *
 wifi_mac_add_wide_bandwidth_subie(unsigned char *frm,struct wifi_station *sta)
 {
-    struct wifi_mac *wifimac = sta->sta_wmac;
-    struct wifi_channel *main_vmac_chan = wifi_mac_get_main_vmac_channel(wifimac);
+    struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
+    struct wifi_channel *switch_chan = wnet_vif->csa_target.switch_chan;
+
+    if (WIFINET_IS_CHAN_ERR(switch_chan)) {
+        ERROR_DEBUG_OUT("NULL chan\n");
+        return frm;
+    }
 
     *frm++ = WIFINET_ELEMID_WIDE_BAND_CHAN_SWITCH;
     *frm++ = 3;
-    if (main_vmac_chan->chan_bw == WIFINET_BWC_WIDTH80) {
+    if (switch_chan->chan_bw == WIFINET_BWC_WIDTH80) {
         *frm++ = 1;
     } else {
         /* for 40m bw*/
         *frm++ = 0;
     }
-    *frm++ = wifi_mac_mhz2chan(main_vmac_chan->chan_cfreq1);
+    *frm++ = wifi_mac_mhz2chan(switch_chan->chan_cfreq1);
     *frm++ = 0;
     return frm;
 }
@@ -2136,7 +2195,7 @@ wifi_mac_add_vht_cap(unsigned char *frm, struct wifi_station *sta)
 
     SET_VHT_CAP_TXOP_PS(vht_cap_ie->vht_cap_info, VHT_CAP_TXOP_PS_NOT_SUPPORT);
     SET_VHT_CAP_HTC_VHT(vht_cap_ie->vht_cap_info, VHT_CAP_NOT_SUPPORT_HTCVHT);
-    SET_VHT_CAP_MAX_APMDU_LEN_EXP(vht_cap_ie->vht_cap_info,  MAX_VHT_AMPDU_32K);
+    SET_VHT_CAP_MAX_APMDU_LEN_EXP(vht_cap_ie->vht_cap_info,  MAX_VHT_AMPDU_64K);
     SET_VHT_CAP_LK_ADP(vht_cap_ie->vht_cap_info, VHT_CAP_LK_ADP_NO_FB);
     SET_VHT_CAP_RX_ATN_CONSTN(vht_cap_ie->vht_cap_info, VHT_CAP_RX_ATN_CONSTN_NOT_CHANGE);
     SET_VHT_CAP_TX_ATN_CONSTN(vht_cap_ie->vht_cap_info, VHT_CAP_TX_ATN_CONSTN_NOT_CHANGE);
@@ -3303,7 +3362,7 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
 
                         //AMSDU is supported on the opposite end
                         if (actionargs->arg2) {
-                            addbaresponse->rs_baparamset.buffersize = 16;
+                            addbaresponse->rs_baparamset.buffersize = 24;
                             AML_OUTPUT("coex change rx_addba_rsp ---> FDD\n");
                             DPRINTF(AML_DEBUG_ADDBA, "%s: ADDBA response. opposite support AMSDU, reduce buffer size to %d\n",
                                 __func__, addbaresponse->rs_baparamset.buffersize);

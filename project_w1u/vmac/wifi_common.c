@@ -19,6 +19,7 @@
 MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 #endif
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
 static int openFile(struct file **fpp, const char *path, int flag, int mode)
 {
     struct file *fp;
@@ -32,6 +33,7 @@ static int openFile(struct file **fpp, const char *path, int flag, int mode)
         return 0;
     }
 }
+#endif
 
 /*
 * Close the file with the specific @param fp
@@ -57,12 +59,14 @@ static int readFile(struct file *fp, char *buf, int len)
     }
 
     while (sum < len) {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
         rlen = kernel_read(fp, buf + sum, len - sum, &fp->f_pos);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
         rlen = __vfs_read(fp, buf + sum, len - sum, &fp->f_pos);
 #else
         rlen = fp->f_op->read(fp, buf + sum, len - sum, &fp->f_pos);
+#endif
 #endif
         if (rlen > 0) {
             sum += rlen;
@@ -90,12 +94,14 @@ static int writeFile(struct file *fp, char *buf, int len)
     }
 
     while (sum < len) {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
         wlen = kernel_write(fp, buf + sum, len - sum, &fp->f_pos);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
         wlen = __vfs_write(fp, buf + sum, len - sum, &fp->f_pos);
 #else
         wlen = fp->f_op->write(fp, buf + sum, len - sum, &fp->f_pos);
+#endif
 #endif
         if (wlen > 0) {
             sum += wlen;
@@ -116,8 +122,9 @@ static int writeFile(struct file *fp, char *buf, int len)
 */
 int isFileReadable(const char *path, u32 *sz)
 {
-    struct file *fp;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
     int ret = 0;
+    struct file *fp;
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     mm_segment_t oldfs;
 #endif
@@ -134,7 +141,7 @@ int isFileReadable(const char *path, u32 *sz)
 #else
         set_fs(get_ds());
 #endif
-#endif //5.15
+#endif
         if (1 != readFile(fp, &buf, 1)) {
             ret = PTR_ERR(fp);
         }
@@ -152,6 +159,9 @@ int isFileReadable(const char *path, u32 *sz)
         filp_close(fp, NULL);
     }
     return ret;
+#else
+    return 1;
+#endif
 }
 
 /*
@@ -163,6 +173,8 @@ int isFileReadable(const char *path, u32 *sz)
 */
 static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 {
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
     int ret = -1;
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     mm_segment_t oldfs;
@@ -173,7 +185,6 @@ static int retriveFromFile(const char *path, u8 *buf, u32 sz)
         ret = openFile(&fp, path, O_RDONLY, 0);
         if (0 == ret) {
             AML_OUTPUT("openFile path:%s fp=%p\n", path , fp);
-
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
             oldfs = get_fs();
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
@@ -197,6 +208,9 @@ static int retriveFromFile(const char *path, u8 *buf, u32 sz)
         ret = -EINVAL;
     }
     return ret;
+#else
+    return 0;
+#endif
 }
 
 /*
@@ -209,11 +223,11 @@ static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 static int storeToFile(const char *path, u8 *buf, u32 sz)
 {
     int ret = 0;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     mm_segment_t oldfs;
 #endif
     struct file *fp;
-
 
     if (path && buf) {
         ret = openFile(&fp, path, O_CREAT | O_WRONLY, 0666);
@@ -240,6 +254,7 @@ static int storeToFile(const char *path, u8 *buf, u32 sz)
         ERROR_DEBUG_OUT("NULL pointer\n");
         ret =  -EINVAL;
     }
+#endif
     return ret;
 }
 
@@ -317,6 +332,52 @@ int aml_store_to_file(const char *path, u8 *buf, u32 sz)
 {
     int ret = storeToFile(path, buf, sz);
     return ret >= 0 ? ret : 0;
+}
+
+bool isFirstWrtFwlog = true;
+int storeFwlogToFile(u8 *buf, u32 sz)
+{
+    int ret = 0;
+    unsigned int file_mode;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+    mm_segment_t oldfs;
+#endif
+    struct file *fp;
+
+    if (buf) {
+        if (isFirstWrtFwlog) {
+            file_mode = O_CREAT | O_WRONLY | O_TRUNC;
+            isFirstWrtFwlog = false;
+        } else {
+            file_mode = O_CREAT | O_WRONLY | O_APPEND;
+        }
+        ret = openFile(&fp, "/data/fw_trace", file_mode, 0666);
+        if (0 == ret) {
+            AML_OUTPUT("openFile path:%s fp=%p\n", "/data/fw_trace" , fp);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+            oldfs = get_fs();
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
+            set_fs(KERNEL_DS);
+#else
+            set_fs(get_ds());
+#endif
+#endif//5.15
+            ret = writeFile(fp, buf, sz);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+            set_fs(oldfs);
+#endif
+            closeFile(fp);
+            AML_OUTPUT("writeFile, ret:%d\n", ret);
+        } else {
+            ERROR_DEBUG_OUT("openFile path:%s Fail, ret:%d\n", "/data/fw_trace", ret);
+        }
+    } else {
+        ERROR_DEBUG_OUT("NULL pointer\n");
+        ret =  -EINVAL;
+    }
+#endif
+    return ret;
 }
 
 /**

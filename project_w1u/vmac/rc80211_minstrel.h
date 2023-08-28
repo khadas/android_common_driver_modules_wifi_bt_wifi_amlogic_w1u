@@ -79,6 +79,54 @@ struct minstrel_rate_stats {
 	int tp_avg;
 };
 
+struct ieee80211_sta_aml {
+	u32 supp_rates[NUM_NL80211_BANDS];
+	u8 addr[ETH_ALEN];
+	u16 aid;
+	struct ieee80211_sta_ht_cap ht_cap;
+	struct ieee80211_sta_vht_cap vht_cap;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0))
+	struct ieee80211_sta_he_cap he_cap;
+	struct ieee80211_he_6ghz_capa he_6ghz_capa;
+#endif
+	u16 max_rx_aggregation_subframes;
+	bool wme;
+	u8 uapsd_queues;
+	u8 max_sp;
+	u8 rx_nss;
+	enum ieee80211_sta_rx_bandwidth bandwidth;
+	enum ieee80211_smps_mode smps_mode;
+	struct ieee80211_sta_rates __rcu *rates;
+	bool tdls;
+	bool tdls_initiator;
+	bool mfp;
+	u8 max_amsdu_subframes;
+	u16 max_amsdu_len;
+	bool support_p2p_ps;
+	u16 max_rc_amsdu_len;
+	u16 max_tid_amsdu_len[IEEE80211_NUM_TIDS];
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0))
+	struct ieee80211_sta_txpwr txpwr;
+#endif
+	struct ieee80211_txq *txq[IEEE80211_NUM_TIDS + 1];
+	u8 drv_priv[] __aligned(sizeof(void *));
+};
+static inline int rate_supported_aml(struct ieee80211_sta_aml *sta,
+				 enum nl80211_band band,
+				 int index)
+{
+	return (sta == NULL || sta->supp_rates[band] & BIT(index));
+}
+static inline s8
+rate_lowest_index_aml(struct ieee80211_supported_band *sband,
+		  struct ieee80211_sta_aml *sta)
+{
+	int i;
+	for (i = 0; i < sband->n_bitrates; i++)
+		if (rate_supported_aml(sta, sband->band, i))
+			return i;
+	return 0;
+}
 struct minstrel_rate {
 	int bitrate;
 
@@ -95,7 +143,7 @@ struct minstrel_rate {
 };
 
 struct minstrel_sta_info {
-    struct ieee80211_sta *sta;
+    struct ieee80211_sta_aml *sta;
 
     unsigned long last_stats_update;
     unsigned int sp_ack_dur;
@@ -152,13 +200,13 @@ struct minstrel_rate_control_ops {
     void *(*alloc)(struct ieee80211_hw *hw);
     void (*free)(void *priv);
 
-    void *(*alloc_sta)(void *priv, struct ieee80211_sta *sta, gfp_t gfp);
-    void (*rate_init)(void *priv, struct ieee80211_supported_band *sband, struct ieee80211_sta *sta, void *priv_sta);
-    void (*rate_update)(void *priv, struct ieee80211_supported_band *sband, struct ieee80211_sta *sta, void *priv_sta, u32 changed);
+    void *(*alloc_sta)(void *priv, struct ieee80211_sta_aml *sta, gfp_t gfp);
+    void (*rate_init)(void *priv, struct ieee80211_supported_band *sband, struct ieee80211_sta_aml *sta, void *priv_sta);
+    void (*rate_update)(void *priv, struct ieee80211_supported_band *sband, struct ieee80211_sta_aml *sta, void *priv_sta, u32 changed);
     void (*free_sta)(void *priv_sta);
 
     void (*tx_status)(void *priv, struct ieee80211_supported_band *sband, void *priv_sta,struct ieee80211_tx_info *info,void *p_sta);
-    void (*get_rate)(void *priv, struct ieee80211_sta *sta, void *priv_sta, struct ieee80211_tx_info *info);
+    void (*get_rate)(void *priv, struct ieee80211_sta_aml *sta, void *priv_sta, struct ieee80211_tx_info *info);
     u32 (*get_expected_throughput)(void *priv_sta);
 };
 

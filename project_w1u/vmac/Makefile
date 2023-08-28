@@ -13,6 +13,11 @@ endif
 
 
 ifneq ($(ROKU_PROJECT),)
+CONFIG_ROKU=y
+CONFIG_CFG80211=y
+CONFIG_LINUX_PLATFORM=y
+EXTRA_CFLAGS += -DCONFIG_ROKU
+
 -include $(BACKPORTS_VERSIONS)
 ifneq ($(BACKPORTED_KERNEL_VERSION),)
 export CFG_CFG80211_VERSION ?= $(BACKPORTED_KERNEL_VERSION)
@@ -33,18 +38,23 @@ EXTRA_CFLAGS += -DBACKPORTED_KERNEL_VERSION=\"$(BACKPORTED_KERNEL_VERSION)\"
 EXTRA_CFLAGS += -Wno-error=missing-attributes
 EXTRA_CFLAGS += -Wno-error=stringop-truncation
 EXTRA_CFLAGS += -Wno-error=unused-variable
-EXTRA_CFLAGS += -DCONFIG_ROKU
-CONFIG_ROKU=y
-CONFIG_CFG80211=y
-ifeq ($(BACKPORTS_3), y)
-EXTRA_CFLAGS += -DCOMPAT_KERNEL_RELEASE_3_14=1
-$(info set COMPAT_KERNEL_RELEASE_3_14)
-else
-# Assume all non_backport_3 is using backport_4_19
-EXTRA_CFLAGS += -DCOMPAT_KERNEL_RELEASE_4_19=1
-$(info set COMPAT_KERNEL_RELEASE_4_19)
 endif
+
 endif
+
+ifneq ($(CFG_CFG80211_VERSION),)
+VERSION_STR = $(subst $\",,$(subst ., , $(subst -, ,$(subst v,,$(CFG_CFG80211_VERSION)))))
+$(info VERSION_STR=$(VERSION_STR))
+X = $(firstword $(VERSION_STR))
+Y = $(word 2 ,$(VERSION_STR))
+Z = $(word 3 ,$(VERSION_STR))
+VERSION := $(shell echo "$$(( $(X) * 65536 + $(Y) * 256 + $(Z)))" )
+ccflags-y += -DCFG_CFG80211_VERSION=$(VERSION)
+$(info DCFG_CFG80211_VERSION=$(VERSION))
+endif
+
+ifneq ($(CONFIG_LINUX_PLATFORM),)
+EXTRA_CFLAGS += -DLINUX_PLATFORM
 endif
 
 ifeq ($(PROJ_NAME),p-amlogic)
@@ -57,8 +67,8 @@ KERNELDIR ?= $(SRCTOP)/out/target/product/txhd_t920l_r341/obj/KERNEL_OBJ
 EXTRA_CFLAGS += -DSYSTEM64
 endif
 
-CC        = $(CROSS_COMPILE)gcc
-STRIP     = $(CROSS_COMPILE)strip
+#CC        = $(CROSS_COMPILE)gcc
+#STRIP     = $(CROSS_COMPILE)strip
 
 M ?= $(shell pwd)
 ifneq ($(KERNEL_SRC),)
@@ -86,13 +96,16 @@ CONFIG_AML_P2P=y
 CONFIG_SDIO=y
 CONFIG_MAC_SUPPORT=y
 CONFIG_WIFI_CAPTURE=y
+ifneq ($(ROKU_PROJECT),)
+CONFIG_CHIP_RESET=y
+endif
 TARGET = w1u
 
-EXTRA_CFLAGS += -Wno-enum-conversion
+EXTRA_CFLAGS += -Wno-enum-conversion -Wno-strict-prototypes
 EXTRA_CFLAGS += -Wno-incompatible-pointer-types
 EXTRA_CFLAGS += ${INCS}  -DCONFIG_WAPI
 EXTRA_CFLAGS += -Wall -Wno-unused-function #show all warning
-EXTRA_CFLAGS += -Werror -Wno-format #convert warning into error
+EXTRA_CFLAGS += -Werror -Wno-format -Wno-error #convert warning into error
 #EXTRA_CFLAGS += -W	#more strict, linux head file cannot pass, so give up
 #EXTRA_CFLAGS += -w	#ignore warning
 #EXTRA_CFLAGS += -DHALMODULE
@@ -102,15 +115,15 @@ EXTRA_CFLAGS += -DCONFIG_CONCURRENT_MODE
 #EXTRA_CFLAGS += -DDRV_SUPPORT_TX_WITHDRAW
 EXTRA_CFLAGS += -DHAL_FPGA_VER
 EXTRA_CFLAGS += -DPROJECT_W1
-#EXTRA_CFLAGS += -DINTER_BEACON
+EXTRA_CFLAGS += -DINTER_BEACON
 EXTRA_CFLAGS += -DSRAM_CONCURRENT
 EXTRA_CFLAGS += -DCTS_VERIFIER_GAS
 #EXTRA_CFLAGS += -DRX_PN_CHECK
 #EXTRA_CFLAGS += -DCONFIG_COMPAT
 EXTRA_CFLAGS += -DCONFIG_AML_USE_STATIC_BUF
 EXTRA_CFLAGS += -DSDIO_BUILD_IN
-#EXTRA_CFLAGS += -DSU_BF
-#EXTRA_CFLAGS += -DMU_BF
+EXTRA_CFLAGS += -DSU_BF
+EXTRA_CFLAGS += -DMU_BF
 EXTRA_CFLAGS += -DUSB_BUILD_IN
 #EXTRA_CFLAGS += -DDEBUG_MALLOC
 #EXTRA_CFLAGS += -DCONFIG_DPD_ENABLE
@@ -119,12 +132,15 @@ EXTRA_CFLAGS += -DFW_RF_CALIBRATION
 EXTRA_CFLAGS += -DAML_WPA3
 EXTRA_CFLAGS += -DHOST
 EXTRA_CFLAGS += -DDYNAMIC_BW
-#EXTRA_CFLAGS += -DWFA_P2P_TEST
-ifeq ($(ROKU_PROJECT),)
+EXTRA_CFLAGS += -DWFA_P2P_TEST
 EXTRA_CFLAGS += -DSDIO_MODE_ON
-else
+ifneq ($(ROKU_PROJECT),)
 EXTRA_CFLAGS += -DNOT_AMLOGIC_PLATFORM
 endif
+
+ifneq ($(CONFIG_CHIP_RESET),)
+EXTRA_CFLAGS += -DCHIP_RESET_SUPPORT
+endif#CONFIG_CHIP_RESET
 
 ifeq ($(UNOENV),$(UNO_GXL))
 EXTRA_CFLAGS += -DCONFIG_GXL
@@ -141,9 +157,12 @@ obj-m += w1u_comm.o
 w1u_comm-objs:=\
         aml_bus/aml_interface.o\
         aml_bus/usb_common.o
-ifeq ($(ROKU_PROJECT),)
 w1u_comm-objs += aml_bus/w1_sdio.o
+
+ifeq ($(CLANG_VERSION), r487747)
+EXTRA_CFLAGS += -Wno-unused-but-set-variable
 endif
+
 #obj-m += w1u_sdio.o
 #w1u_sdio-objs += w1_sdio/w1_sdio.o
 #obj-m += w1u_usb.o
@@ -156,10 +175,6 @@ SRC_FILE := $(wildcard $(CUR_DIR)/*.c $(CUR_DIR)/rf_t9026/*.c $(CUR_DIR)/crypto/
 TARGET_FILE = $(subst $(CUR_DIR)/,, $(SRC_FILE:%.c=%.o))
 
 ifneq ($(CONFIG_SDIO),)
-
-ifneq ($(ROKU_PROJECT),)
-DISCARD += wifi_sdio.o
-endif
 EXTRA_CFLAGS += -DCONFIG_SDIO_IF
 EXTRA_CFLAGS += -DFPGA
 #EXTRA_CFLAGS += -DCONFIG_GPIO_WAKEUP
@@ -225,7 +240,11 @@ modules:
 	@echo "EXTRA_CFLAGS=$(EXTRA_CFLAGS)"
 	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNEL_SRC) M=$(M) modules
 ifneq (${OUT_DIR},)
+ifneq (${LLVM},)
+	llvm-strip --strip-unneeded ${OUT_DIR}/$(M)/$(TARGET).ko
+else
 	$(CROSS_COMPILE)strip --strip-unneeded ${OUT_DIR}/$(M)/$(TARGET).ko
+endif
 else
 	$(STRIP) -S $(TARGET).ko
 endif

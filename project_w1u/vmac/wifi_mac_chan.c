@@ -1291,7 +1291,7 @@ void wifi_mac_set_wnet_vif_chan_ex(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE par
     struct wifi_channel *wnet_vif_chan = (struct wifi_channel * )param2;
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param3;
 
-    wifi_mac_ChangeChannel(wifimac, wnet_vif_chan, 3, wnet_vif->wnet_vif_id);
+    wifi_mac_ChangeChannel(wifimac, wnet_vif_chan, CHANNEL_CONNECT_FLAG | CHANNEL_RESTORE_FLAG, wnet_vif->wnet_vif_id);
 }
 
 struct wifi_channel * wifi_mac_get_wm_chan (struct wifi_mac *wifimac)
@@ -1312,7 +1312,7 @@ int wifi_mac_set_wnet_vif_channel(struct wlan_net_vif *wnet_vif,  int chan, int 
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
     struct wifi_channel * c = NULL;
 
-    AML_OUTPUT("\n");
+    AML_OUTPUT("vid:%d\n", wnet_vif->wnet_vif_id);
     c = wifi_mac_find_chan(wifimac, chan, bw, center_chan);
 
     if (c == NULL) {
@@ -1322,13 +1322,21 @@ int wifi_mac_set_wnet_vif_channel(struct wlan_net_vif *wnet_vif,  int chan, int 
         return false;
     }
     if (c->chan_flags & WIFINET_CHAN_DFS && !g_DFS_on) {
+        AML_OUTPUT(" dfs channel on[%d] \n",g_DFS_on);
         wifimac->wm_disconnect_code = DISCONNECT_DFSCHAN;
         return false;
     }
 
-    DPRINTF(AML_DEBUG_ERROR, "%s(%d),chan_pri_num =%d, chan_cfreq1 =%d,chan_flags =0x%x\n",
-        __func__,__LINE__, c->chan_pri_num, c->chan_cfreq1, c->chan_flags);
     wnet_vif->vm_curchan = c;
+
+    if (wifimac->wm_curchan == wnet_vif->vm_curchan) {
+        AML_OUTPUT(" ignore channel set as wm_curchan is same with vm_curchan\n");
+        return true;
+    }
+
+    DPRINTF(AML_DEBUG_WARNING, "%s %d, chan_pri_num:%d, chan_cfreq1:%d, chan_flags:0x%x\n",
+        __func__,__LINE__, c->chan_pri_num, c->chan_cfreq1, c->chan_flags);
+
     wifi_mac_add_work_task(wnet_vif->vm_wmac, wifi_mac_set_wnet_vif_chan_ex, NULL,
         (SYS_TYPE)(wnet_vif->vm_wmac), (SYS_TYPE)c, (SYS_TYPE)wnet_vif, 0, 0);
     return true;
@@ -1391,7 +1399,10 @@ void wifi_mac_restore_wnet_vif_channel(struct wlan_net_vif *wnet_vif)
         wifi_mac_ChangeChannel(wifimac, selected_wnet_vif->vm_curchan, 1, selected_wnet_vif->wnet_vif_id);
     }
 
-    wifi_mac_set_channel_rssi(wifimac, (unsigned char)(selected_wnet_vif->vm_mainsta->sta_avg_bcn_rssi));
+    if (selected_wnet_vif->vm_opmode == WIFINET_M_STA) {
+        wifi_mac_set_channel_rssi(wifimac, (unsigned char)(selected_wnet_vif->vm_mainsta->sta_avg_bcn_rssi));
+    }
+
     if ((wifimac->wm_nrunning == 2) && concurrent_check_is_vmac_same_pri_channel(wifimac)) {
         selected_wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_P2P_VMAC];
         wifimac->drv_priv->drv_ops.drv_set_is_mother_channel(wifimac->drv_priv, selected_wnet_vif->wnet_vif_id, 1);
@@ -1408,9 +1419,10 @@ void wifi_mac_restore_wnet_vif_channel(struct wlan_net_vif *wnet_vif)
     tasklet_schedule(&wifimac->drv_priv->ampdu_tasklet);
 }
 
-void wifi_mac_restore_wnet_vif_channel_task_ex(void * data)
+void wifi_mac_restore_wnet_vif_channel_task_ex(SYS_TYPE param1,
+        SYS_TYPE param2,SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5)
 {
-    struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)data;
+    struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param1;
     wifi_mac_restore_wnet_vif_channel(wnet_vif);
 }
 

@@ -72,7 +72,7 @@ extern unsigned long long g_dbg_modules;
 
 #define DPRINTF( _m,  ...) do {         \
                 if (aml_debug& (_m))                \
-                        printk(__VA_ARGS__);      \
+                     printk("[wlan] " __VA_ARGS__); \
         } while (0)
 
 enum
@@ -90,6 +90,7 @@ enum
     AML_DBG_MODULES_TX_ERROR = BIT(4),
     AML_DBG_MODULES_SCAN = BIT(5),
     AML_DBG_MODULES_BCN = BIT(6), /* bcn module*/
+    AML_DBG_MODULES_FILTER = BIT(7), /* filter module*/
     AML_DEBUG_MODULES_ALL = 0xffffffffffffffff,
 };
 
@@ -108,15 +109,17 @@ enum
                         AML_OUTPUT("[SCAN] "format"", ##__VA_ARGS__); \
                     else if (_m == AML_DBG_MODULES_BCN) \
                         AML_OUTPUT("[BCN] "format"", ##__VA_ARGS__); \
+                    else if (_m == AML_DBG_MODULES_FILTER) \
+                        printk("[FILTER] "format"", ##__VA_ARGS__); \
                 }    \
         } while (0)
 
 #define ERROR_DEBUG_OUT(format,...) do {    \
-                 AML_OUTPUT("[ERROR_DEBUG]"format"", ##__VA_ARGS__); \
+            AML_OUTPUT("[ERROR_DEBUG]"format"", ##__VA_ARGS__); \
         } while (0)
 
 #define AML_OUTPUT(format,...) do {    \
-                 printk("<%s> %d:"format"",__FUNCTION__, __LINE__, ##__VA_ARGS__); \
+                 printk("[wlan] <%s> %d:"format"",__FUNCTION__, __LINE__, ##__VA_ARGS__); \
         } while (0)
 
 

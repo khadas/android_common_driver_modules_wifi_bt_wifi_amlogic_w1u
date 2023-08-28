@@ -237,7 +237,7 @@ void wifi_mac_pwrsave_send_pspoll(struct wifi_station *);
 int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5);
-int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
+void wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5);
 int wifi_mac_pwrsave_wow_usr(struct wlan_net_vif *wnet_vif,

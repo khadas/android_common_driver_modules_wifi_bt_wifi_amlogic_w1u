@@ -24,6 +24,7 @@ typedef union MAC_RXWD_TIMER_FIELD
   } b;
 } MAC_RXWD_TIMER_FIELD_T;
 
+#define MAC_CHANNEL_NUM_MASK 0xff
 #define MAC_CHANNEL_NUM                           (WIFI_MAC_RX_REG_BASE + 0x1e0)
 // Bit 7   :0      reg_rx_channel_num             U     RW        default = 'h0
 typedef union MAC_CHANNEL_NUM_FIELD

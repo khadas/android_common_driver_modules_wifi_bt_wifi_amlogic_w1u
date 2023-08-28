@@ -133,16 +133,16 @@ int aml_bus_intf_insmod(void)
 {
     int ret;
     if (strncmp(bus_type,"usb",3) == 0) {
-        ret = aml_usb_insmod();
         aml_bus_type = 1;
+        ret = aml_usb_insmod();
         if (ret) {
             printk("aml usb bus init fail\n");
         }
     }
 #ifdef SDIO_MODE_ON
     else if (strncmp(bus_type,"sdio",4) == 0) {
-        ret = aml_sdio_insmod();
         aml_bus_type = 0;
+        ret = aml_sdio_insmod();
         if (ret) {
             printk("aml sdio bus init fail\n");
         }

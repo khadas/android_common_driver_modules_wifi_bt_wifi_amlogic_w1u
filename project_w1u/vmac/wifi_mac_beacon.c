@@ -236,7 +236,7 @@ int _wifi_mac_beacon_update(struct wifi_station *sta,
         AML_OUTPUT(KERN_CRIT "bug to fix\n");
         return len_changed;
     }
-#ifdef CONFIG_ROKU
+
     if (wnet_vif->vm_p2p->go_hidden_mode != (wnet_vif->vm_flags & WIFINET_F_HIDESSID)>>WIFINET_F_HIDESSID_TO_BIT0_OFST) {
         unsigned char *frm;
 
@@ -273,7 +273,6 @@ int _wifi_mac_beacon_update(struct wifi_station *sta,
             }
         }
     }
-#endif
 
     if ((wifimac->wm_flags & WIFINET_F_DOTH) && (wnet_vif->vm_flags & WIFINET_F_CHANSWITCH) &&
         (wnet_vif->vm_chanchange_count == wifimac->wm_doth_tbtt))
@@ -324,12 +323,23 @@ int _wifi_mac_beacon_update(struct wifi_station *sta,
 
         if (concurrent_set_channel) { /*need think if system want to change channel*/
             struct wlan_net_vif *main_wnet_vif = wifi_mac_running_main_wnet_vif(wifimac);
-
+            struct wifi_station *sta_entry = NULL, *next = NULL;
+            struct wifi_station_tbl *nt = &wnet_vif->vm_sta_tbl;
+            int update_band_to_2g = 0;
+            int update_band_to_5g = 0;
             /*sta connect to 5G ap, softap need update channel/band/mac_mode as  sta*/
             if (switch_chan) {
+                if ((wnet_vif->vm_curchan->chan_pri_num >= 36)
+                    && (switch_chan->chan_pri_num <= 14)) {
+                    update_band_to_2g =1;
+                }else if((wnet_vif->vm_curchan->chan_pri_num <= 14)
+                    && (switch_chan->chan_pri_num > 36)) {
+                    update_band_to_5g =1;
+                }
+
                 wnet_vif->vm_curchan = switch_chan;
                 wnet_vif->vm_bandwidth = switch_chan->chan_bw;
-                sta->sta_chbw = switch_chan->chan_bw;
+
                 if (main_wnet_vif) {
                     wnet_vif->vm_mac_mode = main_wnet_vif->vm_mac_mode;
                 } else if(wnet_vif->vm_p2p->p2p_role == NET80211_P2P_ROLE_GO){
@@ -351,6 +361,19 @@ int _wifi_mac_beacon_update(struct wifi_station *sta,
                 wifi_mac_set_wnet_vif_channel(wnet_vif, switch_chan->chan_pri_num, switch_chan->chan_bw, wifi_mac_Mhz2ieee(switch_chan->chan_cfreq1, 0));
                 AML_OUTPUT("set ap chan %d, mac mode %d, band %d  slot %d\n ",
                       wnet_vif->vm_curchan->chan_pri_num, wnet_vif->vm_mac_mode, wnet_vif->vm_bandwidth,wifimac->wm_vsdb_slot);
+
+                list_for_each_entry_safe(sta_entry, next, &nt->nt_nsta, sta_list) {
+                    if (sta_entry->sta_associd != 0) {
+                        if (sta_entry->sta_chbw > switch_chan->chan_bw) {
+                            sta_entry->sta_chbw = switch_chan->chan_bw;
+                        }
+                        if (update_band_to_2g) {
+                            sta_entry->sta_flags &= ~WIFINET_NODE_VHT;
+                            sta_entry->sta_vhtcap = 0;
+                        }
+                    }
+                }
+
                 if (wifimac->wm_vsdb_slot == CONCURRENT_SLOT_P2P) {
                     /*sta need notify ap*/
                     wifimac->wm_vsdb_flags |= CONCURRENT_SWITCH_TO_STA_CHANNEL;
@@ -835,7 +858,7 @@ int wifi_mac_beacon_alloc(void * ieee, int wnet_vif_id)
     DPRINTF(AML_DEBUG_WARNING,"%s %d Put beacon to HW;  wnet_vif_id %d len %d Bcn init rate 0x%x flag %x\n",
             __func__,__LINE__,wnet_vif_id,len,bcn_rate,CHAN_BW_20M);
 
-    wifimac->drv_priv->drv_ops.Phy_PutBeaconBuf(wifimac->drv_priv, wnet_vif_id, os_skb_data(skbbuf), len, bcn_rate, wnet_vif->vm_bandwidth);
+    wifimac->drv_priv->drv_ops.Phy_PutBeaconBuf(wifimac->drv_priv, wnet_vif_id, os_skb_data(skbbuf), len, bcn_rate, CHAN_BW_20M);
     wifimac->drv_priv->drv_ops.Phy_SetBeaconStart(wifimac->drv_priv,wnet_vif_id,wnet_vif->vm_bcn_intval,0,wnet_vif->vm_opmode);
 
     WIFINET_BEACONBUF_UNLOCK(wifimac);
@@ -844,7 +867,7 @@ int wifi_mac_beacon_alloc(void * ieee, int wnet_vif_id)
 }
 
 
-int wifi_mac_beacon_alloc_ex(SYS_TYPE param1,
+void wifi_mac_beacon_alloc_ex(SYS_TYPE param1,
                             SYS_TYPE param2,SYS_TYPE param3,
                             SYS_TYPE param4,SYS_TYPE param5)
 {
@@ -853,15 +876,15 @@ int wifi_mac_beacon_alloc_ex(SYS_TYPE param1,
     int wnet_vif_id = (int)param2;
 
     if (wnet_vif->wnet_vif_replaycounter != (int)param5) {
-        return -1;
+        return ;
     }
 
     if (wnet_vif->vm_state != WIFINET_S_CONNECTED) {
-        return -1;
+        return ;
     }
 
     AML_OUTPUT("\n");
-    return wifi_mac_beacon_alloc(ieee, wnet_vif_id);
+    wifi_mac_beacon_alloc(ieee, wnet_vif_id);
 }
 
 int wifi_mac_sta_beacon_init(struct wlan_net_vif *wnet_vif)
@@ -872,14 +895,14 @@ int wifi_mac_sta_beacon_init(struct wlan_net_vif *wnet_vif)
     return 0;
 }
 
-int wifi_mac_sta_beacon_init_ex (SYS_TYPE param1,
+void wifi_mac_sta_beacon_init_ex (SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5)
 {
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param4;
     if(wnet_vif->wnet_vif_replaycounter != (int)param5)
-        return -1;
-    return wifi_mac_sta_beacon_init(wnet_vif);
+        return ;
+    wifi_mac_sta_beacon_init(wnet_vif);
 }
 
 void wifi_mac_beacon_free(void * ieee, int wnet_vif_id)
@@ -1019,7 +1042,7 @@ int wifi_mac_set_beacon_miss_ex(struct wlan_net_vif *wnet_vif,
     return 0;
 }
 
-int wifi_mac_set_beacon_miss(SYS_TYPE param1,
+void wifi_mac_set_beacon_miss(SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5)
 {
@@ -1030,10 +1053,10 @@ int wifi_mac_set_beacon_miss(SYS_TYPE param1,
     if (enable == 1 && period < 100/*ms*/)
     {
         WIFINET_DPRINTF(AML_DEBUG_WARNING, "period: %d, error\n", period);
-        return -1;
+        return;
     }
     wifi_mac_set_beacon_miss_ex(wnet_vif, enable, period);
-    return 0;
+    return;
 }
 
 int wifi_mac_set_vsdb_ex(struct wlan_net_vif *wnet_vif, unsigned char enable)
@@ -1045,13 +1068,13 @@ int wifi_mac_set_vsdb_ex(struct wlan_net_vif *wnet_vif, unsigned char enable)
     return 0;
 }
 
-int wifi_mac_set_vsdb(SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3,
+void wifi_mac_set_vsdb(SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3,
     SYS_TYPE param4,SYS_TYPE param5)
 {
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param4;
     unsigned char enable = (unsigned char)param3;
 
     wifi_mac_set_vsdb_ex(wnet_vif, enable);
-    return 0;
+    return ;
 }
 

@@ -1065,14 +1065,19 @@ extern unsigned char wifi_in_rmmod;
 extern unsigned char aml_bus_type;
 extern void Init_B2B_Resource(void);
 
-static int aml_insmod(void)
+int _aml_insmod(void)
 {
     int ret = 0;
     struct hw_interface * hif = hif_get_hw_interface();
-
+    struct hal_private *hal_priv = hal_get_priv();
 #if defined(SDIO_BUILD_IN) && defined(SDIO_MODE_ON)
     wifi_in_insmod = 1;
 #endif
+
+    if (aml_insmod_flag == 1) {
+        AML_OUTPUT("aml_insmod end\n");
+        return 0;
+    }
 
     print_driver_version();
     AML_OUTPUT("driver version: %s\n", DRIVERVERSION);
@@ -1123,7 +1128,7 @@ static int aml_insmod(void)
     }
 
     aml_insmod_flag = 1;
-
+    hal_priv->hal_call_back->drv_trace_nl_init();
     AML_OUTPUT("start...\n");
     return 0;
 
@@ -1168,14 +1173,20 @@ void aml_enable_wifi(void)
     AML_OUTPUT("aml_enable_wifi end\n");
 }
 
-static void aml_rmmod(void)
+void _aml_rmmod(void)
 {
+    struct hal_private *hal_priv = hal_get_priv();
 #ifdef DEBUG_MALLOC
     unsigned char i;
 #endif
 #if defined(SDIO_BUILD_IN) && defined(SDIO_MODE_ON)
     wifi_in_rmmod = 1;
 #endif
+    if (aml_insmod_flag == 0) {
+        AML_OUTPUT("==================aml_rmmod end ======================\n");
+        return;
+    }
+    hal_priv->hal_call_back->drv_trace_nl_deinit();
     AML_OUTPUT("===================aml_rmmod start====================\n");
     hal_exit_priv();
     AML_OUTPUT("===================aml_rmmod end====================\n");
@@ -1197,6 +1208,36 @@ static void aml_rmmod(void)
 #endif
 }
 
+#ifdef CHIP_RESET_SUPPORT
+extern struct auc_reset_ops g_auc_reset_ops;
+void usb_reset_ops_init(void)
+{
+    struct auc_reset_ops *ops = &g_auc_reset_ops;
+
+    ops->probe_cb = _aml_insmod;
+    ops->disconnect_cb = _aml_rmmod;
+}
+#endif
+
+static int aml_insmod(void)
+{
+#ifdef CHIP_RESET_SUPPORT
+    if (aml_bus_type == 1) {
+        usb_reset_ops_init();
+    }
+#endif
+    return _aml_insmod();
+}
+
+static void aml_rmmod(void)
+{
+#ifdef CHIP_RESET_SUPPORT
+    if (aml_bus_type == 1) {
+        memset(&g_auc_reset_ops, 0x00, sizeof(struct auc_reset_ops));
+    }
+#endif
+    _aml_rmmod();
+}
 
 MODULE_LICENSE("GPL");
 module_init(aml_insmod);

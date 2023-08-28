@@ -65,7 +65,9 @@
 #define EFUSE_CFG_CMD 0x4C
 #define COEX_WF_ZGB_MODE_CMD 0X4D
 #define TX_POWER_PT_CMD 0X4E
-
+#define HOST_SHUTDOWN_REQ 0x4F
+#define CF_END_CMD 0x50
+#define KEY_ENTRY_READ_CMD 0x51
 
 /*coexist cmd1 comand*/
 #define COEXIST_EN_CMD  BIT(0)
@@ -223,6 +225,14 @@ typedef struct NoACmd
     unsigned char count;
     unsigned char flag;
 } NoACmd;
+
+typedef struct KeyTableCmd
+{
+    unsigned char Cmd;
+    unsigned char vid;
+    unsigned char sta_id;
+    unsigned char is_ukey;
+} KeyTableCmd;
 
 typedef struct Bcn_Frm_Addr
 {
@@ -545,6 +555,12 @@ enum {
 };
 
 
+struct wow_wake_event
+{
+    struct fw_event_basic_info basic_info;
+    unsigned int reason;
+};
+
 #define TSSI_5G_CAL_NUM 4
 
 typedef struct txtssi_ratio_limit_param
@@ -706,6 +722,14 @@ typedef union FI_CMDFIFO_PARAM
     struct Txpwr_Cffc_Cfg_Param txpwr_cffc_cfg_cmd;
     struct New_Cmd new_cmd;
 } FI_CMDFIFO_PARAM;
+
+typedef struct Set_Cf_End
+{
+    unsigned char Cmd;
+    unsigned char vid;
+    unsigned char reserved;
+    unsigned char enable;
+} Set_Cf_End;
 
 #endif// #ifdef CONFIG_SDIO_IF
 #endif

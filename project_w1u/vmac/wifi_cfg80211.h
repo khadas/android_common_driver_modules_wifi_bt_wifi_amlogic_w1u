@@ -21,6 +21,13 @@
 #include <net/rtnetlink.h>
 #include "wifi_mac_p2p.h"
 
+/* For some platform using backport like ROKU, might not use kernel's cfg80211 code */
+#ifdef CFG_CFG80211_VERSION
+#define CFG80211_VERSION_CODE CFG_CFG80211_VERSION
+#else
+#define CFG80211_VERSION_CODE LINUX_VERSION_CODE
+#endif
+
 #define AMLOGIC_VENDOR_ID 0x8899
 #define AML_SCAN_IE_LEN_MAX sizeof(struct wifi_scan_info)
 #define AML_MAX_NUM_PMKIDS 4
@@ -184,6 +191,7 @@ enum vm_vendor_command_attr{
     VM_NL80211_GET_EN_RF_TEST = 0xac,
     VM_NL80211_SET_COEX_WF_ZGB_MODE = 0xad,
     VM_NL80211_SET_TX_POWER_PERCENTAGE = 0xae,
+    VM_NL80211_SET_ANT_MODE = 0xaf,
 
     VM_NL80211_VENDER_CMD_ID_MAX,
 };
@@ -357,7 +365,7 @@ void vm_cfg80211_indicate_connect(struct wlan_net_vif *wnet_vif);
 void vm_cfg80211_indicate_disconnect(struct wlan_net_vif *wnet_vif);
 int vm_cfg80211_inform_bss (struct wlan_net_vif *wnet_vif);
 int vm_cfg80211_notify_mgmt_rx(struct wlan_net_vif *wnet_vif,  unsigned short channel, void *data,int len);
-int vm_cfg80211_chan_switch_notify_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
+void vm_cfg80211_chan_switch_notify_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
 int vm_p2p_set_wpsp2pie(struct net_device *net, char *buf, int len, int type);
 int vm_p2p_update_beacon_app_ie (struct wlan_net_vif *wnet_vif);
 int vm_p2p_set_p2p_noa(struct net_device *dev, char* buf, int len);

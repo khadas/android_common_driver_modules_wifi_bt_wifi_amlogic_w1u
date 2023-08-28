@@ -410,7 +410,7 @@ minstrel_get_next_sample(struct minstrel_sta_info *mi)
 	return sample_ndx;
 }
 
-static void minstrel_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta, struct ieee80211_tx_info *info)
+static void minstrel_get_rate(void *priv, struct ieee80211_sta_aml *sta, void *priv_sta, struct ieee80211_tx_info *info)
 {
 	struct minstrel_sta_info *mi = priv_sta;
 	struct minstrel_priv *mp = priv;
@@ -549,7 +549,7 @@ init_sample_table(struct minstrel_sta_info *mi)
 #endif
 }
 
-static void minstrel_rate_init(void *priv, struct ieee80211_supported_band *sband, struct ieee80211_sta *sta, void *priv_sta)
+static void minstrel_rate_init(void *priv, struct ieee80211_supported_band *sband, struct ieee80211_sta_aml *sta, void *priv_sta)
 {
 	struct minstrel_sta_info *mi = priv_sta;
 	struct minstrel_priv *mp = priv;
@@ -558,7 +558,7 @@ static void minstrel_rate_init(void *priv, struct ieee80211_supported_band *sban
 	unsigned int t_slot = 9; /* FIXME: get real slot time */
 
 	mi->sta = sta;
-	mi->lowest_rix = rate_lowest_index(sband, sta);
+	mi->lowest_rix = rate_lowest_index_aml(sband, sta);
 	ctl_rate = &sband->bitrates[mi->lowest_rix];
 	mi->sp_ack_dur = ieee80211_frame_duration(sband->band, 10,
 		ctl_rate->bitrate, !!(ctl_rate->flags & IEEE80211_RATE_ERP_G), 1, 0);
@@ -575,7 +575,7 @@ static void minstrel_rate_init(void *priv, struct ieee80211_supported_band *sban
 		unsigned int cw = mp->cw_min;
 		int shift;
 
-		if (!rate_supported(sta, sband->band, i))
+		if (!rate_supported_aml(sta, sband->band, i))
 			continue;
 
 		n++;
@@ -633,7 +633,7 @@ static void minstrel_rate_init(void *priv, struct ieee80211_supported_band *sban
 	AML_OUTPUT("n:%d\n", n);
 }
 
-static void *minstrel_alloc_sta(void *priv, struct ieee80211_sta *sta, gfp_t gfp)
+static void *minstrel_alloc_sta(void *priv, struct ieee80211_sta_aml *sta, gfp_t gfp)
 {
 	struct ieee80211_supported_band *sband;
 	struct minstrel_sta_info *mi;

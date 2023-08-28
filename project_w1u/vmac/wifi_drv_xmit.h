@@ -4,7 +4,7 @@
 #include "wifi_drv_main.h"
 
 #define ADDBA_EXCHANGE_ATTEMPTS 10
-#define ADDBA_TIMEOUT 100 /* ms */
+#define ADDBA_TIMEOUT 1500 /* ms */
 
 #define BITS_PER_BYTE 8
 #define OFDM_PLCP_BITS 22

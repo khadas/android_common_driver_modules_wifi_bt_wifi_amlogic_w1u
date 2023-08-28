@@ -1387,6 +1387,8 @@ struct aml_hal_call_backs
     void (*intr_beacon_miss_handle)(void * drv_prv, unsigned char wnet_vif_id);
     void (*drv_intr_bt_info_change)(void * dpriv, unsigned char wnet_vif_id,unsigned char bt_lk_info );
     void (*drv_pwrsave_wake_req)(void * dpriv, int power_save);
+    int (*drv_trace_nl_init)(void);
+    void (*drv_trace_nl_deinit)(void);
 };
 
 struct hal_private*  hal_get_priv(void);

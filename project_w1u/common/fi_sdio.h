@@ -718,6 +718,7 @@ enum fw_event_type
   TX_ERROR_EVENT,
   FWLOG_PRINT_EVENT,
   ZGB_EXIST_EVENT,
+  WOW_WAKE_EVENT,
 };
 
 struct fw_event_basic_info

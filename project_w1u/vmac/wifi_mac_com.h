@@ -93,4 +93,9 @@ extern const char *wifi_mac_state_name[WIFINET_S_MAX];
 #define BOOL2STR_SWITCH(_bool) (_bool?"on":"off")
 
 #define OTHERS2BOOL(_var) (!!_var)
+
+#define TXDESC_THRESHOLD_STOP 80
+#define TXDESC_THRESHOLD_WAKE 200
+#define TXDESC_FLOW_CTRL_EN BIT(0)
+#define TXDESC_STOP_ALL_QUEUES BIT(1)
 #endif //_NET80211_COMMON_H_
