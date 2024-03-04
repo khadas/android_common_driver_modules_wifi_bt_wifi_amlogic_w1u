@@ -46,6 +46,13 @@
 #define WF2BT_MAC_ARC       (WF2BT_APB_BASE + 0x0c)
 #define RW_OPERTION_SIZE    (4)
 
+//config new way of pn
+#define PN_STEP_MASK   (0x7F)
+#define PN_CAL_SW (0x1)
+#define PN_CAL_HW (0x0)
+#define TX_BUFF_USE_EN (0x1)
+#define PN_ENABLE (BIT(31))
+
 //base address
 #define   PRODUCT_AMLOGIC_ADDR  (MAC_SRAM_BASE+0x000000)
 #define   VENDOR_AMLOGIC_ADDR  (MAC_SRAM_BASE+0x000004)
@@ -270,6 +277,9 @@ enum
 #define HW_LAST_MPDUBUF_FLAG  BIT(1)
 #define HW_FIRST_AGG_FLAG  BIT(2)
 #define HW_LAST_AGG_FLAG  BIT(3)
+
+//disable pn new way due to tx error
+#define PN_NEW_WAY_DISABLE
 
 /* [5:2]: reserved */
 /* [7]: Beacon and Probe Response Flag: indicates whether the current

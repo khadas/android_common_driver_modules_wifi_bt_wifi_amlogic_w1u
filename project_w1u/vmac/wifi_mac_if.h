@@ -285,7 +285,6 @@ void wifi_mac_set_channel_rssi(struct wifi_mac *wifimac, unsigned char rssi);
 int wifi_mac_is_in_noisy_environment(struct wifi_mac *wifimac);
 int wifi_mac_is_in_clear_environment(struct wifi_mac *wifimac);
 
-
 void wifi_mac_get_channel_rssi_before_scan(struct wifi_mac *wifimac, int *rssi);
 
 void wifi_mac_set_tx_power_accord_rssi(struct wifi_mac *wifimac, unsigned char rssi);
@@ -385,7 +384,7 @@ unsigned int wifi_mac_read_word(unsigned int addr);
 void wifi_mac_bt_write_word(unsigned int addr,unsigned int data);
 unsigned int wifi_mac_bt_read_word(unsigned int addr);
 void wifi_mac_pt_rx_start(unsigned int qos);
-void wifi_mac_pt_rx_stop(void);
+struct rx_statics_st wifi_mac_pt_rx_stop(void);
 struct wifi_mac* wifi_mac_get_mac_handle(void);
 void wifi_mac_restore_wnet_vif_channel_task(struct wlan_net_vif *wnet_vif);
 void wifi_mac_roaming_trigger(struct wlan_net_vif * wnet_vif);
@@ -395,7 +394,14 @@ int wifi_mac_monitor_tp_rate(void *arg);
 int wifi_mac_ant_select(void *arg);
 int wifi_mac_ant_rssi_measure(void *arg);
 
-void wifi_mac_fw_recovery(struct wlan_net_vif *wnet_vif);
+int wifi_mac_recovery_record_vif(struct wlan_net_vif * wnet_vif);
+void wifi_mac_recovery_host_reset(struct wifi_mac * wifimac);
+void wifi_mac_vif_restore_end(struct wlan_net_vif *wnet_vif);
+void wifi_mac_recovery_host_restore(struct wifi_mac * wifimac);
+void wifi_mac_process_recovery(struct wifi_mac * wifimac);
+
 void wifi_mac_connect_repair_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
+int aml_request_recovery(enum wifi_mac_recovery_source src);
+unsigned char wifi_mac_need_chip_reset(void);
 void wifi_mac_filter_special_data_frame(struct sk_buff *skb, SPECIAL_FRAME_STATUS_E frame_status);
 #endif

@@ -877,6 +877,8 @@ void aml_show_txpage(void *pTxDPape, int len)
 void aml_usb_build_tx_packet_info(struct crg_msc_cbw *cbw_buf, unsigned char cdb1,
     struct tx_trb_info_ex * trb_info)
 {
+    unsigned char remain_pkt_num = trb_info->packet_num - 14;
+
     cbw_buf->sig = trb_info->buffer_size[0] | trb_info->buffer_size[1] << 16;
     cbw_buf->tag = trb_info->buffer_size[2] | trb_info->buffer_size[3] << 16;
     cbw_buf->data_len = trb_info->buffer_size[4] | trb_info->buffer_size[5] << 16;
@@ -888,6 +890,16 @@ void aml_usb_build_tx_packet_info(struct crg_msc_cbw *cbw_buf, unsigned char cdb
     cbw_buf->cdb[1] = trb_info->buffer_size[6] | trb_info->buffer_size[7] << 16;
     cbw_buf->cdb[2] = trb_info->buffer_size[8] | trb_info->buffer_size[9] << 16;
     cbw_buf->cdb[3] = trb_info->buffer_size[10] | trb_info->buffer_size[11] << 16;
+
+    if (trb_info->packet_num > 14)
+    {
+        unsigned char i = 0;
+        unsigned short *p_buf = cbw_buf->buf;
+        while (remain_pkt_num--)
+        {
+            *p_buf++ = trb_info->buffer_size[i++ + 14];
+        }
+    }
 }
 
 int aml_usb_send_frame(struct amlw_hif_scatter_req * pframe)
@@ -1191,14 +1203,14 @@ int aml_usb_send_packet(struct amlw_hif_scatter_req * scat_req)
     }
     return 0;
 }
-extern struct auc_hif_ops g_auc_hif_ops;
+extern struct auc_hif_ops_for_wifi g_auc_hif_ops_for_wifi;
 extern void hif_get_sts(unsigned int op_code, unsigned int ctrl_code);
 void hif_init_usb_ops(void)
 {
     struct hw_interface* hif = hif_get_hw_interface();
 
 #ifdef USB_BUILD_IN
-    memcpy(&hif->hif_ops, &g_auc_hif_ops, sizeof(struct amlw_hif_ops));
+    memcpy(&hif->hif_ops, &g_auc_hif_ops_for_wifi, sizeof(struct amlw_hif_ops));
 #else
     hif->hif_ops.bt_hi_write_sram = aml_usb_write_sram;
     hif->hif_ops.bt_hi_read_sram = aml_usb_read_sram;
@@ -1250,7 +1262,7 @@ void hif_init_usb_ops(void)
 #ifdef USB_BUILD_IN
 
 extern struct usb_device *g_udev;
-extern struct auc_hif_ops g_auc_hif_ops;
+extern struct auc_hif_ops_for_wifi g_auc_hif_ops_for_wifi;
 extern unsigned char auc_driver_insmoded;
 extern int aml_usb_insmod(void);
 extern void set_usb_wifi_power(int is_on);
@@ -1378,10 +1390,16 @@ unsigned int aml_aon_read_reg(unsigned int addr)
 }
 
 #endif
+
+extern unsigned char recovery_notify_bt;
+extern unsigned char recovery_done;
 void aml_usb_disable_wifi(void)
 {
     AML_OUTPUT("enter\n");
     wifi_usb_access = 0;
+
+    recovery_notify_bt = 1;
+    recovery_done = 0;
 
     /* 1.chip en off, usb disconnect */
     set_usb_wifi_power(0);
@@ -1414,6 +1432,7 @@ void aml_usb_enable_wifi(void)
     wifi_usb_access = 1;
     hal_fw_repair();
     usb_stor_control_msg((unsigned long)hal_priv);
+    recovery_done = 1;
 }
 
 void aml_usb_exit(void)

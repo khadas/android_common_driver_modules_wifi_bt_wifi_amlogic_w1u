@@ -19,7 +19,7 @@ namespace FW_NAME
 {
 #endif
 #endif
-
+#include <linux/firmware.h>
 #include "wifi_hal_com.h"
 #include "wifi_hif.h"
 #include "wifi_common.h"
@@ -32,37 +32,15 @@ namespace FW_NAME
 #include "wifi_mac_chan.h"
 #include "chip_intf_reg.h"
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
-#include <linux/firmware.h>
 #include "wifi_mac_com.h"
-#endif
 
 #if defined (HAL_FPGA_VER)
 #include "wifi_drv_statistic.h"
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
-#endif
 
-#if defined (LINUX_PLATFORM)
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
-#define WIFI_CONF_PATH "/lib/firmware/w1u"
-#else
 #define WIFI_CONF_PATH "w1u"
-#endif
-#else//LINUX_PLATFORM
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5, 15, 0))
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,29))
-#define WIFI_CONF_PATH "/system/etc/wifi/w1u"
-#else//KERNEL_VERSION(3,14,29)
-#define WIFI_CONF_PATH "/vendor/etc/wifi/w1u"
-#endif//KERNEL_VERSION(3,14,29)
-#else
-#define WIFI_CONF_PATH "w1u"
-#endif//KERNEL_VERSION(5,15,0)
-
-#endif//LINUX_PLATFORM
 
 char * conf_path = WIFI_CONF_PATH;
 module_param(conf_path, charp, S_IRUGO);
@@ -72,8 +50,8 @@ unsigned char g_wftx_pwrtbl_en = 0;
 unsigned char g_initial_gain_change_disable = 0;
 unsigned char g_ant_sel_en = 0;
 unsigned char g_ant_gpio_cfg = 0;
-static struct WF2G_Txpwr_Param g_wf2g_txpwr_param;
-static struct WF5G_Txpwr_Param g_wf5g_txpwr_param;
+struct WF2G_Txpwr_Param g_wf2g_txpwr_param;
+struct WF5G_Txpwr_Param g_wf5g_txpwr_param;
 extern unsigned char tpc_mode;
 
 //set cmd to firmware
@@ -1024,6 +1002,36 @@ unsigned int phy_get_rw_ptr(unsigned char vid)
     return phy_get_param_cmd_ul(GET_SDIO_PTR_CMD, vid);
 }
 
+void phy_get_spec_info_cmd(unsigned char cmd, unsigned char vid, unsigned char *pdate, unsigned short len)
+{
+    struct Get_Spec_Info spec_info = {0};
+
+    spec_info.Cmd = cmd;
+    spec_info.vid = vid;
+    HAL_BEGIN_LOCK();
+    hi_get_cmd((unsigned char *)&spec_info, len);
+    HAL_END_LOCK();
+
+    memcpy(pdate, &spec_info.param[0], len);
+}
+
+void phy_get_queue_debug_info(unsigned char vid)
+{
+    unsigned char res[APP_CMD_PERFIFO_LEN] = {0};
+    unsigned char i;
+    struct Queue_Debug_Info *pdata = (unsigned int *)res;
+    phy_get_spec_info_cmd(GET_QUEUE_DEBUG_INFO_CMD, vid, res, sizeof(struct Queue_Debug_Info) * QUEUE_AC_MAX + 2 * sizeof(int));
+
+    for (i = QUEUE_AC_MIN; i < QUEUE_AC_MAX; i++)
+    {
+        AML_OUTPUT("vid:%d, wifi_inactive_flag:%d, queue_idx:%d, state:%d, active_idx:%d, queue_cnt:%d\n",
+                   pdata->vid, pdata->wifi_inactive_flag, pdata->queue_idx, pdata->state, pdata->active_idx, pdata->queue_cnt);
+        pdata++;
+    }
+
+    AML_OUTPUT("queue_debug:0x%08x\n", *(unsigned int *)pdata);
+}
+
 //for beamform test
 unsigned int phy_send_ndp_announcement(struct NDPAnncmntCmd ndp_anncmnt)
 {
@@ -1108,21 +1116,22 @@ unsigned int phy_set_vsdb(unsigned char vid, unsigned char enable)
 }
 
 unsigned int phy_set_arp_agent(unsigned char vid, unsigned char enable, unsigned int ipv4,
-        unsigned char * ipv6)
+        unsigned char * ipv6, unsigned char *dhcp_sever_mac)
 {
-    struct ArpAgentCmd arp_agent_cmd = {0};
+    struct PatchArpAgentCmd arp_agent_cmd = {0};
 
     arp_agent_cmd.Cmd = ARP_Agent_Cmd;
     arp_agent_cmd.enable = enable;
     arp_agent_cmd.vid = vid;
     arp_agent_cmd.ip_addr = ipv4;
-
+    if (enable)
+        memcpy(arp_agent_cmd.dncp_server_mac, dhcp_sever_mac, WIFINET_ADDR_LEN);
     if (ipv6 != NULL)
         memcpy(arp_agent_cmd.ip6_addr, ipv6, IPV6_ADDR_BUF_LEN);
 
     AML_OUTPUT("set arp agent, enable %d \n", enable);
     HAL_BEGIN_LOCK();
-    hi_set_cmd((unsigned char *)&arp_agent_cmd, sizeof(struct ArpAgentCmd));
+    hi_set_cmd((unsigned char *)&arp_agent_cmd, sizeof(struct PatchArpAgentCmd));
     HAL_END_LOCK();
 
     return 0;
@@ -1604,9 +1613,7 @@ unsigned int phy_interface_enable(unsigned char enable, unsigned char vid)
 unsigned char print_type = 0;
 unsigned int hal_set_fwlog_cmd(unsigned char mode)
 {
-#ifdef SDIO_MODE_ON
     struct hw_interface* hif = hif_get_hw_interface();
-#endif
     struct Fwlog_Mode_Control fwlog_mode;
     memset(&fwlog_mode, 0, sizeof(struct Fwlog_Mode_Control));
     AML_OUTPUT("mode %d \n", mode);
@@ -1616,23 +1623,14 @@ unsigned int hal_set_fwlog_cmd(unsigned char mode)
     {
         fwlog_mode.mode = 0;
         /* reset ram share */
-#ifdef SDIO_MODE_ON
-        if(!aml_bus_type) {
-            hif->hif_ops.hi_write_word(0x00a0d0e4, 0x0000007f);
-        }
-#endif
+        hif->hif_ops.hi_write_word(0x00a0d0e4, 0x0000007f);
     }
     else
     {
         fwlog_mode.mode = mode;
         if (mode == 1)
         {
-#ifdef SDIO_MODE_ON
-            /* set ram share */
-            if(!aml_bus_type) {
-                hif->hif_ops.hi_write_word(0x00a0d0e4, 0x8000007f);
-            }
-#endif
+            hif->hif_ops.hi_write_word(0x00a0d0e4, 0x8000007f);
             print_type = 0;
         }
         else if (mode == 3)
@@ -1840,23 +1838,23 @@ unsigned char parse_tx_power_coefficient(char *varbuf, int len, char str_pwr_coe
     get_s16_item(varbuf, len, str_pwr_coefficient, &pwr_coefficient[0]);
 
     if (pwr_coefficient[0]) {
-        if (memcmp(str_pwr_coefficient,"ce_pwr_coefficient",strlen(str_pwr_coefficient)) == 0) {
+        if (strncmp(str_pwr_coefficient,"ce_pwr_coefficient",strlen(str_pwr_coefficient)) == 0) {
             update_tx_power_coefficient_plan(TX_POWER_CE, pwr_coefficient);
         }
 
-        if (memcmp(str_pwr_coefficient,"fcc_pwr_coefficient",strlen(str_pwr_coefficient)) == 0) {
+        if (strncmp(str_pwr_coefficient,"fcc_pwr_coefficient",strlen(str_pwr_coefficient)) == 0) {
             update_tx_power_coefficient_plan(TX_POWER_FCC, pwr_coefficient);
         }
 
-        if (memcmp(str_pwr_coefficient,"arib_pwr_coefficient",strlen(str_pwr_coefficient)) == 0) {
+        if (strncmp(str_pwr_coefficient,"arib_pwr_coefficient",strlen(str_pwr_coefficient)) == 0) {
         update_tx_power_coefficient_plan(TX_POWER_ARIB, pwr_coefficient);
         }
 
-        if (memcmp(str_pwr_coefficient,"srrc_pwr_coefficient",strlen(str_pwr_coefficient)) == 0) {
+        if (strncmp(str_pwr_coefficient,"srrc_pwr_coefficient",strlen(str_pwr_coefficient)) == 0) {
         update_tx_power_coefficient_plan(TX_POWER_SRRC, pwr_coefficient);
         }
 
-        if (memcmp(str_pwr_coefficient,"anatel_pwr_coefficient",strlen(str_pwr_coefficient)) == 0) {
+        if (strncmp(str_pwr_coefficient,"anatel_pwr_coefficient",strlen(str_pwr_coefficient)) == 0) {
         update_tx_power_coefficient_plan(TX_POWER_ANATEL, pwr_coefficient);
         }
     }
@@ -1880,9 +1878,9 @@ unsigned char parse_tx_power_band(char *varbuf, int len, char str_pwr_plan[])
     return 0;
 }
 
+Efuse_Cfg_Param efuse_cfg_param = {0};
 void parse_efuse_param(char * varbuf, int len)
 {
-    Efuse_Cfg_Param efuse_cfg_param = {0};
 
     AML_OUTPUT("read efuse cfg from aml_wifi_rf_sdio.txt\n");
     get_s32_item(varbuf, len, "efuse_9", &efuse_cfg_param.efuse_9);
@@ -1913,6 +1911,44 @@ void parse_efuse_param(char * varbuf, int len)
     }
 
 }
+
+void parse_txt_shift_value(char * varbuf, int len)
+{
+    unsigned char i = 0;
+    Txt_Shift_Param_T txt_shift_param = {0};
+
+    get_s8_item(varbuf, len, "txt_shift_value_5200", &txt_shift_param.txt_shift_value[0]);
+    get_s8_item(varbuf, len, "txt_shift_value_5300", &txt_shift_param.txt_shift_value[1]);
+    get_s8_item(varbuf, len, "txt_shift_value_5530", &txt_shift_param.txt_shift_value[2]);
+    get_s8_item(varbuf, len, "txt_shift_value_5660", &txt_shift_param.txt_shift_value[3]);
+    get_s8_item(varbuf, len, "txt_shift_value_5780", &txt_shift_param.txt_shift_value[4]);
+    get_s8_item(varbuf, len, "txt_shift_value_2442", &txt_shift_param.txt_shift_value[5]);
+
+
+    AML_OUTPUT("txt_shift_value_5200:%d  \n",txt_shift_param.txt_shift_value[0]);
+    AML_OUTPUT("txt_shift_value_5300:%d  \n",txt_shift_param.txt_shift_value[1]);
+    AML_OUTPUT("txt_shift_value_5530:%d  \n",txt_shift_param.txt_shift_value[2]);
+    AML_OUTPUT("txt_shift_value_5660:%d  \n",txt_shift_param.txt_shift_value[3]);
+    AML_OUTPUT("txt_shift_value_5780:%d  \n",txt_shift_param.txt_shift_value[4]);
+    AML_OUTPUT("txt_shift_value_2442:%d  \n",txt_shift_param.txt_shift_value[5]);
+
+
+    for (i = 0; i < sizeof(txt_shift_param.txt_shift_value); i++) {
+        if ((txt_shift_param.txt_shift_value[i] < 70 ) || (txt_shift_param.txt_shift_value[i] > 140 )) {
+            ERROR_DEBUG_OUT(" invalid value \n");
+            return;
+        }
+    }
+
+    txt_shift_param.Cmd = TXT_SHIFT_CFG_CMD;
+    HAL_BEGIN_LOCK();
+    hi_set_cmd((unsigned char *)&txt_shift_param, sizeof(Txt_Shift_Param_T));
+    HAL_END_LOCK();
+
+    AML_OUTPUT("config txt_shift_value to fw complete\n");
+
+}
+
 void set_coex_wf_zgb_mode(char mode)
 {
     char temp_b;
@@ -1990,10 +2026,12 @@ unsigned char parse_cali_param(char *varbuf, int len, struct Cali_Param *cali_pa
 {
     unsigned short platform_verid = 0; // default: 0
     unsigned short cali_config = 0;
+    unsigned char cali_proofing = 0;
     unsigned int version = 0;
 
     get_s32_item(varbuf, len, "version", &version);
     get_s16_item(varbuf, len, "cali_config", &cali_config);
+    get_s16_item(varbuf, len, "cali_proofing", &cali_proofing);
     get_s8_item(varbuf, len, "freq_offset", &cali_param->freq_offset);
     get_s8_item(varbuf, len, "htemp_freq_offset", &cali_param->htemp_freq_offset);
     get_s8_item(varbuf, len, "cca_ed_det", &cali_param->cca_ed_det);
@@ -2013,9 +2051,11 @@ unsigned char parse_cali_param(char *varbuf, int len, struct Cali_Param *cali_pa
     get_s8_item(varbuf, len, "ant_sel_en", &g_ant_sel_en);
     get_s8_item(varbuf, len, "ant_gpio_cfg", &g_ant_gpio_cfg);
 
-    cali_param->version = version;
-    cali_param->cali_config = cali_config;
+    if (aml_wifi_get_cali_proofing() != INVALID_PARAM_VALUE) {
+        cali_proofing = aml_wifi_get_cali_proofing();
+    }
 
+    cali_param->version = version;
     g_wftx_pwrtbl_en = cali_param->wftx_pwrtbl_en;
 
     if (g_wftx_pwrtbl_en != 2) {
@@ -2032,6 +2072,7 @@ unsigned char parse_cali_param(char *varbuf, int len, struct Cali_Param *cali_pa
 
     AML_OUTPUT("======>>>>>> version = %ld\n", cali_param->version);
     AML_OUTPUT("======>>>>>> cali_config = %d\n", cali_param->cali_config);
+    AML_OUTPUT("======>>>>>> cali_proofing = %d\n", cali_proofing);
     AML_OUTPUT("======>>>>>> freq_offset = %d\n", cali_param->freq_offset);
     AML_OUTPUT("======>>>>>> htemp_freq_offset = %d\n", cali_param->htemp_freq_offset);
     AML_OUTPUT("======>>>>>> cca_ed_det = %d\n", cali_param->cca_ed_det);
@@ -2055,7 +2096,13 @@ unsigned char parse_cali_param(char *varbuf, int len, struct Cali_Param *cali_pa
             cali_param->digital_gain_limit.min_2g, cali_param->digital_gain_limit.max_2g,
             cali_param->digital_gain_limit.min_5g, cali_param->digital_gain_limit.max_5g);
 
+    if (!aml_wifi_is_enable_rf_test() && cali_proofing && (efuse_manual_read(0x0b) == 0)) {
+        ERROR_DEBUG_OUT(" the chip is not calibration!\n");
+        return false;
+    }
+
     parse_efuse_param(varbuf, len);
+    parse_txt_shift_value(varbuf, len);
     parse_tx_power_band(varbuf, len, "ce_band_pwr_tbl");
     parse_tx_power_coefficient(varbuf, len, "ce_pwr_coefficient");
     parse_tx_power_coefficient(varbuf, len, "fcc_pwr_coefficient");
@@ -2065,7 +2112,7 @@ unsigned char parse_cali_param(char *varbuf, int len, struct Cali_Param *cali_pa
 
     hal_cfg_txpwr_cffc_param_init(0);
 
-    return 0;
+    return true;
 }
 
 unsigned char set_tx_power_param_default(struct WF2G_Txpwr_Param *wf2g_txpwr_param, struct WF5G_Txpwr_Param *wf5g_txpwr_param)
@@ -2078,6 +2125,10 @@ unsigned char set_tx_power_param_default(struct WF2G_Txpwr_Param *wf2g_txpwr_par
 
     memcpy(&wf2g_txpwr_param->wf2g_pwr_tbl, wf2g_pwr_tbl_dft, sizeof(wf2g_txpwr_param->wf2g_pwr_tbl));
     memcpy(&wf5g_txpwr_param->wf5g_pwr_tbl, wf5g_pwr_tbl_dft, sizeof(wf5g_txpwr_param->wf5g_pwr_tbl));
+
+    memcpy(&g_wf2g_txpwr_param.wf2g_pwr_tbl, wf2g_txpwr_param->wf2g_pwr_tbl, sizeof(wf2g_txpwr_param->wf2g_pwr_tbl));
+    memcpy(&g_wf5g_txpwr_param.wf5g_pwr_tbl, wf5g_txpwr_param->wf5g_pwr_tbl, sizeof(wf5g_txpwr_param->wf5g_pwr_tbl));
+
     return 0;
 }
 unsigned char parse_tx_power_param(char *varbuf, int len, struct WF2G_Txpwr_Param *wf2g_txpwr_param,
@@ -2116,6 +2167,9 @@ unsigned char set_tx_power_param_enhance(struct WF2G_Txpwr_Param *wf2g_txpwr_par
 
     memcpy(&wf2g_txpwr_param->wf2g_pwr_tbl, wf2g_pwr_tbl_dft, sizeof(wf2g_txpwr_param->wf2g_pwr_tbl));
     memcpy(&wf5g_txpwr_param->wf5g_pwr_tbl, wf5g_pwr_tbl_dft, sizeof(wf5g_txpwr_param->wf5g_pwr_tbl));
+
+    memcpy(&g_wf2g_txpwr_param.wf2g_pwr_tbl, wf2g_txpwr_param->wf2g_pwr_tbl, sizeof(wf2g_txpwr_param->wf2g_pwr_tbl));
+    memcpy(&g_wf5g_txpwr_param.wf5g_pwr_tbl, wf5g_txpwr_param->wf5g_pwr_tbl, sizeof(wf5g_txpwr_param->wf5g_pwr_tbl));
     return 0;
 }
 
@@ -2233,29 +2287,25 @@ void phy_set_tx_power_accord_rssi(int bw, unsigned short channel, unsigned char 
 unsigned char get_cali_param(struct Cali_Param *cali_param, struct WF2G_Txpwr_Param *wf2g_txpwr_param,
                                                              struct WF5G_Txpwr_Param *wf5g_txpwr_param)
 {
+
+    const struct firmware *fw = NULL;
+    struct device *dev = vm_cfg80211_get_parent_dev();
     int error = 0;
     int size, len;
     char *content =  NULL;
-    unsigned int chip_id_l = 0;
+    unsigned int product_id = 0;
+    unsigned int vendor_sn = 0;
     unsigned char chip_id_buf[100];
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
-    struct file *fp;
-    struct kstat stat;
-    mm_segment_t fs;
-#else
-    const struct firmware *fw = NULL;
-    struct device *dev = vm_cfg80211_get_parent_dev();
 
-#endif
-
-    chip_id_l = efuse_manual_read(0xf);
-    chip_id_l = chip_id_l & 0xffff;
-    sprintf(chip_id_buf, "%s/aml_wifi_rf_%04x.txt", conf_path, chip_id_l);
-
-    if (isFileReadable(chip_id_buf, NULL) != 0) {
+    product_id = efuse_manual_read(0x0);
+    product_id = (product_id & 0xffff0000) >> 16;
+    vendor_sn = efuse_manual_read(0xf);
+    vendor_sn = vendor_sn & 0xffff;
+    sprintf(chip_id_buf, "%s/aml_w1u_rf_%04x_%04x.txt", conf_path, product_id, vendor_sn);
+    if (request_firmware(&fw, chip_id_buf, dev)) {
         memset(chip_id_buf,'\0',sizeof(chip_id_buf));
-        switch ((chip_id_l & 0xff00) >> 8) {
+        switch ((vendor_sn & 0xff00) >> 8) {
             case MODULE_ITON:
                 sprintf(chip_id_buf, "%s/aml_wifi_rf_iton.txt", conf_path);
                 break;
@@ -2275,57 +2325,22 @@ unsigned char get_cali_param(struct Cali_Param *cali_param, struct WF2G_Txpwr_Pa
                 }
 #endif
         }
-        AML_OUTPUT("aml wifi module SN:%04x  sn txt not found, the rf config: %s\n", chip_id_l, chip_id_buf);
-    } else
-        AML_OUTPUT("aml wifi module SN:%04x  the rf config: %s\n", chip_id_l, chip_id_buf);
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
-    fs = get_fs();
-    set_fs(KERNEL_DS);
-    fp = filp_open(chip_id_buf, O_RDONLY, 0);
-
-    if (IS_ERR(fp)) {
-        fp = NULL;
-        goto err;
-    }
-    error = vfs_stat(chip_id_buf, &stat);
-    if (error) {
-        filp_close(fp, NULL);
-        goto err;
-    }
-
-    size = (int)stat.size;
-    if (size <= 0) {
-        filp_close(fp, NULL);
-        goto err;
-    }
-
-    content = ZMALLOC(size, chip_id_buf, GFP_KERNEL);
-
-    if (content == NULL) {
-        filp_close(fp, NULL);
-        goto err;
-    }
-    if (vfs_read(fp, content, size, &fp->f_pos) != size) {
-        FREE(content, "wifi_cali_param");
-        filp_close(fp, NULL);
-        goto err;
-    }
-#else
-    error = request_firmware(&fw, chip_id_buf, dev);
-    if (error) {
-        // sn txt not found, the rf set default config
-        sprintf(chip_id_buf, "aml_wifi_rf.txt");
         error = request_firmware(&fw, chip_id_buf, dev);
-        if (error) {
+        AML_OUTPUT("aml wifi module SN:%04x  sn txt not found, the rf config: %s\n", vendor_sn, chip_id_buf);
+    } else
+        AML_OUTPUT("aml wifi module SN:%04x  the rf config: %s\n", vendor_sn, chip_id_buf);
+
+    if (error) {
+
+            printk("default txt not found again, Please ensure that txt file include in (vendor/)lib/firamware/w1u \n");
+            printk("Is there a missing mandatory patch here, %s not used again, Please call Aml FAE\n",conf_path);
             goto err;
-        }
     }
     size = fw->size;
     content = (char *)fw->data;
-#endif
 
     len = process_cali_content(content, size);
-    parse_cali_param(content, len, cali_param);
+    error = parse_cali_param(content, len, cali_param);
 
     if (cali_param->wftx_pwrtbl_en == 0)
     {
@@ -2351,24 +2366,10 @@ unsigned char get_cali_param(struct Cali_Param *cali_param, struct WF2G_Txpwr_Pa
         set_cca_energy_detection(REG_STF_AC_Q_THR);
     }
 
-    if (chip_id_l & 0xf0) {
-        if (chip_id_l & BIT(5))
-            cali_param->rf_num = 2;
-        else
-            cali_param->rf_num = 1;
-        AML_OUTPUT("rf_cout is: %d\n", cali_param->rf_num);
-    }
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
-    FREE(content, "wifi_cali_param");
-    filp_close(fp, NULL);
-    set_fs(fs);
-#endif
-    return 0;
+    release_firmware(fw);
+    return error;
 err:
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
-    set_fs(fs);
-#endif
-    return 1;
+    return false;
 }
 
 unsigned int hal_cfg_txpwr_cffc_param(void * chan, void * txpwr_plan)
@@ -2401,7 +2402,7 @@ unsigned int hal_cfg_cali_param(void)
     struct Cali_Param cali_param;
     struct WF2G_Txpwr_Param wf2g_txpwr_param;
     struct WF5G_Txpwr_Param wf5g_txpwr_param;
-    unsigned char err = 0;
+    unsigned char success = 0;
 
     memset((void *)&cali_param, 0, sizeof(struct Cali_Param));
     memset((void *)&wf2g_txpwr_param, 0, sizeof(struct WF2G_Txpwr_Param));
@@ -2410,14 +2411,14 @@ unsigned int hal_cfg_cali_param(void)
     cali_param.Cmd = CALI_PARAM_EX_CMD;
     wf2g_txpwr_param.Cmd = WF2G_TXPWR_PARAM_CMD;
     wf5g_txpwr_param.Cmd = WF5G_TXPWR_PARAM_CMD;
-    err = get_cali_param(&cali_param, &wf2g_txpwr_param, &wf5g_txpwr_param);
+    success = get_cali_param(&cali_param, &wf2g_txpwr_param, &wf5g_txpwr_param);
 
     AML_OUTPUT("calibration parameter: version %d, config %d, freq_offset %d, tssi_2g %d, tssi_5g %d %d %d %d %d tx_en %d\n",
             cali_param.version, cali_param.cali_config, cali_param.freq_offset, cali_param.tssi_2g_offset,
             cali_param.tssi_5g_offset[0], cali_param.tssi_5g_offset[1], cali_param.tssi_5g_offset[2], cali_param.tssi_5g_offset[3],
             cali_param.tssi_5g_offset[4], cali_param.wftx_pwrtbl_en);
 
-    if (err == 0) {
+    if (success == true) {
         AML_OUTPUT("set calibration parameter \n");
         HAL_BEGIN_LOCK();
         hi_set_cmd((unsigned char *)&cali_param, sizeof(struct Cali_Param));
@@ -2429,7 +2430,7 @@ unsigned int hal_cfg_cali_param(void)
         ERROR_DEBUG_OUT("set calibration parameter failed\n");
     }
 
-    return 0;
+    return success;
 }
 
 int aml_send_me_shutdown(void)

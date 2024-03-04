@@ -128,8 +128,8 @@ struct usb_hub {
     struct usb_device   *hdev;
 };
 
-/*auc--amlogic usb common*/
-struct auc_hif_ops {
+/*auc--amlogic usb common for wifi usb*/
+struct auc_hif_ops_for_wifi {
     int (*hi_bottom_write8)(unsigned char  func_num, int addr, unsigned char data);
     unsigned char (*hi_bottom_read8)(unsigned char  func_num, int addr);
     int (*hi_bottom_read)(unsigned char func_num, int addr, void *buf, size_t len, int incr_addr);
@@ -166,9 +166,35 @@ struct auc_hif_ops {
 
     void (*hif_get_sts)(unsigned int op_code, unsigned int ctrl_code);
     void (*hif_pt_rx_start)(unsigned int qos);
-    void (*hif_pt_rx_stop)(void);
+    struct rx_statics_st (*hif_pt_rx_stop)(void);
 
     int (*hif_suspend)(unsigned int suspend_enable);
+};
+
+/*auc--amlogic usb common for bt*/
+struct auc_hif_ops {
+    int (*hi_send_cmd)(unsigned int addr, unsigned int len);
+    void (*hi_write_word)(unsigned int addr,unsigned int data, unsigned int ep);
+    unsigned int (*hi_read_word)(unsigned int addr, unsigned int ep);
+    void (*hi_write_sram)(unsigned char* buf, unsigned char* addr, unsigned int len, unsigned int ep);
+    void (*hi_read_sram)(unsigned char* buf, unsigned char* addr, unsigned int len, unsigned int ep);
+
+    void (*hi_rx_buffer_read)(unsigned char* buf, unsigned char* addr, unsigned int len, unsigned int ep);
+
+    /*bt use*/
+    void (*hi_write_word_for_bt)(unsigned int addr,unsigned int data, unsigned int ep);
+    unsigned int (*hi_read_word_for_bt)(unsigned int addr, unsigned int ep);
+    void (*hi_write_sram_for_bt)(unsigned char* buf, unsigned char* addr, unsigned int len, unsigned int ep);
+    void (*hi_read_sram_for_bt)(unsigned char* buf, unsigned char* addr, unsigned int len, unsigned int ep);
+
+    int (*hi_enable_scat)(void);
+    void (*hi_cleanup_scat)(void);
+    struct amlw_hif_scatter_req * (*hi_get_scatreq)(void);
+    int (*hi_scat_rw)(struct scatterlist *sg_list, unsigned int sg_num, unsigned int blkcnt,
+        unsigned char func_num, unsigned int addr, unsigned char write);
+
+    int (*hi_send_frame)(struct amlw_hif_scatter_req *scat_req);
+    void (*hi_rcv_frame)(unsigned char* buf, unsigned char* addr, unsigned long len);
 };
 
 int aml_usb_insmod(void);

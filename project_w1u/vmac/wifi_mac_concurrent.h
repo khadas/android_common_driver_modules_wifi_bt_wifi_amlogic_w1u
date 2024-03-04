@@ -55,6 +55,6 @@ unsigned char concurrent_check_is_vmac_same_pri_channel(struct wifi_mac *wifimac
 unsigned char concurrent_check_vmac_is_AP(struct wifi_mac *wifimac);
 struct wlan_net_vif *wifi_mac_running_main_wnet_vif(struct wifi_mac *wifimac);
 struct wlan_net_vif *wifi_mac_running_wnet_vif(struct wifi_mac *wifimac);
-void channel_switch_announce_trigger(struct wifi_mac *wifimac, unsigned short chan_pri_num);
+void channel_switch_announce_trigger(struct wifi_mac *wifimac, unsigned int chan_pri_num, enum wifi_mac_bwc_width bandwidth, unsigned int center_chan);
 
 #endif //NET80211_CONCURRENT_H

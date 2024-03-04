@@ -198,17 +198,17 @@ void aml_sdio_write_word(unsigned int addr, unsigned int data)
     ASSERT(sdio_kmm);
     memcpy(sdio_kmm, &data, sizeof(data));
     // for bt access always on reg
-    if((addr & 0x00f00000) == 0x00f00000)
+    if ((addr & 0x00f00000) == 0x00f00000)
     {
         aml_aon_write_reg(addr, data);
     }
-    else if(((addr & 0x00f00000) == 0x00b00000)||
+    else if (((addr & 0x00f00000) == 0x00b00000)||
         ((addr & 0x00f00000) == 0x00d00000)||
         ((addr & 0x00f00000) == 0x00900000))
     {
         aml_aon_write_reg(addr, data);
     }
-    else if(((addr & 0x00f00000) == 0x00200000)||
+    else if (((addr & 0x00f00000) == 0x00200000)||
         ((addr & 0x00f00000) == 0x00300000)||
         ((addr & 0x00f00000) == 0x00400000))
     {
@@ -229,17 +229,17 @@ unsigned int aml_sdio_read_word(unsigned int addr)
     unsigned int regdata = 0;
 
 // for bt access always on reg
-    if((addr & 0x00f00000) == 0x00f00000)
+    if ((addr & 0x00f00000) == 0x00f00000)
     {
         regdata = aml_aon_read_reg(addr);
     }
-    else if(((addr & 0x00f00000) == 0x00b00000)||
+    else if (((addr & 0x00f00000) == 0x00b00000)||
         ((addr & 0x00f00000) == 0x00d00000)||
         ((addr & 0x00f00000) == 0x00900000))
     {
         regdata = aml_aon_read_reg(addr);
     }
-    else if(((addr & 0x00f00000) == 0x00200000)||
+    else if (((addr & 0x00f00000) == 0x00200000)||
         ((addr & 0x00f00000) == 0x00300000)||
         ((addr & 0x00f00000) == 0x00400000))
     {
@@ -653,7 +653,7 @@ void aml_bt_hi_write_word(unsigned int addr,unsigned int data)
      */
     reg_tmp = hif->hif_ops.hi_read_word(RG_SDIO_IF_MISC_CTRL);
 
-    if((reg_tmp & BIT(23)) != 1)
+    if ((reg_tmp & BIT(23)) != 1)
     {
         reg_tmp |= BIT(23);
         hif->hif_ops.hi_write_word(RG_SDIO_IF_MISC_CTRL , reg_tmp);
@@ -682,7 +682,7 @@ unsigned int aml_bt_hi_read_word(unsigned int addr)
 
     reg_tmp = hif->hif_ops.hi_read_word( RG_SDIO_IF_MISC_CTRL);
 
-    if((reg_tmp & BIT(23)) != 1)
+    if ((reg_tmp & BIT(23)) != 1)
     {
         reg_tmp |= BIT(23);
         hif->hif_ops.hi_write_word( RG_SDIO_IF_MISC_CTRL, reg_tmp);
@@ -731,7 +731,7 @@ int aml_sdio_bottom_read(unsigned char  func_num, int addr, void *buf, size_t le
     {
         kmalloc_buf = buf;
     }
-    if(kmalloc_buf == NULL)
+    if (kmalloc_buf == NULL)
     {
         ERROR_DEBUG_OUT("kmalloc buf fail\n");
         return SDIOH_API_RC_FAIL;
@@ -762,7 +762,7 @@ int aml_sdio_bottom_write(unsigned char  func_num,int addr, void *buf, size_t le
     }
 
     kmalloc_buf =  (unsigned char *)ZMALLOC(len, "sdio_bottom_write", GFP_DMA|GFP_ATOMIC);//virt_to_phys(fwICCM);
-    if(kmalloc_buf == NULL)
+    if (kmalloc_buf == NULL)
     {
         ERROR_DEBUG_OUT("kmalloc buf fail\n");
         return SDIOH_API_RC_FAIL;
@@ -1086,9 +1086,9 @@ void aml_sdio_irq_path(unsigned char b_gpio)
 
     AML_OUTPUT("b_gpio=%d \n", b_gpio);
 
-    if(b_gpio)
+    if (b_gpio)
     {
-        if(!aml_bus_type) {
+        if (!aml_bus_type) {
             regdata= hif->hif_ops.hi_read8_func0(SDIO_CCCR_IEN);
 
             AML_OUTPUT(" SDIO_CCCR_IEN=0x%x \n", regdata);
@@ -1229,7 +1229,7 @@ void aml_sdio_disable_irq(int func_n)
     struct hal_private *hal_priv=NULL;
     hal_priv = hal_get_priv();
 
-   if(hal_priv->hst_if_irq_en)
+   if (hal_priv->hst_if_irq_en)
     {
 #ifdef USE_SDIO_IRQ
         struct sdio_func *func = aml_priv_to_func(func_n);
@@ -1400,7 +1400,8 @@ static void config_pmu_reg(bool is_power_on)
         hif->hif_ops.hi_bottom_write8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ, host_req_status);
         msleep(20);
 
-        wifi_pmu_status = halpriv->hal_ops.hal_get_fw_ps_status();
+        wifi_pmu_status = halpriv->hal_ops.hal_get_fw_ps_status();
+
 
 
         AML_OUTPUT("wifi_pmu_status:0x%x\n", wifi_pmu_status);
@@ -1428,7 +1429,7 @@ static void config_pmu_reg(bool is_power_on)
         AML_OUTPUT("power off: before write A12=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
             value_pmu_A12,value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
 
-        hif->hif_ops.hi_write_word(RG_PMU_A12, 0x9ea2e); //add set dpll_val(bit16) for sdio resp_timeout
+        hif->hif_ops.hi_write_word(RG_PMU_A12, 0x282c); //add set dpll_val(bit16) for sdio resp_timeout
         hif->hif_ops.hi_write_word(RG_PMU_A14, 0x1);
         hif->hif_ops.hi_write_word(RG_PMU_A16, 0x0);
         hif->hif_ops.hi_write_word(RG_PMU_A17, 0x700);
@@ -1445,7 +1446,7 @@ static void config_pmu_reg(bool is_power_on)
         AML_OUTPUT("power off: before write A12=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
             value_pmu_A12,value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
 
-	 //force wifi pmu fsm to sleep mode
+     //force wifi pmu fsm to sleep mode
         host_req_status = (PMU_SLEEP_MODE << 1)| BIT(0);
         hif->hif_ops.hi_bottom_write8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ, host_req_status);
     }
@@ -1541,6 +1542,8 @@ create_thread_error:
 }
 
 
+extern unsigned char recovery_notify_bt;
+extern unsigned char recovery_done;
 void aml_sdio_disable_wifi(void)
 {
     unsigned char bt_alive = 0;
@@ -1548,16 +1551,11 @@ void aml_sdio_disable_wifi(void)
     AML_OUTPUT("wifi_sdio_access:%d, chip_en_access:%d\n", wifi_sdio_access, chip_en_access);
 
     //if (chip_en_access) {
-    if (1) {
+    if (wifi_mac_need_chip_reset()) {
+        recovery_notify_bt = 1;
+        recovery_done = 0;
 
-        /*1 chip en off and detect sdio card, disable GPIO/SDIO irq*/
-        set_usb_bt_power(0);
-        msleep(20);
-        set_usb_wifi_power(0);
-        msleep(20);
-        aml_sdio_disable_irq(SDIO_FUNC1);
-
-        /*2 remove sdio drvier*/
+        /*1 remove sdio drvier*/
         bt_alive = (g_sdio_wifi_bt_alive & BIT(0))? 1:0;
         set_wifi_bt_sdio_driver_bit(0, BT_POWER_CHANGE_SHIFT);
         set_wifi_bt_sdio_driver_bit(0, WIFI_POWER_CHANGE_SHIFT);
@@ -1565,10 +1563,18 @@ void aml_sdio_disable_wifi(void)
             msleep(100);
         }
 
+        /*2 chip en off and detect sdio card, disable GPIO/SDIO irq*/
+        aml_sdio_disable_irq(SDIO_FUNC1);
+        msleep(20);
+        set_usb_bt_power(0);
+        msleep(20);
+        set_usb_wifi_power(0);
+        msleep(20);
 
         /*3 chip en on and detect sdio card*/
         if (bt_alive) {
             set_usb_bt_power(1);
+            msleep(20);
         }
         set_usb_wifi_power(1);
         msleep(200);
@@ -1586,7 +1592,9 @@ void aml_sdio_disable_wifi(void)
         }
 
     } else {
+        aml_sdio_disable_irq(SDIO_FUNC1);
         config_pmu_reg(AML_W1_WIFI_POWER_OFF);
+        aml_sdio_disable_irq(SDIO_FUNC1);
         msleep(50);
     }
 }
@@ -1598,10 +1606,10 @@ void aml_sdio_enable_wifi(void)
     aml_customer_gpio_wlan_ctrl(WLAN_POWER_ON);
     hal_recovery_init_priv();
     config_pmu_reg(AML_W1_WIFI_POWER_ON);
-    aml_sdio_enable_irq(SDIO_FUNC1);
-    wifi_sdio_access = 1;
     AML_OUTPUT("aml_sdio_enable_wifi start sdio access %d\n", wifi_sdio_access);
+    wifi_sdio_access = 1;
     hal_fw_repair();
+    recovery_done = 1;
 }
 
 
@@ -1844,7 +1852,7 @@ static int aml_sdio_pm_resume(struct device *device)
 }
 
 static SIMPLE_DEV_PM_OPS(aml_sdio_pm_ops, aml_sdio_pm_suspend,
-			 aml_sdio_pm_resume);
+             aml_sdio_pm_resume);
 
 static const struct sdio_device_id aml_devices[] =
 {
@@ -1937,7 +1945,7 @@ int aml_sdio_read_reg(struct hw_interface * hif, unsigned char func_num,
 {
         int ret;
         ret = sdio_read_reg(func_num,addr,(unsigned char *)buf);///////////////////////
-        if(ret)
+        if (ret)
                 PRINT("sdio read reg failed (%d)\n",ret);
         return ret;
 }
@@ -1947,7 +1955,7 @@ int aml_sdio_write_reg(struct hw_interface * hif, unsigned char func_num,
 {
         int ret;
         ret = sdio_write_reg(func_num,addr,(unsigned char *)buf,0);////////////////////////////
-        if(ret)
+        if (ret)
                 PRINT("sdio write reg failed (%d)\n",ret);
         return ret;
 }
@@ -1957,7 +1965,7 @@ int aml_sdio_read(struct hw_interface * hif, unsigned char func_num, int addr,
 {
         int ret;
         ret = sdio_read_data(func_num,incr_addr,addr,len,(unsigned char *)buf);
-        if(ret)
+        if (ret)
                 PRINT("sdio read failed (%d)\n",ret);
         return ret;
 }
@@ -1967,7 +1975,7 @@ int aml_sdio_write(struct hw_interface * hif, unsigned char func_num, int addr,
 {
         int ret;
         ret = sdio_write_data(func_num,incr_addr,addr,len,(unsigned char *)buf);
-        if(ret)
+        if (ret)
                 PRINT("sdio write failed (%d)\n",ret);
         return ret;
 }
@@ -1984,10 +1992,10 @@ int _sdio_read_write(struct hw_interface * hif, struct sdio_rw_desc * pDesc)
 _restartsdio:
         if (pDesc->rw_flag == SDIO_RW_FLAG_READ)
         {
-           switch(pDesc->func)
+           switch (pDesc->func)
            {
                case SDIO_FUNC1:
-                	tbuffer = (unsigned char *)pDesc->buf;
+                    tbuffer = (unsigned char *)pDesc->buf;
                     ret = aml_sdio_read_reg(hif, SDIO_FUNC1,pDesc->addr&SDIO_ADDR_MASK,
                                     tbuffer,pDesc->len);
                     break;
@@ -1996,7 +2004,7 @@ _restartsdio:
                          tbuffer = (unsigned char *)j;
                          ret = aml_sdio_read(hif, pDesc->func, pDesc->addr&SDIO_ADDR_MASK,
                                 tbuffer, ALIGN(pDesc->len,4), 1);
-                         for(i = 0; i < pDesc->len/4; i++)
+                         for (i = 0; i < pDesc->len/4; i++)
                          {
                                  hostSram_access(FW_ID,0,j,0,(int*)(pDesc->buf+j));
                                  j+=4;
@@ -2006,7 +2014,7 @@ _restartsdio:
                     tbuffer = (unsigned char *)j;//pDesc->buf;
                     ret = aml_sdio_read(hif,SDIO_FUNC4,pDesc->addr&SDIO_ADDR_MASK,tbuffer,
                                     ALIGN(pDesc->len,hif->CommStaticParam.tx_page_len),0);
-                    for( i = 0;i < ALIGN(pDesc->len,hif->CommStaticParam.tx_page_len)/4;i++)
+                    for ( i = 0;i < ALIGN(pDesc->len,hif->CommStaticParam.tx_page_len)/4;i++)
                     {
                         hostSram_access(FW_ID,0,j,0,(int*)(pDesc->buf+j));
                         j+=4;
@@ -2017,7 +2025,7 @@ _restartsdio:
                     pDesc->len = ALIGN(pDesc->len,4);
                     ret = aml_sdio_read(hif,SDIO_FUNC5,pDesc->addr&SDIO_ADDR_MASK,tbuffer,
                                 ALIGN(pDesc->len,4),1);
-                    for( i = 0;i < pDesc->len/4;i++)
+                    for ( i = 0;i < pDesc->len/4;i++)
                     {
                         hostSram_access(FW_ID,0,j,0,(int*)(pDesc->buf+j));
                         j+=4;
@@ -2033,42 +2041,42 @@ _restartsdio:
         }
         else if (pDesc->rw_flag == SDIO_RW_FLAG_WRITE)
         {
-            switch(pDesc->func)
-	        {
-	            case SDIO_FUNC1:
-                	tbuffer = (unsigned char *)pDesc->buf;
+            switch (pDesc->func)
+            {
+                case SDIO_FUNC1:
+                    tbuffer = (unsigned char *)pDesc->buf;
                     ret = aml_sdio_write_reg(hif,SDIO_FUNC1,pDesc->addr&SDIO_ADDR_MASK,
                                 tbuffer,pDesc->len);
                     break;
                 case SDIO_FUNC2:
                     tbuffer = (unsigned char *)j;
-                	pDesc->len = ALIGN(pDesc->len,4);
-                	for( i = 0;i < pDesc->len/4;i++){
-                        	hostSram_access(FW_ID,1,j,*(unsigned int*)(pDesc->buf+j),(int*)&data);
-                        	j+=4;
-                	}
-                 	j=0;
-                	for( i = 0;i < pDesc->len/4;i++){
-                     		hostSram_access(FW_ID,0,j,0,(int*)&srambuf);
-                        	j+=4;
-                	}
+                    pDesc->len = ALIGN(pDesc->len,4);
+                    for ( i = 0;i < pDesc->len/4;i++) {
+                            hostSram_access(FW_ID,1,j,*(unsigned int*)(pDesc->buf+j),(int*)&data);
+                            j+=4;
+                    }
+                    j=0;
+                    for ( i = 0;i < pDesc->len/4;i++) {
+                            hostSram_access(FW_ID,0,j,0,(int*)&srambuf);
+                            j+=4;
+                    }
                     ret = aml_sdio_write(hif,SDIO_FUNC2,pDesc->addr&SDIO_ADDR_MASK,tbuffer,
                                 ALIGN(pDesc->len,4),1);
                     break;
                  case SDIO_FUNC3:
                     tbuffer = (unsigned char *)j;
-                	for( i = 0;i < pDesc->len/4;i++){
-                        	hostSram_access(FW_ID,1,j,*(unsigned int*)(pDesc->buf+j),(int*)&data);
-                        	j+=4;
-                	}
-                	hostSram_access(FW_ID,0,j,0,(int*)&srambuf);
+                    for ( i = 0;i < pDesc->len/4;i++) {
+                            hostSram_access(FW_ID,1,j,*(unsigned int*)(pDesc->buf+j),(int*)&data);
+                            j+=4;
+                    }
+                    hostSram_access(FW_ID,0,j,0,(int*)&srambuf);
                     ret = aml_sdio_write(hif,SDIO_FUNC3,pDesc->addr&SDIO_ADDR_MASK,tbuffer,
                                 ALIGN(pDesc->len,4),1);
                     break;
 
                 case SDIO_FUNC4:
                     tbuffer = (unsigned char *)j;
-                    for( i = 0;i < ALIGN(pDesc->len,hif->CommStaticParam.tx_page_len)/4;i++)
+                    for ( i = 0;i < ALIGN(pDesc->len,hif->CommStaticParam.tx_page_len)/4;i++)
                     {
                         hostSram_access(FW_ID,1,j,*(unsigned int*)(pDesc->buf+j),(int*)&data);
                         j+=4;
@@ -2079,13 +2087,13 @@ _restartsdio:
                 case SDIO_FUNC5:
                     tbuffer = (unsigned char *)j;
                     pDesc->len = ALIGN(pDesc->len,4);
-                    for( i = 0;i < pDesc->len/4;i++)
+                    for ( i = 0;i < pDesc->len/4;i++)
                     {
                         hostSram_access(FW_ID,1,j,*(unsigned int*)(pDesc->buf+j),(int*)&data);
                         j+=4;
                     }
                     j=0;
-                    for( i = 0;i < pDesc->len/4;i++)
+                    for ( i = 0;i < pDesc->len/4;i++)
                     {
                         hostSram_access(FW_ID,0,j,0,(int*)&srambuf);
                         j+=4;
@@ -2105,7 +2113,7 @@ _restartsdio:
            PRINT("%s(%d) Error: sdio function read/write flag:%d\n",__func__,__LINE__,pDesc->rw_flag);
         }
 
-        if(ret){
+        if (ret) {
                 PRINT("_sdio_read_write error!!! function = %x, addr = %x, len = %x\n",pDesc->func, pDesc->addr,pDesc->len);
                 sv_delay(FW_ID,100);//msleep(100);
         }

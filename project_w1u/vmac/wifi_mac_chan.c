@@ -22,172 +22,172 @@ extern bool g_DFS_on;
 struct class_chan_set global_chan_set [256] =
 {
     {81, 20, 13, {
-                     {CHAN_2_FREQ_2G(1), WIFINET_CHAN_2GHZ, 1, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(2), WIFINET_CHAN_2GHZ, 2, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(3), WIFINET_CHAN_2GHZ, 3, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(4), WIFINET_CHAN_2GHZ, 4, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(5), WIFINET_CHAN_2GHZ, 5, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(6), WIFINET_CHAN_2GHZ, 6, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(7), WIFINET_CHAN_2GHZ, 7, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(8), WIFINET_CHAN_2GHZ, 8, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(9), WIFINET_CHAN_2GHZ, 9, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(10), WIFINET_CHAN_2GHZ, 10, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(11), WIFINET_CHAN_2GHZ, 11, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(12), WIFINET_CHAN_2GHZ, 12, 4, 2, WIFINET_BWC_WIDTH20, 81},
-                     {CHAN_2_FREQ_2G(13), WIFINET_CHAN_2GHZ, 13, 4, 2, WIFINET_BWC_WIDTH20, 81}
+                     {CHAN_2_FREQ_2G(1),  WIFINET_CHAN_2GHZ, 1,  30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(2),  WIFINET_CHAN_2GHZ, 2,  30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(3),  WIFINET_CHAN_2GHZ, 3,  30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(4),  WIFINET_CHAN_2GHZ, 4,  30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(5),  WIFINET_CHAN_2GHZ, 5,  30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(6),  WIFINET_CHAN_2GHZ, 6,  30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(7),  WIFINET_CHAN_2GHZ, 7,  30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(8),  WIFINET_CHAN_2GHZ, 8,  30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(9),  WIFINET_CHAN_2GHZ, 9,  30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(10), WIFINET_CHAN_2GHZ, 10, 30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(11), WIFINET_CHAN_2GHZ, 11, 30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(12), WIFINET_CHAN_2GHZ, 12, 30, 2, WIFINET_BWC_WIDTH20, 81},
+                     {CHAN_2_FREQ_2G(13), WIFINET_CHAN_2GHZ, 13, 30, 2, WIFINET_BWC_WIDTH20, 81}
                  }
     }, //class 81
     {82, 20, 1, {
-                    {CHAN_2_FREQ_14(14), WIFINET_CHAN_2GHZ, 14, 4, 2, WIFINET_BWC_WIDTH20, 82}
+                     {CHAN_2_FREQ_14(14), WIFINET_CHAN_2GHZ, 14, 30, 2, WIFINET_BWC_WIDTH20, 82}
                 }
     },//82
     {83, 40, 9, {
-                    {CHAN_2_FREQ_2G(1 + 2), WIFINET_CHAN_2GHZ, 1, 4, 2, WIFINET_BWC_WIDTH40, 83},
-                    {CHAN_2_FREQ_2G(2 + 2), WIFINET_CHAN_2GHZ, 2, 4, 2, WIFINET_BWC_WIDTH40, 83},
-                    {CHAN_2_FREQ_2G(3 + 2), WIFINET_CHAN_2GHZ, 3, 4, 2, WIFINET_BWC_WIDTH40, 83},
-                    {CHAN_2_FREQ_2G(4 + 2), WIFINET_CHAN_2GHZ, 4, 4, 2, WIFINET_BWC_WIDTH40, 83},
-                    {CHAN_2_FREQ_2G(5 + 2), WIFINET_CHAN_2GHZ, 5, 4, 2, WIFINET_BWC_WIDTH40, 83},
-                    {CHAN_2_FREQ_2G(6 + 2), WIFINET_CHAN_2GHZ, 6, 4, 2, WIFINET_BWC_WIDTH40, 83},
-                    {CHAN_2_FREQ_2G(7 + 2), WIFINET_CHAN_2GHZ, 7, 4, 2, WIFINET_BWC_WIDTH40, 83},
-                    {CHAN_2_FREQ_2G(8 + 2), WIFINET_CHAN_2GHZ, 8, 4, 2, WIFINET_BWC_WIDTH40, 83},
-                    {CHAN_2_FREQ_2G(9 + 2), WIFINET_CHAN_2GHZ, 9, 4, 2, WIFINET_BWC_WIDTH40, 83}
+                    {CHAN_2_FREQ_2G(1 + 2), WIFINET_CHAN_2GHZ, 1, 30, 2, WIFINET_BWC_WIDTH40, 83},
+                    {CHAN_2_FREQ_2G(2 + 2), WIFINET_CHAN_2GHZ, 2, 30, 2, WIFINET_BWC_WIDTH40, 83},
+                    {CHAN_2_FREQ_2G(3 + 2), WIFINET_CHAN_2GHZ, 3, 30, 2, WIFINET_BWC_WIDTH40, 83},
+                    {CHAN_2_FREQ_2G(4 + 2), WIFINET_CHAN_2GHZ, 4, 30, 2, WIFINET_BWC_WIDTH40, 83},
+                    {CHAN_2_FREQ_2G(5 + 2), WIFINET_CHAN_2GHZ, 5, 30, 2, WIFINET_BWC_WIDTH40, 83},
+                    {CHAN_2_FREQ_2G(6 + 2), WIFINET_CHAN_2GHZ, 6, 30, 2, WIFINET_BWC_WIDTH40, 83},
+                    {CHAN_2_FREQ_2G(7 + 2), WIFINET_CHAN_2GHZ, 7, 30, 2, WIFINET_BWC_WIDTH40, 83},
+                    {CHAN_2_FREQ_2G(8 + 2), WIFINET_CHAN_2GHZ, 8, 30, 2, WIFINET_BWC_WIDTH40, 83},
+                    {CHAN_2_FREQ_2G(9 + 2), WIFINET_CHAN_2GHZ, 9, 30, 2, WIFINET_BWC_WIDTH40, 83}
                 }
     },//83
     {84, 40, 9, {
-                    {CHAN_2_FREQ_2G(5 - 2), WIFINET_CHAN_2GHZ, 5, 4, 2, WIFINET_BWC_WIDTH40, 84},
-                    {CHAN_2_FREQ_2G(6 - 2), WIFINET_CHAN_2GHZ, 6, 4, 2, WIFINET_BWC_WIDTH40, 84},
-                    {CHAN_2_FREQ_2G(7 - 2), WIFINET_CHAN_2GHZ, 7, 4, 2, WIFINET_BWC_WIDTH40, 84},
-                    {CHAN_2_FREQ_2G(8 - 2), WIFINET_CHAN_2GHZ, 8, 4, 2, WIFINET_BWC_WIDTH40, 84},
-                    {CHAN_2_FREQ_2G(9 - 2), WIFINET_CHAN_2GHZ, 9, 4, 2, WIFINET_BWC_WIDTH40, 84},
-                    {CHAN_2_FREQ_2G(10 - 2), WIFINET_CHAN_2GHZ, 10, 4, 2, WIFINET_BWC_WIDTH40, 84},
-                    {CHAN_2_FREQ_2G(11 - 2), WIFINET_CHAN_2GHZ, 11, 4, 2, WIFINET_BWC_WIDTH40, 84},
-                    {CHAN_2_FREQ_2G(12 - 2), WIFINET_CHAN_2GHZ, 12, 4, 2, WIFINET_BWC_WIDTH40, 84},
-                    {CHAN_2_FREQ_2G(13 - 2), WIFINET_CHAN_2GHZ, 13, 4, 2, WIFINET_BWC_WIDTH40, 84}
+                    {CHAN_2_FREQ_2G(5 - 2),  WIFINET_CHAN_2GHZ, 5,  30, 2, WIFINET_BWC_WIDTH40, 84},
+                    {CHAN_2_FREQ_2G(6 - 2),  WIFINET_CHAN_2GHZ, 6,  30, 2, WIFINET_BWC_WIDTH40, 84},
+                    {CHAN_2_FREQ_2G(7 - 2),  WIFINET_CHAN_2GHZ, 7,  30, 2, WIFINET_BWC_WIDTH40, 84},
+                    {CHAN_2_FREQ_2G(8 - 2),  WIFINET_CHAN_2GHZ, 8,  30, 2, WIFINET_BWC_WIDTH40, 84},
+                    {CHAN_2_FREQ_2G(9 - 2),  WIFINET_CHAN_2GHZ, 9,  30, 2, WIFINET_BWC_WIDTH40, 84},
+                    {CHAN_2_FREQ_2G(10 - 2), WIFINET_CHAN_2GHZ, 10, 30, 2, WIFINET_BWC_WIDTH40, 84},
+                    {CHAN_2_FREQ_2G(11 - 2), WIFINET_CHAN_2GHZ, 11, 30, 2, WIFINET_BWC_WIDTH40, 84},
+                    {CHAN_2_FREQ_2G(12 - 2), WIFINET_CHAN_2GHZ, 12, 30, 2, WIFINET_BWC_WIDTH40, 84},
+                    {CHAN_2_FREQ_2G(13 - 2), WIFINET_CHAN_2GHZ, 13, 30, 2, WIFINET_BWC_WIDTH40, 84}
                 }
     },//84
     {112, 20, 3, {
-                     {CHAN_2_FREQ_5G(8), WIFINET_CHAN_5GHZ, 8, 4, 2, WIFINET_BWC_WIDTH20, 112},
-                     {CHAN_2_FREQ_5G(12), WIFINET_CHAN_5GHZ, 12, 4, 2, WIFINET_BWC_WIDTH20, 112},
-                     {CHAN_2_FREQ_5G(16) , WIFINET_CHAN_5GHZ, 16, 4, 2, WIFINET_BWC_WIDTH20, 112}
+                     {CHAN_2_FREQ_5G(8),  WIFINET_CHAN_5GHZ, 8,  30, 2, WIFINET_BWC_WIDTH20, 112},
+                     {CHAN_2_FREQ_5G(12), WIFINET_CHAN_5GHZ, 12, 30, 2, WIFINET_BWC_WIDTH20, 112},
+                     {CHAN_2_FREQ_5G(16), WIFINET_CHAN_5GHZ, 16, 30, 2, WIFINET_BWC_WIDTH20, 112}
                  }
     },//112
     {115, 20, 4, {
-                     {CHAN_2_FREQ_5G(36), WIFINET_CHAN_5GHZ, 36, 4, 2, WIFINET_BWC_WIDTH20, 115},
-                     {CHAN_2_FREQ_5G(40), WIFINET_CHAN_5GHZ, 40, 4, 2, WIFINET_BWC_WIDTH20, 115},
-                     {CHAN_2_FREQ_5G(44), WIFINET_CHAN_5GHZ, 44, 4, 2, WIFINET_BWC_WIDTH20, 115},
-                     {CHAN_2_FREQ_5G(48), WIFINET_CHAN_5GHZ, 48, 4, 2, WIFINET_BWC_WIDTH20, 115}
+                     {CHAN_2_FREQ_5G(36), WIFINET_CHAN_5GHZ, 36, 23, 2, WIFINET_BWC_WIDTH20, 115},
+                     {CHAN_2_FREQ_5G(40), WIFINET_CHAN_5GHZ, 40, 23, 2, WIFINET_BWC_WIDTH20, 115},
+                     {CHAN_2_FREQ_5G(44), WIFINET_CHAN_5GHZ, 44, 23, 2, WIFINET_BWC_WIDTH20, 115},
+                     {CHAN_2_FREQ_5G(48), WIFINET_CHAN_5GHZ, 48, 23, 2, WIFINET_BWC_WIDTH20, 115}
                  }
     },//115
     {116, 40, 2, {
-                     {CHAN_2_FREQ_5G(36 + 2), WIFINET_CHAN_5GHZ, 36, 4, 2, WIFINET_BWC_WIDTH40, 116},
-                     {CHAN_2_FREQ_5G(44 + 2), WIFINET_CHAN_5GHZ, 44, 4, 2, WIFINET_BWC_WIDTH40, 116}
+                     {CHAN_2_FREQ_5G(36 + 2), WIFINET_CHAN_5GHZ, 36, 23, 2, WIFINET_BWC_WIDTH40, 116},
+                     {CHAN_2_FREQ_5G(44 + 2), WIFINET_CHAN_5GHZ, 44, 23, 2, WIFINET_BWC_WIDTH40, 116}
                  }
     },//116
     {117, 40, 2, {
-                     {CHAN_2_FREQ_5G(40 - 2), WIFINET_CHAN_5GHZ, 40, 4, 2, WIFINET_BWC_WIDTH40, 117},
-                     {CHAN_2_FREQ_5G(48 - 2), WIFINET_CHAN_5GHZ, 48, 4, 2, WIFINET_BWC_WIDTH40, 117}
+                     {CHAN_2_FREQ_5G(40 - 2), WIFINET_CHAN_5GHZ, 40, 23, 2, WIFINET_BWC_WIDTH40, 117},
+                     {CHAN_2_FREQ_5G(48 - 2), WIFINET_CHAN_5GHZ, 48, 23, 2, WIFINET_BWC_WIDTH40, 117}
                  }
     },//117
     {118, 20, 4, {
-                     {CHAN_2_FREQ_5G(52), WIFINET_CHAN_5GHZ, 52, 4, 2, WIFINET_BWC_WIDTH20, 118},
-                     {CHAN_2_FREQ_5G(56), WIFINET_CHAN_5GHZ, 56, 4, 2, WIFINET_BWC_WIDTH20, 118},
-                     {CHAN_2_FREQ_5G(60), WIFINET_CHAN_5GHZ, 60, 4, 2, WIFINET_BWC_WIDTH20, 118},
-                     {CHAN_2_FREQ_5G(64), WIFINET_CHAN_5GHZ, 64, 4, 2, WIFINET_BWC_WIDTH20, 118}
+                     {CHAN_2_FREQ_5G(52), WIFINET_CHAN_5GHZ, 52, 30, 2, WIFINET_BWC_WIDTH20, 118},
+                     {CHAN_2_FREQ_5G(56), WIFINET_CHAN_5GHZ, 56, 30, 2, WIFINET_BWC_WIDTH20, 118},
+                     {CHAN_2_FREQ_5G(60), WIFINET_CHAN_5GHZ, 60, 30, 2, WIFINET_BWC_WIDTH20, 118},
+                     {CHAN_2_FREQ_5G(64), WIFINET_CHAN_5GHZ, 64, 30, 2, WIFINET_BWC_WIDTH20, 118}
                  }
     },//118
     {119, 40, 2, {
-                     {CHAN_2_FREQ_5G(52 + 2), WIFINET_CHAN_5GHZ, 52, 4, 2, WIFINET_BWC_WIDTH40, 119},
-                     {CHAN_2_FREQ_5G(60 + 2), WIFINET_CHAN_5GHZ, 60, 4, 2, WIFINET_BWC_WIDTH40, 119}
+                     {CHAN_2_FREQ_5G(52 + 2), WIFINET_CHAN_5GHZ, 52, 30, 2, WIFINET_BWC_WIDTH40, 119},
+                     {CHAN_2_FREQ_5G(60 + 2), WIFINET_CHAN_5GHZ, 60, 30, 2, WIFINET_BWC_WIDTH40, 119}
                  }
     },//119
     {120, 40, 2, {
-                     {CHAN_2_FREQ_5G(56-2), WIFINET_CHAN_5GHZ, 56, 4, 2, WIFINET_BWC_WIDTH40, 120},
-                     {CHAN_2_FREQ_5G(64-2), WIFINET_CHAN_5GHZ, 64, 4, 2, WIFINET_BWC_WIDTH40, 120}
+                     {CHAN_2_FREQ_5G(56-2), WIFINET_CHAN_5GHZ, 56, 30, 2, WIFINET_BWC_WIDTH40, 120},
+                     {CHAN_2_FREQ_5G(64-2), WIFINET_CHAN_5GHZ, 64, 30, 2, WIFINET_BWC_WIDTH40, 120}
                  }
     },//120
     {121, 20, 12, {
-                      {CHAN_2_FREQ_5G(100), WIFINET_CHAN_5GHZ, 100, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(104), WIFINET_CHAN_5GHZ, 104, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(108), WIFINET_CHAN_5GHZ, 108, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(112), WIFINET_CHAN_5GHZ, 112, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(116), WIFINET_CHAN_5GHZ, 116, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(120), WIFINET_CHAN_5GHZ, 120, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(124), WIFINET_CHAN_5GHZ, 124, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(128), WIFINET_CHAN_5GHZ, 128, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(132), WIFINET_CHAN_5GHZ, 132, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(136), WIFINET_CHAN_5GHZ, 136, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(140), WIFINET_CHAN_5GHZ, 140, 4, 2, WIFINET_BWC_WIDTH20, 121},
-                      {CHAN_2_FREQ_5G(144), WIFINET_CHAN_5GHZ, 144, 4, 2, WIFINET_BWC_WIDTH20, 121}
+                      {CHAN_2_FREQ_5G(100), WIFINET_CHAN_5GHZ, 100, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(104), WIFINET_CHAN_5GHZ, 104, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(108), WIFINET_CHAN_5GHZ, 108, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(112), WIFINET_CHAN_5GHZ, 112, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(116), WIFINET_CHAN_5GHZ, 116, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(120), WIFINET_CHAN_5GHZ, 120, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(124), WIFINET_CHAN_5GHZ, 124, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(128), WIFINET_CHAN_5GHZ, 128, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(132), WIFINET_CHAN_5GHZ, 132, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(136), WIFINET_CHAN_5GHZ, 136, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(140), WIFINET_CHAN_5GHZ, 140, 30, 2, WIFINET_BWC_WIDTH20, 121},
+                      {CHAN_2_FREQ_5G(144), WIFINET_CHAN_5GHZ, 144, 30, 2, WIFINET_BWC_WIDTH20, 121}
                   }
      },//121
      {122, 40, 6, {
-                      {CHAN_2_FREQ_5G(100+2), WIFINET_CHAN_5GHZ, 100, 4, 2, WIFINET_BWC_WIDTH40, 122},
-                      {CHAN_2_FREQ_5G(108+2), WIFINET_CHAN_5GHZ, 108, 4, 2, WIFINET_BWC_WIDTH40, 122},
-                      {CHAN_2_FREQ_5G(116+2), WIFINET_CHAN_5GHZ, 116, 4, 2, WIFINET_BWC_WIDTH40, 122},
-                      {CHAN_2_FREQ_5G(124+2), WIFINET_CHAN_5GHZ, 124, 4, 2, WIFINET_BWC_WIDTH40, 122},
-                      {CHAN_2_FREQ_5G(132+2), WIFINET_CHAN_5GHZ, 132, 4, 2, WIFINET_BWC_WIDTH40, 122},
-                      {CHAN_2_FREQ_5G(140+2), WIFINET_CHAN_5GHZ, 140, 4, 2, WIFINET_BWC_WIDTH40, 122}
+                      {CHAN_2_FREQ_5G(100+2), WIFINET_CHAN_5GHZ, 100, 30, 2, WIFINET_BWC_WIDTH40, 122},
+                      {CHAN_2_FREQ_5G(108+2), WIFINET_CHAN_5GHZ, 108, 30, 2, WIFINET_BWC_WIDTH40, 122},
+                      {CHAN_2_FREQ_5G(116+2), WIFINET_CHAN_5GHZ, 116, 30, 2, WIFINET_BWC_WIDTH40, 122},
+                      {CHAN_2_FREQ_5G(124+2), WIFINET_CHAN_5GHZ, 124, 30, 2, WIFINET_BWC_WIDTH40, 122},
+                      {CHAN_2_FREQ_5G(132+2), WIFINET_CHAN_5GHZ, 132, 30, 2, WIFINET_BWC_WIDTH40, 122},
+                      {CHAN_2_FREQ_5G(140+2), WIFINET_CHAN_5GHZ, 140, 30, 2, WIFINET_BWC_WIDTH40, 122}
                   }
     },//122
     {123, 40, 6, {
-                     {CHAN_2_FREQ_5G(104-2), WIFINET_CHAN_5GHZ, 104, 4, 2, WIFINET_BWC_WIDTH40, 123},
-                     {CHAN_2_FREQ_5G(112-2), WIFINET_CHAN_5GHZ, 112, 4, 2, WIFINET_BWC_WIDTH40, 123},
-                     {CHAN_2_FREQ_5G(120-2), WIFINET_CHAN_5GHZ, 120, 4, 2, WIFINET_BWC_WIDTH40, 123},
-                     {CHAN_2_FREQ_5G(128-2), WIFINET_CHAN_5GHZ, 128, 4, 2, WIFINET_BWC_WIDTH40, 123},
-                     {CHAN_2_FREQ_5G(136-2), WIFINET_CHAN_5GHZ, 136, 4, 2, WIFINET_BWC_WIDTH40, 123},
-                     {CHAN_2_FREQ_5G(144-2), WIFINET_CHAN_5GHZ, 144, 4, 2, WIFINET_BWC_WIDTH40, 123}
+                     {CHAN_2_FREQ_5G(104-2), WIFINET_CHAN_5GHZ, 104, 30, 2, WIFINET_BWC_WIDTH40, 123},
+                     {CHAN_2_FREQ_5G(112-2), WIFINET_CHAN_5GHZ, 112, 30, 2, WIFINET_BWC_WIDTH40, 123},
+                     {CHAN_2_FREQ_5G(120-2), WIFINET_CHAN_5GHZ, 120, 30, 2, WIFINET_BWC_WIDTH40, 123},
+                     {CHAN_2_FREQ_5G(128-2), WIFINET_CHAN_5GHZ, 128, 30, 2, WIFINET_BWC_WIDTH40, 123},
+                     {CHAN_2_FREQ_5G(136-2), WIFINET_CHAN_5GHZ, 136, 30, 2, WIFINET_BWC_WIDTH40, 123},
+                     {CHAN_2_FREQ_5G(144-2), WIFINET_CHAN_5GHZ, 144, 30, 2, WIFINET_BWC_WIDTH40, 123}
                  }
     },//123
     {124, 20, 4, {
-                     {CHAN_2_FREQ_5G(149), WIFINET_CHAN_5GHZ, 149, 4, 2, WIFINET_BWC_WIDTH20, 124},
-                     {CHAN_2_FREQ_5G(153), WIFINET_CHAN_5GHZ, 153, 4, 2, WIFINET_BWC_WIDTH20, 124},
-                     {CHAN_2_FREQ_5G(157), WIFINET_CHAN_5GHZ, 157, 4, 2, WIFINET_BWC_WIDTH20, 124},
-                     {CHAN_2_FREQ_5G(161), WIFINET_CHAN_5GHZ, 161, 4, 2, WIFINET_BWC_WIDTH20, 124}
+                     {CHAN_2_FREQ_5G(149), WIFINET_CHAN_5GHZ, 149, 30, 2, WIFINET_BWC_WIDTH20, 124},
+                     {CHAN_2_FREQ_5G(153), WIFINET_CHAN_5GHZ, 153, 30, 2, WIFINET_BWC_WIDTH20, 124},
+                     {CHAN_2_FREQ_5G(157), WIFINET_CHAN_5GHZ, 157, 30, 2, WIFINET_BWC_WIDTH20, 124},
+                     {CHAN_2_FREQ_5G(161), WIFINET_CHAN_5GHZ, 161, 30, 2, WIFINET_BWC_WIDTH20, 124}
                  }
     },//124
     {125, 20, 5, {
-                     {CHAN_2_FREQ_5G(149), WIFINET_CHAN_5GHZ, 149, 4, 2, WIFINET_BWC_WIDTH20, 125},
-                     {CHAN_2_FREQ_5G(153), WIFINET_CHAN_5GHZ, 153, 4, 2, WIFINET_BWC_WIDTH20, 125},
-                     {CHAN_2_FREQ_5G(157), WIFINET_CHAN_5GHZ, 157, 4, 2, WIFINET_BWC_WIDTH20, 125},
-                     {CHAN_2_FREQ_5G(161), WIFINET_CHAN_5GHZ, 161, 4, 2, WIFINET_BWC_WIDTH20, 125},
-                     {CHAN_2_FREQ_5G(165), WIFINET_CHAN_5GHZ, 165, 4, 2, WIFINET_BWC_WIDTH20, 125}
+                     {CHAN_2_FREQ_5G(149), WIFINET_CHAN_5GHZ, 149, 30, 2, WIFINET_BWC_WIDTH20, 125},
+                     {CHAN_2_FREQ_5G(153), WIFINET_CHAN_5GHZ, 153, 30, 2, WIFINET_BWC_WIDTH20, 125},
+                     {CHAN_2_FREQ_5G(157), WIFINET_CHAN_5GHZ, 157, 30, 2, WIFINET_BWC_WIDTH20, 125},
+                     {CHAN_2_FREQ_5G(161), WIFINET_CHAN_5GHZ, 161, 30, 2, WIFINET_BWC_WIDTH20, 125},
+                     {CHAN_2_FREQ_5G(165), WIFINET_CHAN_5GHZ, 165, 30, 2, WIFINET_BWC_WIDTH20, 125}
                  }
     },//125
     {126, 40, 2, {
-                     {CHAN_2_FREQ_5G(149+2), WIFINET_CHAN_5GHZ, 149, 4, 2, WIFINET_BWC_WIDTH40, 126},
-                     {CHAN_2_FREQ_5G(157+2), WIFINET_CHAN_5GHZ, 157, 4, 2, WIFINET_BWC_WIDTH40, 126}
+                     {CHAN_2_FREQ_5G(149+2), WIFINET_CHAN_5GHZ, 149, 30, 2, WIFINET_BWC_WIDTH40, 126},
+                     {CHAN_2_FREQ_5G(157+2), WIFINET_CHAN_5GHZ, 157, 30, 2, WIFINET_BWC_WIDTH40, 126}
                  }
     },//126
     {127, 40, 2, {
-                     {CHAN_2_FREQ_5G(153-2), WIFINET_CHAN_5GHZ, 153, 4, 2, WIFINET_BWC_WIDTH40, 127},
-                     {CHAN_2_FREQ_5G(161-2), WIFINET_CHAN_5GHZ, 161, 4, 2, WIFINET_BWC_WIDTH40, 127}
+                     {CHAN_2_FREQ_5G(153-2), WIFINET_CHAN_5GHZ, 153, 30, 2, WIFINET_BWC_WIDTH40, 127},
+                     {CHAN_2_FREQ_5G(161-2), WIFINET_CHAN_5GHZ, 161, 30, 2, WIFINET_BWC_WIDTH40, 127}
                  }
     },//127
     {128, 80, 24, {
-                      {CHAN_2_FREQ_5G(42), WIFINET_CHAN_5GHZ, 36, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(42), WIFINET_CHAN_5GHZ, 40, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(42), WIFINET_CHAN_5GHZ, 44, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(42), WIFINET_CHAN_5GHZ, 48, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(58), WIFINET_CHAN_5GHZ, 52, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(58), WIFINET_CHAN_5GHZ, 56, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(58), WIFINET_CHAN_5GHZ, 60, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(58), WIFINET_CHAN_5GHZ, 64, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(106), WIFINET_CHAN_5GHZ, 100, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(106), WIFINET_CHAN_5GHZ, 104, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(106), WIFINET_CHAN_5GHZ, 108, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(106), WIFINET_CHAN_5GHZ, 112, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(122), WIFINET_CHAN_5GHZ, 116, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(122), WIFINET_CHAN_5GHZ, 120, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(122), WIFINET_CHAN_5GHZ, 124, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(122), WIFINET_CHAN_5GHZ, 128, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(138), WIFINET_CHAN_5GHZ, 132, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(138), WIFINET_CHAN_5GHZ, 136, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(138), WIFINET_CHAN_5GHZ, 140, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(138), WIFINET_CHAN_5GHZ, 144, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(155), WIFINET_CHAN_5GHZ, 149, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(155), WIFINET_CHAN_5GHZ, 153, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(155), WIFINET_CHAN_5GHZ, 157, 4, 2, WIFINET_BWC_WIDTH80, 128},
-                      {CHAN_2_FREQ_5G(155), WIFINET_CHAN_5GHZ, 161, 4, 2, WIFINET_BWC_WIDTH80, 128}
+                      {CHAN_2_FREQ_5G(42),  WIFINET_CHAN_5GHZ, 36,  30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(42),  WIFINET_CHAN_5GHZ, 40,  30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(42),  WIFINET_CHAN_5GHZ, 44,  30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(42),  WIFINET_CHAN_5GHZ, 48,  30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(58),  WIFINET_CHAN_5GHZ, 52,  30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(58),  WIFINET_CHAN_5GHZ, 56,  30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(58),  WIFINET_CHAN_5GHZ, 60,  30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(58),  WIFINET_CHAN_5GHZ, 64,  30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(106), WIFINET_CHAN_5GHZ, 100, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(106), WIFINET_CHAN_5GHZ, 104, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(106), WIFINET_CHAN_5GHZ, 108, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(106), WIFINET_CHAN_5GHZ, 112, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(122), WIFINET_CHAN_5GHZ, 116, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(122), WIFINET_CHAN_5GHZ, 120, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(122), WIFINET_CHAN_5GHZ, 124, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(122), WIFINET_CHAN_5GHZ, 128, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(138), WIFINET_CHAN_5GHZ, 132, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(138), WIFINET_CHAN_5GHZ, 136, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(138), WIFINET_CHAN_5GHZ, 140, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(138), WIFINET_CHAN_5GHZ, 144, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(155), WIFINET_CHAN_5GHZ, 149, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(155), WIFINET_CHAN_5GHZ, 153, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(155), WIFINET_CHAN_5GHZ, 157, 30, 2, WIFINET_BWC_WIDTH80, 128},
+                      {CHAN_2_FREQ_5G(155), WIFINET_CHAN_5GHZ, 161, 30, 2, WIFINET_BWC_WIDTH80, 128}
                   }
     }//128
 };
@@ -1036,6 +1036,24 @@ int wifi_mac_find_80M_channel_center_chan(int chan)
     return 0;
 }
 
+unsigned char wifi_mac_set_p2p_home_chan(struct wifi_mac * wifimac, unsigned short channel)
+{
+    if (WIFINET_IS_CHAN_ERR(wifi_mac_find_chan(wifimac, channel, 0, channel))) {
+        return 1;
+    }
+    wifimac->wm_p2p_home_channel = channel;
+    AML_OUTPUT("config p2p home channel %d\n", channel);
+    return 0;
+}
+
+unsigned char wifi_mac_p2p_home_channel_enabled(struct wlan_net_vif *wnet_vif)
+{
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+
+    return ((wnet_vif->vm_p2p->p2p_role == NET80211_P2P_ROLE_GO)
+        && (wifimac->wm_p2p_home_channel != 0));
+}
+
 void wifi_mac_update_country_chan_list(struct wifi_mac *wifimac)
 {
     struct wifi_channel *c;
@@ -1328,11 +1346,6 @@ int wifi_mac_set_wnet_vif_channel(struct wlan_net_vif *wnet_vif,  int chan, int 
     }
 
     wnet_vif->vm_curchan = c;
-
-    if (wifimac->wm_curchan == wnet_vif->vm_curchan) {
-        AML_OUTPUT(" ignore channel set as wm_curchan is same with vm_curchan\n");
-        return true;
-    }
 
     DPRINTF(AML_DEBUG_WARNING, "%s %d, chan_pri_num:%d, chan_cfreq1:%d, chan_flags:0x%x\n",
         __func__,__LINE__, c->chan_pri_num, c->chan_cfreq1, c->chan_flags);

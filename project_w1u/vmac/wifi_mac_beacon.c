@@ -21,7 +21,7 @@ wifi_mac_beacon_init(struct wifi_station *sta, struct wifi_mac_beacon_offsets *b
     struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
     struct wifi_mac *wifimac = sta->sta_wmac;
     unsigned short capinfo;
-    struct wifi_mac_rateset *rs = &sta->sta_rates;
+    struct wifi_mac_rateset rs = sta->sta_rates;
     unsigned char index = 0;
 
     KASSERT(wnet_vif->vm_curchan != WIFINET_CHAN_ERR, ("no bss chan"));
@@ -65,7 +65,12 @@ wifi_mac_beacon_init(struct wifi_station *sta, struct wifi_mac_beacon_offsets *b
     }
 
     bo->bo_rates = frm;
-    frm = wifi_mac_add_rates(frm, rs);
+
+    if (wnet_vif->vm_sae_h2e_only == 1) {
+        rs.dot11_rate[rs.dot11_rate_num++] = WIFINET_SAE_H2E_ONLY;
+    }
+
+    frm = wifi_mac_add_rates(frm, &rs);
 
     /*VHT mode ,non-support DSSS Parameter Set*/
     *frm++ = WIFINET_ELEMID_DSPARMS;
@@ -114,10 +119,16 @@ wifi_mac_beacon_init(struct wifi_station *sta, struct wifi_mac_beacon_offsets *b
         frm = wifi_mac_add_erp(frm, wifimac);
     }
 
-    if (wnet_vif->vm_flags & WIFINET_F_WPA)
+    if (wnet_vif->vm_flags & WIFINET_F_WPA) {
         frm = wifi_mac_add_wpa(frm, wnet_vif);
+        if (wnet_vif->vm_flags & WIFINET_F_H2E) {
+            frm = wifi_mac_add_rsnxe(frm, wnet_vif);
+            AML_OUTPUT("added rsnxe ie\n");
+        }
+    }
 
-    frm = wifi_mac_add_xrates(frm, rs);
+
+    frm = wifi_mac_add_xrates(frm, &rs);
     if (wnet_vif->vm_flags & WIFINET_F_WME) {
         bo->bo_wme = frm;
         frm = wifi_mac_add_wme_param(frm, &wifimac->wm_wme[wnet_vif->wnet_vif_id], WIFINET_VMAC_UAPSD_ENABLED(wnet_vif));
@@ -304,109 +315,110 @@ int _wifi_mac_beacon_update(struct wifi_station *sta,
             ERROR_DEBUG_OUT("not support bandwidth %d yet\n", wnet_vif->vm_bandwidth);
         }
 
-    if (IS_APSTA_CONCURRENT(aml_wifi_get_con_mode())) {
+        if (IS_APSTA_CONCURRENT(aml_wifi_get_con_mode())) {
 
-        if (wnet_vif->csa_target.switch_chan) {
-            switch_chan = wnet_vif->csa_target.switch_chan;
-            if ((switch_chan)
-                && (switch_chan->chan_pri_num == wnet_vif->vm_curchan->chan_pri_num)
-                && (switch_chan->chan_bw == wnet_vif->vm_bandwidth)
-                && (center_chan == wifi_mac_Mhz2ieee(switch_chan->chan_cfreq1, 0))) {
+            if (wnet_vif->csa_target.switch_chan) {
+                switch_chan = wnet_vif->csa_target.switch_chan;
+                if ((switch_chan) && (wnet_vif->vm_curchan)
+                    && (switch_chan->chan_pri_num == wnet_vif->vm_curchan->chan_pri_num)
+                    && (switch_chan->chan_bw == wnet_vif->vm_bandwidth)
+                    && (center_chan == wifi_mac_Mhz2ieee(switch_chan->chan_cfreq1, 0))) {
 
-                concurrent_set_channel = 0;//no need set channel again due to bw
-                wnet_vif->csa_target.switch_chan = NULL;
+                    concurrent_set_channel = 0;//no need set channel again due to bw
+                    wnet_vif->csa_target.switch_chan = NULL;
+                }
+            } else {
+                /*no other vmac running, no need set concurrent channel*/
+                concurrent_set_channel = 0;
+            }
+
+            if (concurrent_set_channel) { /*need think if system want to change channel*/
+                struct wlan_net_vif *main_wnet_vif = wifi_mac_running_main_wnet_vif(wifimac);
+                struct wifi_station *sta_entry = NULL, *next = NULL;
+                struct wifi_station_tbl *nt = &wnet_vif->vm_sta_tbl;
+                int update_band_to_2g = 0;
+                int update_band_to_5g = 0;
+                /*sta connect to 5G ap, softap need update channel/band/mac_mode as  sta*/
+                if (switch_chan) {
+                    if (wnet_vif->vm_curchan) {
+                        if ((wnet_vif->vm_curchan->chan_pri_num >= 36)
+                            && (switch_chan->chan_pri_num <= 14)) {
+                            update_band_to_2g =1;
+                        }else if((wnet_vif->vm_curchan->chan_pri_num <= 14)
+                            && (switch_chan->chan_pri_num > 36)) {
+                            update_band_to_5g =1;
+                        }
+                    }
+
+                    wnet_vif->vm_curchan = switch_chan;
+                    wnet_vif->vm_bandwidth = switch_chan->chan_bw;
+
+                    if (main_wnet_vif) {
+                        wnet_vif->vm_mac_mode = main_wnet_vif->vm_mac_mode;
+                    } else if(wnet_vif->vm_p2p->p2p_role == NET80211_P2P_ROLE_GO){
+                        wnet_vif->vm_mac_mode = WIFINET_MODE_11GN;
+                    }
+
+                    if (wnet_vif->vm_curchan->chan_bw >= WIFINET_BWC_WIDTH40) {
+                        wnet_vif->vm_htcap |= WIFINET_HTCAP_SUPPORTCBW40;
+                    }
+
+                    if (switch_chan->chan_pri_num < wifi_mac_Mhz2ieee(switch_chan->chan_cfreq1, 0)) {
+                        wnet_vif->scnd_chn_offset = WIFINET_HTINFO_EXTOFFSET_ABOVE;
+                    } else if (switch_chan->chan_pri_num > wifi_mac_Mhz2ieee(switch_chan->chan_cfreq1, 0)) {
+                        wnet_vif->scnd_chn_offset = WIFINET_HTINFO_EXTOFFSET_BELOW;
+                    } else{
+                        wnet_vif->scnd_chn_offset = WIFINET_HTINFO_EXTOFFSET_NA;
+                    }
+
+                    wifi_mac_set_wnet_vif_channel(wnet_vif, switch_chan->chan_pri_num, switch_chan->chan_bw, wifi_mac_Mhz2ieee(switch_chan->chan_cfreq1, 0));
+                    AML_OUTPUT("set ap chan %d, mac mode %d, band %d  slot %d\n ",
+                          wnet_vif->vm_curchan->chan_pri_num, wnet_vif->vm_mac_mode, wnet_vif->vm_bandwidth,wifimac->wm_vsdb_slot);
+
+                    list_for_each_entry_safe(sta_entry, next, &nt->nt_nsta, sta_list) {
+                        if (sta_entry->sta_associd != 0) {
+                            if (sta_entry->sta_chbw > switch_chan->chan_bw) {
+                                sta_entry->sta_chbw = switch_chan->chan_bw;
+                            }
+                            if (update_band_to_2g) {
+                                sta_entry->sta_flags &= ~WIFINET_NODE_VHT;
+                                sta_entry->sta_vhtcap = 0;
+                            }
+                        }
+                    }
+
+                    if (wifimac->wm_vsdb_slot == CONCURRENT_SLOT_P2P) {
+                        /*sta need notify ap*/
+                        wifimac->wm_vsdb_flags |= CONCURRENT_SWITCH_TO_STA_CHANNEL;
+                    }
+
+                    if (wifimac->wm_vsdb_slot != CONCURRENT_SLOT_NONE) {
+                        wifi_mac_add_work_task(wifimac, wifi_mac_set_vsdb, NULL,(SYS_TYPE)wifimac, 0, DISABLE, (SYS_TYPE)wnet_vif, 0);
+                        wifimac->wm_vsdb_flags &= CONCURRENT_SWITCH_TO_STA_CHANNEL;
+                        wifimac->vsdb_mode_set_noa_enable = 0;
+                        wifimac->wm_vsdb_slot = CONCURRENT_SLOT_NONE;
+                        if (wnet_vif->vm_wdev->iftype == NL80211_IFTYPE_P2P_GO)
+                        {
+                            if (wnet_vif->vm_p2p->p2p_flag & P2P_OPPPS_START_FLAG_HI)
+                            {
+                                vm_p2p_go_cancel_opps(wnet_vif->vm_p2p);
+                            }
+                            if (wnet_vif->vm_p2p->p2p_flag & P2P_NOA_START_FLAG_HI)
+                            {
+                                vm_p2p_go_cancel_noa(wnet_vif->vm_p2p);
+                            }
+                        }
+                    }
+                    wnet_vif->csa_target.start = 0;
+                    wifi_mac_add_work_task(wifimac, vm_cfg80211_chan_switch_notify_task, NULL, (SYS_TYPE)wifimac, (SYS_TYPE)wnet_vif, 0, 0, 0);
+                }
             }
         } else {
-            /*no other vmac running, no need set concurrent channel*/
-            concurrent_set_channel = 0;
-        }
-
-        if (concurrent_set_channel) { /*need think if system want to change channel*/
-            struct wlan_net_vif *main_wnet_vif = wifi_mac_running_main_wnet_vif(wifimac);
-            struct wifi_station *sta_entry = NULL, *next = NULL;
-            struct wifi_station_tbl *nt = &wnet_vif->vm_sta_tbl;
-            int update_band_to_2g = 0;
-            int update_band_to_5g = 0;
-            /*sta connect to 5G ap, softap need update channel/band/mac_mode as  sta*/
-            if (switch_chan) {
-                if ((wnet_vif->vm_curchan->chan_pri_num >= 36)
-                    && (switch_chan->chan_pri_num <= 14)) {
-                    update_band_to_2g =1;
-                }else if((wnet_vif->vm_curchan->chan_pri_num <= 14)
-                    && (switch_chan->chan_pri_num > 36)) {
-                    update_band_to_5g =1;
-                }
-
-                wnet_vif->vm_curchan = switch_chan;
-                wnet_vif->vm_bandwidth = switch_chan->chan_bw;
-
-                if (main_wnet_vif) {
-                    wnet_vif->vm_mac_mode = main_wnet_vif->vm_mac_mode;
-                } else if(wnet_vif->vm_p2p->p2p_role == NET80211_P2P_ROLE_GO){
-                    wnet_vif->vm_mac_mode = WIFINET_MODE_11GN;
-                }
-
-                if (wnet_vif->vm_curchan->chan_bw >= WIFINET_BWC_WIDTH40) {
-                    wnet_vif->vm_htcap |= WIFINET_HTCAP_SUPPORTCBW40;
-                }
-
-                if (switch_chan->chan_pri_num < wifi_mac_Mhz2ieee(switch_chan->chan_cfreq1, 0)) {
-                    wnet_vif->scnd_chn_offset = WIFINET_HTINFO_EXTOFFSET_ABOVE;
-                } else if (switch_chan->chan_pri_num > wifi_mac_Mhz2ieee(switch_chan->chan_cfreq1, 0)) {
-                    wnet_vif->scnd_chn_offset = WIFINET_HTINFO_EXTOFFSET_BELOW;
-                } else{
-                    wnet_vif->scnd_chn_offset = WIFINET_HTINFO_EXTOFFSET_NA;
-                }
-
-                wifi_mac_set_wnet_vif_channel(wnet_vif, switch_chan->chan_pri_num, switch_chan->chan_bw, wifi_mac_Mhz2ieee(switch_chan->chan_cfreq1, 0));
-                AML_OUTPUT("set ap chan %d, mac mode %d, band %d  slot %d\n ",
-                      wnet_vif->vm_curchan->chan_pri_num, wnet_vif->vm_mac_mode, wnet_vif->vm_bandwidth,wifimac->wm_vsdb_slot);
-
-                list_for_each_entry_safe(sta_entry, next, &nt->nt_nsta, sta_list) {
-                    if (sta_entry->sta_associd != 0) {
-                        if (sta_entry->sta_chbw > switch_chan->chan_bw) {
-                            sta_entry->sta_chbw = switch_chan->chan_bw;
-                        }
-                        if (update_band_to_2g) {
-                            sta_entry->sta_flags &= ~WIFINET_NODE_VHT;
-                            sta_entry->sta_vhtcap = 0;
-                        }
-                    }
-                }
-
-                if (wifimac->wm_vsdb_slot == CONCURRENT_SLOT_P2P) {
-                    /*sta need notify ap*/
-                    wifimac->wm_vsdb_flags |= CONCURRENT_SWITCH_TO_STA_CHANNEL;
-                }
-
-                if (wifimac->wm_vsdb_slot != CONCURRENT_SLOT_NONE) {
-                    wifi_mac_add_work_task(wifimac, wifi_mac_set_vsdb, NULL,(SYS_TYPE)wifimac, 0, DISABLE, (SYS_TYPE)wnet_vif, 0);
-                    wifimac->wm_vsdb_flags &= CONCURRENT_SWITCH_TO_STA_CHANNEL;
-                    wifimac->vsdb_mode_set_noa_enable = 0;
-                    wifimac->wm_vsdb_slot = CONCURRENT_SLOT_NONE;
-                    if (wnet_vif->vm_wdev->iftype == NL80211_IFTYPE_P2P_GO)
-                    {
-                        if (wnet_vif->vm_p2p->p2p_flag & P2P_OPPPS_START_FLAG_HI)
-                        {
-                            vm_p2p_go_cancel_opps(wnet_vif->vm_p2p);
-                        }
-                        if (wnet_vif->vm_p2p->p2p_flag & P2P_NOA_START_FLAG_HI)
-                        {
-                            vm_p2p_go_cancel_noa(wnet_vif->vm_p2p);
-                        }
-                    }
-                }
-
-                wnet_vif->csa_target.start = 0;
-                wifi_mac_add_work_task(wifimac, vm_cfg80211_chan_switch_notify_task, NULL, (SYS_TYPE)wifimac, (SYS_TYPE)wnet_vif, 0, 0, 0);
+            if (wifi_mac_set_wnet_vif_channel(wnet_vif, wifimac->wm_doth_channel, wnet_vif->vm_bandwidth, center_chan) == false)
+            {
+                return 0;
             }
         }
-    } else {
-        if (wifi_mac_set_wnet_vif_channel(wnet_vif, wifimac->wm_doth_channel, wnet_vif->vm_bandwidth, center_chan) == false)
-        {
-            return 0;
-        }
-    }
         WIFINET_BEACON_LOCK(wifimac);
         wifi_mac_ap_set_basic_rates(wnet_vif, wnet_vif->vm_mac_mode);
         wifi_mac_set_legacy_rates(&wnet_vif->vm_legacy_rates, wnet_vif);

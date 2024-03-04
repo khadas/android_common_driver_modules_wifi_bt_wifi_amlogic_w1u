@@ -6,6 +6,13 @@
 #include "wifi_skbbuf.h"
 
 #define WIFI_ADDR_ISGROUP(wh) (((unsigned char *)wh)[4] & 1)
+#define VID_PID_EFUSE_ADDR       0x0
+#define FAMILY_REV_MASK          0x7
+#define FAMILY_REV_START         22
+#define W1U_USB_REV_C            0x5
+#define AGG_NUM_PRE_USB          0x7
+#define AMPDU_NUM_ONE_TIME_TX    0x2
+
 enum irqreturn  hal_irq_top(int irq, void *dev_id);
 #ifdef CONFIG_AML_USE_STATIC_BUF
 enum aml_prealloc_index {
@@ -110,7 +117,6 @@ int hal_get_priv_cnt(unsigned char TID);
 int hal_reg_task(TaskHandler task);
 void hal_unreg_task(int taskid);
 int hal_call_task(SYS_TYPE taskid,SYS_TYPE param1);
-
 int hal_txok_thread(void *param);
 int hal_rx_thread(void *param);
 int hi_irq_thread(void *param);
@@ -119,7 +125,8 @@ int hal_kill_thread(void);
 int hal_create_thread(void);
 void hal_dpd_memory_download(void);
 void hal_dpd_calibration(void);
-
 void hal_get_fwlog(void);
 int hal_calc_block_in_mpdu (int mpdulen);
+unsigned int hal_read_efuse_val(unsigned int efuse_addr);
+unsigned short hal_get_tx_page_total_num(void);
 #endif

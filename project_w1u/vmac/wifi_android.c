@@ -424,15 +424,15 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
             struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
             WIFINET_FW_STAT_LOCK(wifimac);
-            if (wifimac->recovery_stat != WIFINET_RECOVERY_END) {
+            if ((wifimac->wm_recovery_flags & WIFINET_RECOVERY_F_RUNNING) != 0) {
                 WIFINET_FW_STAT_UNLOCK(wifimac);
                 break;
             }
-            wifimac->recovery_stat = WIFINET_RECOVERY_START;
+            wifimac->wm_recovery_flags |= WIFINET_RECOVERY_F_RUNNING;
             WIFINET_FW_STAT_UNLOCK(wifimac);
 
             wifimac->drv_priv->drv_ops.fw_repair(wifimac->drv_priv);
-            wifimac->recovery_stat = WIFINET_RECOVERY_END;
+            wifimac->wm_recovery_flags &= ~WIFINET_RECOVERY_F_RUNNING;
 #endif
             break;
         }

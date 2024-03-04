@@ -111,6 +111,7 @@ struct wifi_mac_scan_state
     unsigned short scan_next_chan_index;
     unsigned short scan_last_chan_index;
     unsigned short scan_chan_wait;
+    unsigned short scan_passive_chan_wait;
     unsigned int scan_StateFlags;
     spinlock_t  scan_lock;
     unsigned long scan_lock_flag;
@@ -320,8 +321,6 @@ int wifi_mac_scan_forbidden(struct wlan_net_vif *wnet_vif, int timeout, int reas
 int wifi_mac_scan_access(struct wlan_net_vif *wnet_vif);
 int wifi_mac_scan_forbidden_timeout(void *arg);
 unsigned char wifi_mac_scan_check_available(struct wlan_net_vif *wnet_vif);
-
-
-
+unsigned char wifi_mac_set_scan_dwell_time(struct wifi_mac *wifimac, unsigned short duration, unsigned char mandatory);
 
 #endif /* _WIFI_NET_SCAN_H_ */

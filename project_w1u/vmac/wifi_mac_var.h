@@ -315,6 +315,13 @@ struct wifi_mac_ops
     void(*wifi_mac_get_sts)(struct wifi_mac *wifimac,unsigned int op_code, unsigned int ctrl_code);
     void (*wifi_mac_process_tx_error)(struct wlan_net_vif *wnet_vif);
     int (*wifi_mac_forward_txq_enqueue) (struct sk_buff_head *fwdtxqueue, struct sk_buff *skb);
+
+    int (*wifi_mac_recovery_record_vif)(struct wlan_net_vif * wnet_vif);
+    void (*wifi_mac_recovery_host_reset)(struct wifi_mac * wifimac);
+    void (*wifi_mac_vif_restore_end)(struct wlan_net_vif * wnet_vif);
+    void (*wifi_mac_recovery_host_restore)(struct wifi_mac * wifimac);
+    void (*wifi_mac_process_recovery)(struct wifi_mac * wifimac);
+
 };
 
 enum
@@ -491,6 +498,7 @@ struct wifi_mac
     int msdu_cnt[WME_NUM_TID ];
     struct msdu_list msdu_node_list;
 
+    unsigned short wm_p2p_home_channel;
     unsigned char wm_p2p_connection_protect;
     unsigned long wm_p2p_connection_protect_period;
     unsigned char is_miracast_connect;
@@ -515,9 +523,13 @@ struct wifi_mac
     unsigned char wm_esco_en;
     unsigned char wm_bt_en;
     unsigned char wm_a2dp_en;
-    unsigned char wm_recovery_req;
-    enum wifi_mac_recovery_state recovery_stat;
-    struct os_timer_ext wm_monitor_fw;
+
+    /* for recovery */
+    wifi_mac_recovery_flags wm_recovery_flags;/* record vifs' states before recovery, such running or join a bss */
+    struct wifi_channel * wm_stavif_channel;/* concurrent mode sap/go vif will start bss on sta vif channel directly */
+    struct os_timer_ext wm_monitor_fw;/* recovery monitor timer */
+    unsigned int wm_recovery_src;/* bits map with enum wifi_mac_recovery_source */
+    enum wifi_mac_recovery_level wm_recovery_level;/* chip reset or config pmu */
 #ifdef CHIP_RESET_SUPPORT
     unsigned char request_upper_recovery;/* write to file sys*/
 #endif
@@ -534,6 +546,7 @@ struct wifi_mac
     struct rf_test_recover rf_test_recover;
     unsigned char wm_zgb_exist_flag;
     unsigned int wow_wakeup_reason;
+    unsigned char wm_wfa_enable;
 };
 
 struct wifi_net_vif_ops
@@ -548,7 +561,7 @@ struct wifi_net_vif_ops
     unsigned int (*bt_read_word)(unsigned int addr);
 
     void (*pt_rx_start)(unsigned int qos);
-    void (*pt_rx_stop)(void);
+    struct rx_statics_st (*pt_rx_stop)(void);
 };
 struct conn_chan_list
 {
@@ -639,15 +652,25 @@ struct wlan_net_vif
     unsigned char wnet_vif_id;
     enum wifi_mac_opmode vm_opmode;
     enum wifi_mac_state vm_state;
+    unsigned char remain_on_channel;
+    struct ieee80211_channel remain_on_ch_channel;
+    unsigned long long remain_on_ch_cookie;
+    enum wifi_mac_pub_act_state pub_state;
 
     struct wifi_mac_ScanSSID vm_des_ssid[IV_SSID_SCAN_AMOUNT];
     unsigned char vm_des_bssid[WIFINET_ADDR_LEN];
     unsigned char vm_myaddr[WIFINET_ADDR_LEN];
     unsigned char vm_des_nssid;
+    unsigned char vm_auth_shared_cap;
+    unsigned char vm_auth_alg_switch;
+
+    unsigned short vm_scan_duration;
+    unsigned char vm_scan_duration_mandatory;
 
     enum wifi_mac_macmode vm_mac_mode;
     struct wifi_channel *vm_curchan;
     struct wifi_channel *vm_switchchan;
+    struct wifi_channel *vm_remainonchan;
     struct conn_chan_list vm_connchan;
     enum wifi_mac_bwc_width vm_bandwidth;
     unsigned char vm_scan_before_connect_flag;
@@ -672,6 +695,7 @@ struct wlan_net_vif
     struct os_timer_ext vm_mgtsend;
     struct os_timer_ext vm_sm_switch;
     struct os_timer_ext vm_actsend;
+    struct os_timer_ext vm_roc_timer;
     int vm_inact_init;
     int vm_inact_auth;
     int vm_inact_run;
@@ -778,6 +802,10 @@ struct wlan_net_vif
     struct wifi_mac_p2p* vm_p2p;
     int vm_p2p_support;
 #endif
+    enum wifi_mac_recovery_state vm_recovery_state;/* mark recovery state for current vif */
+    unsigned char vm_use_static_ip;
+    unsigned char vm_static_ipv4[IPV4_LEN];
+    unsigned char vm_sae_h2e_only;
 };
 
 #define WIFINET_PSQUEUE_PS4QUIET 0x0001
@@ -811,6 +839,7 @@ struct wlan_net_vif
 #define WIFINET_F_WPA1 0x00800000
 #define WIFINET_F_WPA2 0x01000000
 #define WIFINET_F_WPA 0x01800000
+#define WIFINET_F_H2E 0x02000000
 #define WIFINET_F_COUNTERM 0x04000000
 #define WIFINET_F_HIDESSID 0x08000000
 #define WIFINET_F_HIDESSID_TO_BIT0_OFST 27
@@ -844,6 +873,10 @@ struct wlan_net_vif
 #define WIFINET_FEXT2_PUREB 0x10000000
 #define WIFINET_FEXT2_PUREG 0x20000000
 #define WIFINET_FEXT2_PUREN 0x40000000
+
+#define WIFINET_FEXT2_SWITCH_CHANNEL 0x80000000
+#define WIFINET_FEXT2_ALLOW_SWITCH_CHANNEL 0x01000000
+
 
 #define WIFINET_FEXT2_PUREBGN (WIFINET_FEXT2_PUREB|WIFINET_FEXT2_PUREG|WIFINET_FEXT2_PUREN)
 #define WIFINET_FEXT2_PUREBG (WIFINET_FEXT2_PUREG|WIFINET_FEXT2_PUREB)

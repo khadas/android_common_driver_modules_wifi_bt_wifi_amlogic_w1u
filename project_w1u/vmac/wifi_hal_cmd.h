@@ -63,7 +63,8 @@ unsigned int phy_send_null_data(struct NullDataCmd null_data, int len);
 unsigned int phy_keep_alive(struct NullDataCmd null_data_param, int null_data_len, int enable, int period);
 unsigned int phy_set_beacon_miss(unsigned char vid, unsigned char enable, int period);
 unsigned int phy_set_vsdb(unsigned char vid, unsigned char enable);
-unsigned int phy_set_arp_agent(unsigned char vid, unsigned char enable, unsigned int ipv4, unsigned char * ipv6);
+unsigned int phy_set_arp_agent(unsigned char vid, unsigned char enable, unsigned int ipv4,
+                unsigned char * ipv6, unsigned char *dhcp_sever_mac);
 unsigned int phy_set_pattern(unsigned char vid, unsigned char offset, unsigned char len,
             unsigned char id, unsigned char *mask, unsigned char *pattern);
 int phy_set_suspend(unsigned char vid, unsigned char enable, unsigned char mode, unsigned int filters);
@@ -91,5 +92,6 @@ void phy_set_tx_power_percentage(char percentage, unsigned short channel_num, un
 int aml_send_me_shutdown(void);
 void phy_set_cf_end(unsigned char vid, unsigned char is_enable);
 unsigned char hal_ant_sel_en_get(void);
+void phy_get_queue_debug_info(unsigned char vid);
 
 #endif  //__AML_PHY_H__

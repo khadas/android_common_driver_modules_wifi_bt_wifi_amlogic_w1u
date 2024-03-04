@@ -120,9 +120,10 @@ static int writeFile(struct file *fp, char *buf, int len)
 * @param path the path of the file to test
 * @return Linux specific error code
 */
+extern struct device *vm_cfg80211_get_parent_dev(void);
 int isFileReadable(const char *path, u32 *sz)
 {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     int ret = 0;
     struct file *fp;
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
@@ -160,7 +161,17 @@ int isFileReadable(const char *path, u32 *sz)
     }
     return ret;
 #else
-    return 1;
+    int ret = 0;
+    const struct firmware *fw = NULL;
+    struct device *dev = vm_cfg80211_get_parent_dev();
+
+    ret = request_firmware(&fw, path, dev);
+
+    if (fw != NULL) {
+        release_firmware(fw);
+    }
+
+    return ret;
 #endif
 }
 
@@ -334,11 +345,13 @@ int aml_store_to_file(const char *path, u8 *buf, u32 sz)
     return ret >= 0 ? ret : 0;
 }
 
+extern char * capture_path;
 bool isFirstWrtFwlog = true;
 int storeFwlogToFile(u8 *buf, u32 sz)
 {
     int ret = 0;
     unsigned int file_mode;
+    char fp_path[64] = {'\0'};
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)) || defined (LINUX_PLATFORM)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     mm_segment_t oldfs;
@@ -352,9 +365,12 @@ int storeFwlogToFile(u8 *buf, u32 sz)
         } else {
             file_mode = O_CREAT | O_WRONLY | O_APPEND;
         }
-        ret = openFile(&fp, "/data/fw_trace", file_mode, 0666);
+
+        sprintf(fp_path,"%s/fw_trace.log", capture_path);
+
+        ret = openFile(&fp, fp_path, file_mode, 0666);
         if (0 == ret) {
-            AML_OUTPUT("openFile path:%s fp=%p\n", "/data/fw_trace" , fp);
+            AML_OUTPUT("openFile path:%s fp=%p\n", fp_path, fp);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
             oldfs = get_fs();
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
@@ -370,7 +386,7 @@ int storeFwlogToFile(u8 *buf, u32 sz)
             closeFile(fp);
             AML_OUTPUT("writeFile, ret:%d\n", ret);
         } else {
-            ERROR_DEBUG_OUT("openFile path:%s Fail, ret:%d\n", "/data/fw_trace", ret);
+            ERROR_DEBUG_OUT("openFile path:%s Fail, ret:%d\n", fp_path, ret);
         }
     } else {
         ERROR_DEBUG_OUT("NULL pointer\n");

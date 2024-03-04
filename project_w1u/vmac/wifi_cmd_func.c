@@ -392,7 +392,7 @@ int aml_sta_send_coexist_mgmt(struct wlan_net_vif *wnet_vif, char* buf, int len)
 {
     int skip = 0;
 
-    skip = strlen("send_bss_coex") + 1;
+    skip = strlen("set_bss_coex") + 1;
     wifi_mac_send_coexist_mgmt(buf + skip);
     return 0;
 }
@@ -645,7 +645,24 @@ void wifi_mac_set_country_code_task(SYS_TYPE param1, SYS_TYPE param2, SYS_TYPE p
         if (pchan->chan_cfreq1 != 0) {
             wnet_vif->vm_curchan = wifi_mac_find_chan_unlock(wifimac, pchan->chan_pri_num, pchan->chan_bw, pchan->chan_cfreq1);
             if (!wnet_vif->vm_curchan) {
-                wifi_mac_top_sm(wnet_vif, WIFINET_S_INIT,0);
+
+                WIFI_CHANNEL_UNLOCK(wifimac);
+
+                if ((wnet_vif->vm_opmode == WIFINET_M_HOSTAP) && (wnet_vif->vm_state == WIFINET_S_CONNECTED)) {
+                    if (wifi_mac_p2p_home_channel_enabled(wnet_vif) && !wifi_mac_if_dfs_channel(wifimac, wifimac->wm_p2p_home_channel)) {
+                        channel_switch_announce_trigger(wifimac, wifimac->wm_p2p_home_channel, WIFINET_BWC_WIDTH20, wifimac->wm_p2p_home_channel);
+                    } else {
+                        if (if_southamerica_country(wifimac->wm_country.iso)) {
+                            channel_switch_announce_trigger(wifimac, 149, WIFINET_BWC_WIDTH20, 149);
+                        } else {
+                            channel_switch_announce_trigger(wifimac, 36, WIFINET_BWC_WIDTH20, 36);
+                        }
+                    }
+                } else {
+                    wifi_mac_top_sm(wnet_vif, WIFINET_S_INIT,0);
+                }
+
+                WIFI_CHANNEL_LOCK(wifimac);
             } else {
                 AML_OUTPUT("vif[%d] now chan info => pri_num: %d, bw: %d, chan_cfreq1: %d\n", wnet_vif->wnet_vif_id,
                     wnet_vif->vm_curchan->chan_pri_num, wnet_vif->vm_curchan->chan_bw, wnet_vif->vm_curchan->chan_cfreq1);
@@ -1172,6 +1189,7 @@ int wifi_mac_set_udp_info(char** buf)
     aml_udp_info[udp_cnt].seq = 1000;
     aml_udp_info[udp_cnt].rx = 0;
     aml_udp_info[udp_cnt].tx = 0;
+    aml_udp_info[udp_cnt].rx_totlen = 0;
     aml_udp_timer.udp_timer_stop = 0;
 
     DPRINTF(AML_DEBUG_WARNING,"dst_port=%04x, src_port=%04x, dst_ip=%08x, src_ip:%08x, pkt_len:%d, out:%d, streamid:%d, param=%d\n",
@@ -1206,7 +1224,7 @@ int aml_get_udp_info(struct wlan_net_vif *wnet_vif, char* buf, int len)
 {
     int i = 0;
     for (i = 0; i < udp_cnt; i++) {
-        AML_OUTPUT("streamid=%d tx is %d, rx is %d\n", aml_udp_info[i].streamid, aml_udp_info[i].tx, aml_udp_info[i].rx);
+        AML_OUTPUT("streamid=%d tx is %d, rx is %d, rx tot_len is %d\n", aml_udp_info[i].streamid, aml_udp_info[i].tx, aml_udp_info[i].rx, aml_udp_info[i].rx_totlen);
     }
     aml_udp_timer.udp_timer_stop = 1;
     aml_udp_timer.run_flag = 0;

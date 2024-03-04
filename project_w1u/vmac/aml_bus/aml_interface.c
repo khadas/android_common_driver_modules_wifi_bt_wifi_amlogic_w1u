@@ -3,6 +3,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include "w1_sdio.h"
+#include "aml_interface.h"
 
 #ifdef SDIO_MODE_ON
 char *bus_type = "sdio";
@@ -14,12 +15,23 @@ extern int aml_sdio_rmmod(void);
 char *bus_type = "usb";
 #endif
 
+#ifdef CHIP_RESET_SUPPORT
+struct drv_reset_ops {
+    int (*enable_cb)(void);
+    void (*disable_cb)(void);
+} g_drv_reset_ops;
+
+EXPORT_SYMBOL(g_drv_reset_ops);
+#endif
+
 unsigned int aml_bus_type;
+struct aml_bus_state_detect bus_state_detect = {0};
 
 EXPORT_SYMBOL(bus_type);
 EXPORT_SYMBOL(aml_bus_type);
 extern int aml_usb_insmod(void);
 extern int aml_usb_rmmod(void);
+EXPORT_SYMBOL(bus_state_detect);
 
 #ifdef NOT_AMLOGIC_PLATFORM
 

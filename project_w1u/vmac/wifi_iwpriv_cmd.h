@@ -46,6 +46,15 @@ extern struct iw_handler_def w1_iw_handle;
 #define MEM_PKT_lEN (112*1024*2)
 #define REG_LEN 0xf000
 #define MEM_ICCM_RAM_ADDR 0x00020000
+#define EFUSE_ADDR_9 0x09
+#define EFUSE_ADDR_A 0x0A
+#define EFUSE_ADDR_B 0x0B
+#define EFUSE_ADDR_C 0x0C
+#define EFUSE_ADDR_D 0x0D
+#define EFUSE_ADDR_E 0x0E
+#define EFUSE_ADDR_F 0x0F
+#define RF_VLD_ENABLE 0x01
+
 enum
 {
     RF_TOP_SEQ = 0,
@@ -105,6 +114,43 @@ struct key_gain_efuse_power_map {
     unsigned char default_abs_power;
     unsigned char word_addr;
     unsigned char byte_oft;
+};
+
+enum efuse_domain {
+    RF_VLD_XOSC_CTUNE  = 0x00,
+    RF_VLD_PWR2G,
+    RF_VLD_PWR5G,
+    RF_VLD_PWR5G_BAND,
+    RF_VLD_PWR5G_DELTA,
+    RF_VLD_PWR5G_BAND_DELTA,
+    RF_VLD_PWR2G_DELTA,
+
+    RF_VLD,
+    XOSC_CTUNE,
+    PWR2G_20M,
+    PWR2G_40M,
+    PWR2G_11B,
+    PWR5G_20M,
+    PWR5G_40M,
+    PWR5G_80M,
+    PWR5G_BAND0,
+    PWR5G_BAND1,
+    PWR5G_BAND3,
+    PWR5G_BAND4,
+
+    PWR2G_20M_DELTA,
+    PWR2G_40M_DALTA,
+    PWR2G_11B_DELTA,
+    PWR5G_20M_DELTA,
+    PWR5G_40M_DELTA,
+    PWR5G_80M_DELTA,
+    PWR5G_BAND0_DELTA,
+    PWR5G_BAND1_DELTA,
+    PWR5G_BAND3_DELTA,
+    PWR5G_BAND4_DELTA,
+    XOSC_CTUNE_DELTA,
+
+    EFUSE_MAX_DOMAIN
 };
 
 enum aml_iwpriv_subcmd
@@ -211,6 +257,14 @@ enum aml_iwpriv_subcmd
     AML_IWP_SET_FLOW_CTRL = 100,
     AML_IWP_GET_KEY_ENTRY = 101,
     AML_IWP_SET_DELTA_TX_PWR = 102,
+    AML_IWP_GET_CAPT_STATICS = 103,
+    AML_IWP_GET_EFUSE_TIMES = 104,
+    AML_IWP_GET_EFUSE_DOMAIN = 105,
+    AML_IWP_SET_EFUSE_DOMAIN = 106,
+    AML_IWP_SET_EFUSE_TMP = 107,
+    AML_IWP_GET_EFUSE_TMP = 108,
+    AML_IWP_SET_ANT_SWITCH = 109,
+    AML_IWP_SET_WFA_MODE = 110,
 };
 
 extern void dump_spec_regs_val(struct wlan_net_vif *wnet_vif, int reg_domain);

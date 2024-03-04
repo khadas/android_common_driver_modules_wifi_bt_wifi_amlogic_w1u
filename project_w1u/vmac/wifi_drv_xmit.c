@@ -887,7 +887,7 @@ int drv_tx_start( struct drv_private *drv_priv, struct sk_buff *skbbuf)
         return -1;
     }
 
-    if (wnet_vif->vm_opmode != WIFINET_M_HOSTAP && wnet_vif->vm_wmac->recovery_stat < WIFINET_RECOVERY_VIF_UP) {
+    if (wnet_vif->vm_recovery_state < WIFINET_RECOVERY_VIF_UP) {
         ERROR_DEBUG_OUT("fw recovery not finish\n");
         return -2;
     }
@@ -1340,7 +1340,7 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
         AML_OUTPUT("txdesc_frame_flag=%d, status=%d\n", ptxdesc->txdesc_frame_flag, status);
 
         if ((sta->sta_wnet_vif->vm_p2p->action_code == WIFINET_ACT_PUBLIC_GAS_REQ && sta->sta_wnet_vif->vm_p2p->p2p_flag & P2P_GAS_RSP) ||
-            (sta->sta_wnet_vif->vm_p2p->action_code == WIFINET_ACT_PUBLIC_GAS_RSP && txok)) {
+            (sta->sta_wnet_vif->vm_p2p->action_code == WIFINET_ACT_PUBLIC_GAS_RSP && txok) || txok) {
 
             sta->sta_wnet_vif->vm_p2p->tx_status_flag = WIFINET_TX_STATUS_SUCC;
             sta->sta_wnet_vif->vm_p2p->send_tx_status_flag = 1;
@@ -2030,6 +2030,31 @@ int drv_aggr_check( struct drv_private *drv_priv, void * nsta, unsigned char tid
     return 0;
 }
 
+int drv_aggr_tid( struct drv_private *drv_priv, void * nsta, unsigned char tid_index)
+{
+    struct aml_driver_nsta *drv_sta = DRIVER_NODE(nsta);
+    struct drv_tx_scoreboard *tid;
+
+    if (!drv_priv->drv_config.cfg_txaggr) {
+        return 0;
+    }
+    tid = DRV_GET_TIDTXINFO(drv_sta, tid_index);
+
+    if (tid->cleanup_inprogress) {
+        return 0;
+    }
+
+    if (!tid->addba_exchangecomplete) {
+        if (tid->addba_exchangeinprogress) {
+            return 1;
+        }
+    } else {
+        return 1;
+    }
+
+    return 0;
+}
+
 int drv_aggr_allow_to_send(struct drv_private *drv_priv, void * nsta, unsigned char tid_index)
 {
     struct aml_driver_nsta *drv_sta = DRIVER_NODE(nsta);
@@ -2108,7 +2133,7 @@ void drv_addba_req_setup(struct drv_private *drv_priv, void * nsta, unsigned cha
     baparamset->tid = tid_index;
     baparamset->buffersize = buffersize;
     *batimeout = 0;
-    basequencectrl->fragnum = 0;
+    basequencectrl->fragment = 0;
     basequencectrl->startseqnum = tid->seq_next;
     tid->seq_start = tid->seq_next;
 
@@ -2177,7 +2202,7 @@ drv_addba_rsp_process(
         if (resume)
         {
             hal_phy_addba_ok(sta->sta_wnet_vif->wnet_vif_id, drv_hal_nsta_staid((struct wifi_station *)sta),
-                tid_index, drv_sta->tx_agg_st.tid[tid_index].seq_start, tid->baw_size, BA_INITIATOR, BA_IMMEDIATE);
+                tid_index, drv_sta->tx_agg_st.tid[tid_index].seq_start, tid->baw_size, BA_INITIATOR, BA_IMMIDIATE);
             drv_txlist_resume_for_sta_tid(drv_priv, tid);
         }
     }
@@ -2815,8 +2840,7 @@ drv_txampdu_build(struct drv_private *drv_priv, struct drv_tx_scoreboard *tid,
             break;
         }
 
-        //when bus type is usb, ampdu can aggregate up to 7 mpdus
-        if (aml_bus_type && nframes >= MIN(h_baw, drv_priv->drv_config.cfg_ampdu_subframes/2 - 1)) {
+        if (nframes >= drv_priv->drv_agg_limit) {
             status = 2;
             break;
         }

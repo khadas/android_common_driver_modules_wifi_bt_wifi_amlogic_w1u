@@ -68,6 +68,8 @@
 #define HOST_SHUTDOWN_REQ 0x4F
 #define CF_END_CMD 0x50
 #define KEY_ENTRY_READ_CMD 0x51
+#define GET_QUEUE_DEBUG_INFO_CMD (CMD_GET | 0x52)
+#define TXT_SHIFT_CFG_CMD 0x53
 
 /*coexist cmd1 comand*/
 #define COEXIST_EN_CMD  BIT(0)
@@ -338,6 +340,18 @@ typedef struct ArpAgentCmd
     unsigned char ip6_addr[IPV6_ADDR_BUF_LEN];
 } ArpAgentCmd;
 
+typedef struct PatchArpAgentCmd
+{
+    unsigned char Cmd;
+    unsigned char enable;
+    unsigned char vid;
+    unsigned char reserve;
+    unsigned int ip_addr;
+    unsigned char ip6_addr[IPV6_ADDR_BUF_LEN];
+    unsigned char dncp_server_mac[WIFINET_ADDR_LEN];
+} PatchArpAgentCmd;
+
+
 /* beacon miss monitor */
 typedef struct BeaconMissCmd
 {
@@ -405,7 +419,7 @@ typedef struct NDPAnncmntCmd
 
 ///TxBA_TYPE
 #define  BA_DELAY  0
-#define  BA_IMMEDIATE  1
+#define  BA_IMMIDIATE  1
 
 ///AuthRole
 #define BA_INITIATOR  0
@@ -635,6 +649,12 @@ typedef struct Efuse_Cfg_Param
     unsigned int efuse_e;
 } Efuse_Cfg_Param;
 
+typedef struct Txt_Shift_Param
+{
+    unsigned char Cmd;
+    unsigned char txt_shift_value[6];
+} Txt_Shift_Param_T;
+
 typedef struct Coex_Wf_Zgb_Mode_Param
 {
     unsigned char Cmd;
@@ -707,6 +727,7 @@ typedef union FI_CMDFIFO_PARAM
     struct KeepAliveCmd keep_alive_cmd;
     struct BeaconMissCmd beacon_miss_cmd;
     struct ArpAgentCmd arp_agent_cmd;
+    struct PatchArpAgentCmd patch_arp_agent_cmd;
     struct SuspendCmd suspend_cmd;
     struct AddPatternCmd add_pattern_cmd;
     struct Bmfm_Info_Cmd bmfm_info_cmd;
@@ -730,6 +751,34 @@ typedef struct Set_Cf_End
     unsigned char reserved;
     unsigned char enable;
 } Set_Cf_End;
+
+typedef struct Queue_Debug_Info
+{
+    unsigned int vid:2;
+    unsigned int wifi_inactive_flag:2;
+    unsigned int queue_idx:4;
+    unsigned int state:4;
+    unsigned int active_idx:4;
+    unsigned int queue_cnt:8;
+} Queue_Debug_Info;
+
+typedef struct Get_Queue_Debug_Info
+{
+    unsigned char Cmd;
+    unsigned char reserve[2];
+    unsigned char vid;
+    Queue_Debug_Info param[QUEUE_AC_MAX];
+    unsigned int queue_debug;
+} Get_Queue_Debug_Info;
+
+typedef struct Get_Spec_Info
+{
+    unsigned char Cmd;
+    unsigned char reserve[2];
+    unsigned char vid;
+    unsigned char param[60];
+} Get_Spec_Info;
+
 
 #endif// #ifdef CONFIG_SDIO_IF
 #endif

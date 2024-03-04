@@ -847,7 +847,7 @@ struct hal_layer_ops
     unsigned int (*phy_set_beacon_miss)(unsigned char vid, unsigned char enable, int period);
     unsigned int (*phy_set_vsdb)(unsigned char vid, unsigned char enable);
     unsigned int (*phy_set_arp_agent)(unsigned char vid, unsigned char enable, unsigned int ipv4,
-        unsigned char * ipv6);
+        unsigned char * ipv6, unsigned char *dhcp_sever_mac);
     unsigned int (*phy_set_pattern)(unsigned char vid, unsigned char offset, unsigned char len,
         unsigned char id, unsigned char *mask, unsigned char *pattern);
     int (*phy_set_suspend)(unsigned char vid, unsigned char enable, unsigned char mode, unsigned int filters);
@@ -863,7 +863,7 @@ struct hal_layer_ops
     unsigned int (*hal_bt_read_word)(unsigned int addr);
 
     void (*hal_pt_rx_start)(unsigned int qos);
-    void (*hal_pt_rx_stop)(void);
+    struct rx_statics_st (*hal_pt_rx_stop)(void);
 
     // sdio pmu
     unsigned char (*hal_get_fw_ps_status)(void);
@@ -885,6 +885,8 @@ struct hal_layer_ops
     unsigned int (*hal_set_fwlog_cmd)(unsigned char mode);
     unsigned int (*hal_cfg_cali_param)(void);
     unsigned int (*hal_cfg_txpwr_cffc_param)(void * chan,void * txpwr_plan);
+    unsigned short (*hal_get_tx_page_total_num)(void);
+    unsigned int (*hal_read_efuse_val)(unsigned int efuse_addr);
 };
 
 #define HAL_FW_IN_ACTIVE  BIT(0)
@@ -1030,7 +1032,7 @@ struct hal_layer_ops
     unsigned char dpd_suspend;
     unsigned char dpd_delay_cail;
     unsigned char dpd_wait_pkt_clear;
-
+    unsigned char hal_max_mpdu_num;
 };
 
 /*** aml platform***/
@@ -1367,7 +1369,7 @@ struct aml_hal_call_backs
     void (*intr_tx_handle)(void *drv_prv, struct txdonestatus *tx_done_status, SYS_TYPE callback, unsigned char queue_id);
     void (*intr_tx_ok_timeout)(void *drv_prv);
     void (*intr_tx_pkt_clear)(void *drv_prv);
-    void (*intr_rx_handle)(void *drv_prv,struct sk_buff *skb,unsigned char Rssi,unsigned char RxRate,
+    void (*intr_rx_handle)(void *drv_prv,struct sk_buff *skb,unsigned long long PN, unsigned char encrypt, unsigned char Rssi,unsigned char RxRate,
         unsigned char channel,  unsigned char aggr, unsigned char wnet_vif_id,unsigned char keyid, unsigned int channel_bw, unsigned int rx_sgi);
     int (*pmf_encrypt_pkt_handle)(void *drv_prv, struct sk_buff *skb, unsigned char rssi, unsigned char RxRate,
         unsigned char channel,  unsigned char aggr, unsigned char wnet_vif_id,unsigned char keyid, unsigned int channel_bw, unsigned int rx_sgi);

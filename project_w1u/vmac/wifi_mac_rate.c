@@ -853,6 +853,17 @@ void wifi_mac_sort_rate(struct wifi_mac_rateset *rs)
     }
 }
 
+unsigned char wifi_mac_find_rate(unsigned char rate_value, struct wifi_mac_rateset rate_table)
+{
+    int i = 0;
+    for (i = 0; i < rate_table.dot11_rate_num; i++) {
+        if (WIFINET_GET_RATE_VAL(rate_value) == WIFINET_GET_RATE_VAL(rate_table.dot11_rate[i]))
+            return 1;
+    }
+    return 0;
+
+}
+
 void wifi_mac_xsect_rate(struct wifi_mac_rateset *rs1, struct wifi_mac_rateset *rs2, struct wifi_mac_rateset *srs)
 {
     int i, j, k;

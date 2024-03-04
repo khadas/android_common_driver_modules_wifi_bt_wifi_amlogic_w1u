@@ -276,7 +276,7 @@ void hal_soft_rx_cs(struct hal_private *hal_priv, struct sk_buff *skb)
         }
 
         // push to upper layer
-        hal_priv->hal_call_back->intr_rx_handle(hal_priv->drv_priv, skb, RxPrivHdr_bit->RxRSSI_ant0,
+        hal_priv->hal_call_back->intr_rx_handle(hal_priv->drv_priv, skb,*(unsigned long long *)(RxPrivHdr_bit->PN), RxPrivHdr_bit->RxDecryptType != RX_PHY_NOWEP, RxPrivHdr_bit->RxRSSI_ant0,
             RxPrivHdr_bit->RxRate, RxPrivHdr_bit->RxChannel, RxPrivHdr_bit->aggregation, wnet_vif_id,RxPrivHdr_bit->key_id,
             RxPrivHdr_bit->Channel_BW, RxPrivHdr_bit->RxShortGI);
     }
@@ -439,10 +439,10 @@ void hal_pt_rx_start(unsigned int qos)
     hif->hif_ops.hif_pt_rx_start(qos);
 }
 
-void hal_pt_rx_stop(void)
+struct rx_statics_st hal_pt_rx_stop(void)
 {
      struct  hw_interface* hif = hif_get_hw_interface();
-      hif->hif_ops.hif_pt_rx_stop();
+     return hif->hif_ops.hif_pt_rx_stop();
 }
 
 unsigned char hal_wake_fw_req(void)
@@ -763,7 +763,8 @@ void hal_ops_attach(void)
     hal_priv->hal_ops.hal_set_fwlog_cmd = hal_set_fwlog_cmd;
     hal_priv->hal_ops.hal_cfg_cali_param = hal_cfg_cali_param;
     hal_priv->hal_ops.hal_cfg_txpwr_cffc_param = hal_cfg_txpwr_cffc_param;
-
+    hal_priv->hal_ops.hal_get_tx_page_total_num = hal_get_tx_page_total_num;
+    hal_priv->hal_ops.hal_read_efuse_val = hal_read_efuse_val;
 #if defined(SDIO_BUILD_IN) && defined(SDIO_MODE_ON)
     host_wake_req = hal_wake_fw_req;
     host_suspend_req = aml_sdio_pm_suspend;
@@ -1188,7 +1189,7 @@ void hal_txframe_pre(void)
     unsigned char *EltPtr = NULL;
     struct hal_private *hal_priv = hal_get_priv();
     struct hw_interface *hif = hif_get_hw_interface();
-    struct _CO_SHARED_FIFO *pTxShareFifo =NULL;//
+    struct _CO_SHARED_FIFO *pTxShareFifo = NULL;
     struct fw_txdesc_fifo *pTxDescFiFo = NULL;
     int txqueueid = 0;
     int id = 0;
@@ -1202,11 +1203,11 @@ void hal_txframe_pre(void)
     // 2, other filters
     do
     {
-        for (i = HAL_NUM_TX_QUEUES-1; i >= 0; i--)
+        for (i = HAL_NUM_TX_QUEUES - 1; i >= HAL_WME_MIN; i--)
         {
             txqueueid--;
-            if (txqueueid<0)
-                txqueueid = HAL_NUM_TX_QUEUES-1;
+            if (txqueueid < HAL_WME_MIN)
+                txqueueid = HAL_NUM_TX_QUEUES - 1;
 
             //if buffered mpdu num > 2 in hal, then skip
             if ((hif->HiStatus.TX_DOWNLOAD_OK_EVENT_num[txqueueid]
@@ -1223,6 +1224,7 @@ void hal_txframe_pre(void)
                     && (hif->HiStatus.Tx_Done_num - hif->HiStatus.Tx_Free_num > 32)) {
                     return;
                 }
+
                 EltPtr = CO_SharedFifoPick(pTxShareFifo, CO_TX_BUFFER_MAKE);
                 pTxDescFiFo = (struct fw_txdesc_fifo *)EltPtr;
 
@@ -1243,15 +1245,15 @@ void hal_txframe_pre(void)
     } while (--loop > 0);
 
     //loop the queues, until TxShareFifoBuf empty
-    for (txqueueid = HAL_NUM_TX_QUEUES-1; txqueueid>=0; txqueueid--)
+    for (txqueueid = HAL_NUM_TX_QUEUES - 1; txqueueid >= HAL_WME_MIN; txqueueid--)
     {
         pTxShareFifo = &hal_priv->txds_trista_fifo[txqueueid];
         while (CO_SharedFifoEmpty(pTxShareFifo, CO_TX_BUFFER_MAKE))
         {
-            EltPtr = CO_SharedFifoPick(pTxShareFifo,CO_TX_BUFFER_MAKE);
-            pTxDescFiFo = ( struct fw_txdesc_fifo * )EltPtr;
+            EltPtr = CO_SharedFifoPick(pTxShareFifo, CO_TX_BUFFER_MAKE);
+            pTxDescFiFo = (struct fw_txdesc_fifo *)EltPtr;
 
-            id = hal_alloc_tx_id(hal_priv,pTxDescFiFo);
+            id = hal_alloc_tx_id(hal_priv, pTxDescFiFo);
             if (id == TXID_INVALID)
             {
                 if (hif->HiStatus.Tx_Done_num == hif->HiStatus.Tx_Free_num) {
@@ -1294,7 +1296,6 @@ void  hal_tx_frame(void)
     struct _CO_SHARED_FIFO *pTxShareFifo = NULL;
     struct fw_txdesc_fifo *pTxDescFiFo = NULL;
     static unsigned char print_cnt = 0;
-    unsigned char max_mpdu_num = 0;
     unsigned int page_num = 0;
     int txqueueid = 0;
     struct hi_tx_desc *pTxDPape = NULL;
@@ -1302,12 +1303,14 @@ void  hal_tx_frame(void)
     unsigned int q_fifo_set_cnt = 0;
     int qid = -1;
     unsigned int len = 0;
+
     if (hal_priv->bhaltxdrop || hal_priv->bhalPowerSave) {
         if (print_cnt++ == 200) {
             AML_OUTPUT("bhaltxdrop:%d, bhalPowerSave:%d\n", hal_priv->bhaltxdrop, hal_priv->bhalPowerSave);
         }
         return;
     }
+
     if ((aml_bus_type) && (hal_priv->dpd_suspend)) {
         return;
     }
@@ -1332,27 +1335,18 @@ void  hal_tx_frame(void)
         if (print_cnt++ == 200) {
             AML_OUTPUT("hal_fw_ps_status:%02x\n", hal_priv->hal_fw_ps_status);
         }
-        if (!hal_tx_empty())
-            hal_priv->hal_call_back->drv_pwrsave_wake_req(hal_priv->drv_priv, 1);
-        AML_TXLOCK_LOCK();
 
+        if (!hal_tx_empty()) {
+            hal_priv->hal_call_back->drv_pwrsave_wake_req(hal_priv->drv_priv, 1);
+        }
+        AML_TXLOCK_LOCK();
         return;
     }
     POWER_END_LOCK();
 
-    //when bus type is usb, will set max_mpdu_num to 7
-    if (aml_bus_type)
-    {
-        max_mpdu_num = MAX_MPDU_NUM/2 -1;
-    }
-    else
-    {
-        max_mpdu_num = MAX_MPDU_NUM;
-    }
-
     AML_TXLOCK_LOCK();
     hal_txframe_pre();
-    for (txqueueid = HAL_NUM_TX_QUEUES-1; txqueueid>=0; txqueueid--)
+    for (txqueueid = HAL_NUM_TX_QUEUES - 1; txqueueid >= HAL_WME_MIN; txqueueid--)
     {
         unsigned int mpdu_num       = 0;
         unsigned int aggr_page_num  = 0;
@@ -1361,7 +1355,7 @@ void  hal_tx_frame(void)
         struct amlw_hif_scatter_req * scat_req = NULL;
 
         pTxShareFifo = &hal_priv->txds_trista_fifo[txqueueid];
-        if (CO_SharedFifoEmpty( pTxShareFifo, CO_TX_BUFFER_SET))
+        if (CO_SharedFifoEmpty(pTxShareFifo, CO_TX_BUFFER_SET))
         {
             scat_req = hif->hif_ops.hi_get_scatreq();
             if (scat_req != NULL)
@@ -1383,27 +1377,29 @@ void  hal_tx_frame(void)
 #endif
 
         pTxShareFifo = &hal_priv->txds_trista_fifo[txqueueid];
-        while (CO_SharedFifoEmpty( pTxShareFifo, CO_TX_BUFFER_SET))
+        while (CO_SharedFifoEmpty(pTxShareFifo, CO_TX_BUFFER_SET))
         {
             EltPtr      = CO_SharedFifoPick(pTxShareFifo,CO_TX_BUFFER_SET);
             pTxDescFiFo = (struct fw_txdesc_fifo *) EltPtr;
             pTxDPape    = pTxDescFiFo->pTxDPape;
             AggrNum     = pTxDPape->TxPriv.AggrNum;
 
-            q_fifo_set_cnt = CO_SharedFifoNbEltCont(pTxShareFifo,CO_TX_BUFFER_SET);
+            q_fifo_set_cnt = CO_SharedFifoNbEltCont(pTxShareFifo, CO_TX_BUFFER_SET);
 
             if (!pTxDPape->TxPriv.AggrNum || !pTxDPape->TxPriv.aggr_page_num || pTxDPape->TxPriv.TID > QUEUE_BEACON)
             {
-                STATUS =CO_SharedFifoGet(pTxShareFifo,CO_TX_BUFFER_SET,1,&EltPtr);
-                STATUS =CO_SharedFifoPut(pTxShareFifo,CO_TX_BUFFER_SET,1);
-                PRINT("!!!error:set_cnt:%d, aggrnum:%d, aggr_page_num:%d, sn:%d, skb:%p, tid:%d, fc:0x%x\n", q_fifo_set_cnt, pTxDPape->TxPriv.AggrNum, pTxDPape->TxPriv.aggr_page_num,
-                       pTxDPape->TxPriv.SN, pTxDescFiFo->ampduskb, pTxDPape->TxPriv.TID, pTxDPape->TxVector.tv_FrameControl);
+                STATUS = CO_SharedFifoGet(pTxShareFifo, CO_TX_BUFFER_SET, 1, &EltPtr);
+                STATUS = CO_SharedFifoPut(pTxShareFifo, CO_TX_BUFFER_SET, 1);
+                AML_OUTPUT("!!!error, q_fifo_set_cnt:%d, aggrnum:%d, aggr_page_num:%d, sn:0x%04x, skb:%p, tid:%d, fc:0x%04x\n",
+                            q_fifo_set_cnt, pTxDPape->TxPriv.AggrNum, pTxDPape->TxPriv.aggr_page_num,
+                            pTxDPape->TxPriv.SN, pTxDescFiFo->ampduskb, pTxDPape->TxPriv.TID,
+                            pTxDPape->TxVector.tv_FrameControl);
                 break;
             }
 #if defined (HAL_FPGA_VER)
             if ((pTxDPape->TxPriv.aggr_page_num <= hal_priv->txPageFreeNum)
                     && (pTxDPape->TxPriv.AggrNum <= q_fifo_set_cnt)
-                    && ((AggrNum + mpdu_num) < max_mpdu_num)
+                    && ((AggrNum + mpdu_num) < hal_priv->hal_max_mpdu_num)
                     && ((aggr_page_num + pTxDPape->TxPriv.aggr_page_num <= SG_PAGE_MAX) || (aggr_page_num == 0)))
 #elif defined (HAL_SIM_VER)
                     if ((pTxDPape->TxPriv.aggr_page_num <= hal_priv->txPageFreeNum)
@@ -1412,7 +1408,7 @@ void  hal_tx_frame(void)
             {
 #if defined (HAL_SIM_VER)
                 PRINT("Hal_TxFrameDownload pTxDPape->TxPriv.AggrNum=%d, now have %d\n",
-                        pTxDPape->TxPriv.AggrNum, CO_SharedFifoNbEltCont(pTxShareFifo,CO_TX_BUFFER_SET));
+                        pTxDPape->TxPriv.AggrNum, q_fifo_set_cnt);
                 PRINT("pTxDPape->TxPriv.aggr_page_num=%d, now have %d,  txqueueid=%d\n",
                         pTxDPape->TxPriv.aggr_page_num, hal_priv->txPageFreeNum, txqueueid );
 #endif
@@ -1428,74 +1424,61 @@ void  hal_tx_frame(void)
                 {
                     hal_priv->txPageFreeNum -= pTxDPape->TxPriv.PageNum;
                     hif->HiStatus.TX_DOWNLOAD_OK_EVENT_num[txqueueid]++;
-                    hal_priv->tx_queueid_downloadok =  txqueueid;
+                    hal_priv->tx_queueid_downloadok = txqueueid;
 
-                    STATUS =CO_SharedFifoGet(pTxShareFifo,CO_TX_BUFFER_SET,1,&EltPtr);
-                    ASSERT(STATUS==CO_STATUS_OK);
+                    STATUS = CO_SharedFifoGet(pTxShareFifo, CO_TX_BUFFER_SET, 1, &EltPtr);
                     if (STATUS != CO_STATUS_OK)
                     {
-                        PRINT("!!!error:TxPriv.aggr_page_num:%d, txPageFreeNum:%d, TxPriv.AggrNum:%d, set_cnt:%d, "\
-                        "AggrNum:%d, mpdu_num:%d, aggr_page_num:%d, aggrlen:%d, sn:%d, queueid:%d, sn:%d, skb:%p, tid:%d, fc:0x%x \n",
+                        AML_OUTPUT("!!!error, TxPriv.aggr_page_num:%d, txPageFreeNum:%d, TxPriv.AggrNum:%d, q_fifo_set_cnt:%d, "\
+                        "AggrNum:%d, mpdu_num:%d, aggr_page_num:%d, aggrlen:%d, sn:0x%04x, queueid:%d,skb:%p, tid:%d, fc:0x%04x\n",
                         pTxDPape->TxPriv.aggr_page_num, hal_priv->txPageFreeNum, pTxDPape->TxPriv.AggrNum, q_fifo_set_cnt,
                         AggrNum, mpdu_num, aggr_page_num, pTxDPape->TxPriv.AggrLen, pTxDPape->TxPriv.SN, txqueueid,
-                        pTxDPape->TxPriv.SN, pTxDescFiFo->ampduskb, pTxDPape->TxPriv.TID, pTxDPape->TxVector.tv_FrameControl);
+                        pTxDescFiFo->ampduskb, pTxDPape->TxPriv.TID, pTxDPape->TxVector.tv_FrameControl);
                     }
+                    ASSERT(STATUS == CO_STATUS_OK);
 
-                    STATUS =CO_SharedFifoPut(pTxShareFifo,CO_TX_BUFFER_SET,1);
-                    ASSERT(STATUS==CO_STATUS_OK);
+                    STATUS =CO_SharedFifoPut(pTxShareFifo, CO_TX_BUFFER_SET, 1);
+                    ASSERT(STATUS == CO_STATUS_OK);
 
 #if defined (HAL_FPGA_VER)
                     assign_tx_desc_pn(pTxDPape->TxOption.is_bc, pTxDPape->TxPriv.vid,
                         pTxDPape->TxPriv.StaId, pTxDPape, pTxDPape->TxOption.key_type);
+
+                    ASSERT(scat_req->scat_count == mpdu_num);
                     if(aml_bus_type) {
-                        ASSERT(scat_req->scat_count == mpdu_num);
                         page_num = hal_calc_block_in_mpdu_ex(HW_MPDU_LEN_GET(pTxDPape->MPDUBufFlag) + HI_TXDESC_DATAOFFSET - 4);
                         len = page_num * 12;
                         /* show packet */
-                        scat_req->scat_list[mpdu_num].skbbuf = pTxDescFiFo->ampduskb; // need to free
-                        scat_req->scat_list[mpdu_num].packet = pTxDPape;
                         scat_req->scat_list[mpdu_num].page_num = page_num;
                         scat_req->scat_list[mpdu_num].len = ALIGN(len + HW_MPDU_LEN_GET(pTxDPape->MPDUBufFlag) + HI_TXDESC_DATAOFFSET - 4, 4);
-                        scat_req->scat_count++;
-                        scat_req->len += scat_req->scat_list[mpdu_num].len;
-                    }
-#ifdef SDIO_MODE_ON
-                    else {
-                        ASSERT(scat_req->scat_count == mpdu_num);
-                        scat_req->scat_list[mpdu_num].skbbuf = pTxDescFiFo->ampduskb; // need to free
-                        scat_req->scat_list[mpdu_num].packet = pTxDPape;
-                            scat_req->scat_list[mpdu_num].page_num = pTxDPape->TxPriv.PageNum;
+                    } else {
+                        scat_req->scat_list[mpdu_num].page_num = pTxDPape->TxPriv.PageNum;
                         scat_req->scat_list[mpdu_num].len = HW_MPDU_LEN_GET(pTxDPape->MPDUBufFlag) + HI_TXDESC_DATAOFFSET;
-                        scat_req->scat_count++;
-                        scat_req->len += scat_req->scat_list[mpdu_num].len;
                     }
-#endif
+                    scat_req->scat_list[mpdu_num].skbbuf = pTxDescFiFo->ampduskb; // need to free
+                    scat_req->scat_list[mpdu_num].packet = pTxDPape;
+                    scat_req->scat_count++;
+                    scat_req->len += scat_req->scat_list[mpdu_num].len;
+
                     pTxDPape->TxOption.pkt_position = AML_PKT_NOT_IN_HAL;
                     pTxDescFiFo->ampduskb = NULL;
                     mpdu_num++;
 #elif defined (HAL_SIM_VER)
-
                     if(aml_bus_type) {
-
                         len = hal_calc_block_in_mpdu(HW_MPDU_LEN_GET(pTxDPape->MPDUBufFlag) + HI_TXDESC_DATAOFFSET) * 12 - 4;
                         len = hal_calc_block_in_mpdu(len + HW_MPDU_LEN_GET(pTxDPape->MPDUBufFlag) + HI_TXDESC_DATAOFFSET) * hif->CommStaticParam.tx_page_len;
                         hal_tx_page_build(pTxDPape);
-                    }
-#ifdef SDIO_MODE_ON
-
-                    else {
-
+                    } else {
                         /*shijie.chen add for cmd53+multi-data */
                         len = hal_calc_block_in_mpdu(HW_MPDU_LEN_GET(pTxDPape->MPDUBufFlag)
                                 + HI_TXDESC_DATAOFFSET) * hif->CommStaticParam.tx_page_len;
                     }
-#endif
-                    memcpy(tmp+offset, pTxDPape, len);
+                    memcpy(tmp + offset, pTxDPape, len);
                     offset += len;
 #endif
-                    __sync_fetch_and_add(&hif->HiStatus.Tx_Done_num,1);
-                    EltPtr = CO_SharedFifoPick(pTxShareFifo,CO_TX_BUFFER_SET);
-                    pTxDescFiFo = ( struct fw_txdesc_fifo *)EltPtr ;
+                    __sync_fetch_and_add(&hif->HiStatus.Tx_Done_num, 1);
+                    EltPtr = CO_SharedFifoPick(pTxShareFifo, CO_TX_BUFFER_SET);
+                    pTxDescFiFo = (struct fw_txdesc_fifo *)EltPtr ;
                     pTxDPape = pTxDescFiFo->pTxDPape;
                 }
                 while (--AggrNum > 0);
@@ -2048,8 +2031,14 @@ int hal_fw_repair(void)
     struct hal_private *hal_priv = hal_get_priv();
     struct drv_private *drv_priv = drv_get_drv_priv();
 
-    hal_tx_flush(0);
     hal_download_fw();
+
+#ifdef SDIO_BUILD_IN
+    if (aml_bus_type == 0) {//SDIO_MODE
+        aml_sdio_enable_irq(SDIO_FUNC1);
+    }
+#endif
+
     hal_host_init(hal_priv);
 
     drv_set_config((void *)drv_priv, CHIP_PARAM_RETRY_LIMIT, 100 << 8 | 100);
@@ -2243,24 +2232,22 @@ int hal_host_init(struct hal_private *hal_priv)
     hi_rx_fifo_init();
 #endif
 
-    for (queueid=0; queueid < HAL_NUM_TX_QUEUES; queueid++) {
+    for (queueid = HAL_WME_MIN; queueid < HAL_NUM_TX_QUEUES; queueid++) {
         CO_SharedFifoInit(&(hal_priv->txds_trista_fifo[queueid]),
-            (SYS_TYPE)&hal_priv->txds_trista_fifo_buf[HI_AGG_TXD_NUM_PER_QUEUE *queueid],
-            (void *)&hal_priv->txds_trista_fifo_buf[HI_AGG_TXD_NUM_PER_QUEUE *queueid],
+            (SYS_TYPE)&hal_priv->txds_trista_fifo_buf[HI_AGG_TXD_NUM_PER_QUEUE * queueid],
+            (void *)&hal_priv->txds_trista_fifo_buf[HI_AGG_TXD_NUM_PER_QUEUE * queueid],
             HI_AGG_TXD_NUM_PER_QUEUE, sizeof(struct fw_txdesc_fifo), CO_SF_BLOCK_TX_NBR);
     }
 
-    memset((unsigned char *)&hif->HiStatus,0,sizeof(struct hi_status));
+    memset((unsigned char *)&hif->HiStatus, 0, sizeof(struct hi_status));
 
-    hif->hif_ops.hi_write_sram((unsigned char*)&rfmode,
-        (unsigned char*)HOST_VERSION_ADDR, sizeof(rfmode));
+    hif->hif_ops.hi_write_sram((unsigned char*)&rfmode, (unsigned char*)HOST_VERSION_ADDR, sizeof(rfmode));
 
     ///inital phy interrupt time
     Irq_Time.MaxTimerOut = 200;/*ms*/  //old is 200
     Irq_Time.MinInterval = 1;/*ms*/  //old is 1
 
-    hif->hif_ops.hi_write_sram((unsigned char*)&Irq_Time,
-        (unsigned char*)FW_IRQ_TIME_ADDR, sizeof(Irq_Time));
+    hif->hif_ops.hi_write_sram((unsigned char*)&Irq_Time, (unsigned char*)FW_IRQ_TIME_ADDR, sizeof(Irq_Time));
 
     hal_get_vid(hif);
     hal_get_chip_id();
@@ -2270,8 +2257,7 @@ int hal_host_init(struct hal_private *hal_priv)
 #endif
 
     //read config
-    hif->hif_ops.hi_read_sram((unsigned char *)&hif->hw_config,
-        (unsigned char *)HW_CONFIG_ADDR,sizeof(HW_CONFIG));
+    hif->hif_ops.hi_read_sram((unsigned char *)&hif->hw_config, (unsigned char *)HW_CONFIG_ADDR, sizeof(HW_CONFIG));
     hal_priv->txPageFreeNum = hif->hw_config.txpagenum;
 
     PRINT("hal_priv->beaconframeaddress  0x%x \n",hif->hw_config.beaconframeaddress);
@@ -2329,7 +2315,7 @@ int hal_host_init(struct hal_private *hal_priv)
 #endif
     }
 #endif
-    hal_cfg_cali_param();
+    ret = hal_cfg_cali_param();
 
 DBG_EXIT();
 
@@ -3732,10 +3718,32 @@ void hal_get_fwlog(void)
         hif->hif_ops.hi_write_reg32(RG_SCFG_FUNC5_BADDR_A, addr & 0xfffe0000);
     }
 #endif
-    hif->hif_ops.bt_hi_read_sram((unsigned char*)fwlog_buf,
-        (unsigned char*)(SYS_TYPE)(addr & 0x1ffff), databyte);
+    if (aml_bus_type) {
+      hif->hif_ops.bt_hi_read_sram((unsigned char*)fwlog_buf,
+            (unsigned char*)(SYS_TYPE)(addr), databyte);
+    } else {
+        hif->hif_ops.bt_hi_read_sram((unsigned char*)fwlog_buf,
+            (unsigned char*)(SYS_TYPE)(addr & 0x1ffff), databyte);
+   }
 
     drv_priv->drv_ops.drv_print_fwlog(fwlog_buf, databyte);
+}
+
+unsigned int hal_read_efuse_val(unsigned int efuse_addr)
+{
+    struct hw_interface* hif = hif_get_hw_interface();
+    unsigned int efuse_val = 0;
+
+    efuse_val = hif->hif_ops.hi_read_efuse(efuse_addr);
+
+    return efuse_val;
+}
+
+unsigned short hal_get_tx_page_total_num(void)
+{
+    struct hw_interface* hif = hif_get_hw_interface();
+
+    return hif->hw_config.txpagenum;
 }
 
 #ifdef HAL_SIM_VER

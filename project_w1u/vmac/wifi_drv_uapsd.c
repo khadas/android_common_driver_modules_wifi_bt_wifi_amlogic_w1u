@@ -438,69 +438,51 @@ int drv_tx_mcastq_send (struct drv_private *drv_priv)
 {
     struct drv_txlist *txlist = &drv_priv->drv_txlist_table[HAL_WME_MCAST];
     int *qcnt = &txlist->txlist_backup_qcnt;
-    struct list_head tx_queue, *wnet_vif_mcast_q = &txlist->txlist_backup, *bf_qnode = NULL;
-    struct drv_txdesc *ptxdesc = NULL;
+    struct drv_txdesc *ptxdesc = NULL, *txdesc_queue_next = NULL;
+    struct list_head tx_queue;
     struct sk_buff * skbbuf = NULL;
     struct wifi_skb_callback *cb = NULL;
     struct wifi_station *sta = NULL;
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d txlist->txlist_backup_qcnt=%d\n", __func__,__LINE__, txlist->txlist_backup_qcnt);
+    struct wlan_net_vif *wnet_vif = NULL;
+    int count_list = 0;
 
     if (*qcnt == 0)
         return 0;
 
     INIT_LIST_HEAD(&tx_queue);
 
-    do
-    {
-        DRV_TX_QUEUE_LOCK(drv_priv);
-        if (list_empty(wnet_vif_mcast_q)) {
-            DRV_TX_QUEUE_UNLOCK(drv_priv);
-            break;
-        }
-        bf_qnode = wnet_vif_mcast_q->next;
-        ptxdesc = list_entry(bf_qnode, struct drv_txdesc, txdesc_queue);
+    DRV_TX_QUEUE_LOCK(drv_priv);
+    DRV_TXQ_LOCK(txlist);
+    list_for_each_entry_safe(ptxdesc,txdesc_queue_next,&txlist->txlist_backup,txdesc_queue) {
+        sta = (struct aml_driver_nsta *)ptxdesc->txdesc_sta;
         skbbuf = ptxdesc->txdesc_mpdu;
-        bf_qnode = bf_qnode->next;
         cb = (struct wifi_skb_callback *)skbbuf->cb;
         sta = cb->sta;
-        if (sta)
+        count_list ++;
+        if (!sta) {
+            continue;
+        }
+        wnet_vif = sta->sta_wnet_vif;
+        if (txlist->txlist_backup_qcnt && !wnet_vif->vm_ps_sta) //as ap, if has no ps sta, then send bufferred mcast packets
         {
-            struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
-            if (txlist->txlist_backup_qcnt && !wnet_vif->vm_ps_sta) //as ap, if has no ps sta, then send bufferred mcast packets
-            {
 #ifdef CONFIG_P2P
-                if (drv_if_noa_started(ptxdesc) >= 0) {
-                    DRV_TX_QUEUE_UNLOCK(drv_priv);
-                    break;
-                }
-#endif
-                DRV_TXQ_LOCK(txlist);
-
-                ASSERT(txlist->txlist_qnum == ptxdesc->txinfo->queue_id);
-                if (aml_tx_hal_buffer_full(drv_priv, txlist->txlist_qnum, 1, 1)==1)
-                {
-                    DRV_TXQ_UNLOCK(txlist);
-                    DRV_TX_QUEUE_UNLOCK(drv_priv);
-                    break;
-                }
-
-                list_del_init(&ptxdesc->txdesc_queue);
-                list_add_tail(&ptxdesc->txdesc_queue,&tx_queue);
-                (*qcnt) --;
-
-                drv_to_hal(drv_priv, txlist, &tx_queue);
-                DRV_TXQ_UNLOCK(txlist);
+            if (drv_if_noa_started(ptxdesc) >= 0) {
+                break;
             }
-        }
-        if (bf_qnode == wnet_vif_mcast_q) {
-            DRV_TX_QUEUE_UNLOCK(drv_priv);
-            break;
-        }
-        DRV_TX_QUEUE_UNLOCK(drv_priv);
-
+#endif
+            ASSERT(txlist->txlist_qnum == ptxdesc->txinfo->queue_id);
+            if (aml_tx_hal_buffer_full(drv_priv, txlist->txlist_qnum, 1, 1) == 1)
+            {
+                break;
+            }
+            list_del_init(&ptxdesc->txdesc_queue);
+            list_add_tail(&ptxdesc->txdesc_queue,&tx_queue);
+            (*qcnt) --;
+            drv_to_hal(drv_priv, txlist, &tx_queue);
+         }
     }
-    while ((*qcnt > 0) && !list_empty(wnet_vif_mcast_q));
-
+    DRV_TXQ_UNLOCK(txlist);
+    DRV_TX_QUEUE_UNLOCK(drv_priv);
     return 0;
 }
 

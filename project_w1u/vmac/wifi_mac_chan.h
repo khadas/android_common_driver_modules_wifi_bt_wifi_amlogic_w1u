@@ -36,5 +36,7 @@ int hal_cfg_txpwr_cffc_param_init(int tx_power_plan);
 int update_tx_power_coefficient_plan(int tx_power_plan, unsigned short pwr_coefficient[]);
 int update_tx_power_band(int tx_power_plan, unsigned short pwr_value[]);
 int wifi_mac_find_80M_channel_center_chan(int chan);
+unsigned char wifi_mac_set_p2p_home_chan(struct wifi_mac *wifimac, unsigned short channel);
+unsigned char wifi_mac_p2p_home_channel_enabled(struct wlan_net_vif *wnet_vif);
 
 #endif//__NET80211_CHAN_H__

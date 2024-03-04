@@ -130,7 +130,7 @@ void drv_rx_addbarsp(struct drv_private *drv_priv, void * nsta, unsigned char ti
                         drv_sta->rx_scb[tid_index].seq_next,
                         drv_sta->rx_scb[tid_index].baw_size,
                         BA_RESPONSER,
-                        BA_IMMEDIATE);
+                        BA_IMMIDIATE);
     }
     else
     {

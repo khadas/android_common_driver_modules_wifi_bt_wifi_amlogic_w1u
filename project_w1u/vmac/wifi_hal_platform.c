@@ -872,6 +872,7 @@ static char * vmac0 = "wlan0";
 static char * vmac1 = "p2p0";
 static unsigned int con_mode = ((1 << WIFINET_M_STA) | (1 << WIFINET_M_P2P_DEV));
 static int en_rf_test = 0;
+static int cali_proofing = INVALID_PARAM_VALUE; /*the val is -1 use rf txt data otherwise use module param data*/
 
 static char * plt_ver = NULL;
 struct version_info version_map[] = {
@@ -996,6 +997,11 @@ char * aml_wifi_get_vif1_name(void)
 unsigned int aml_wifi_get_con_mode(void)
 {
     return con_mode;
+}
+
+int aml_wifi_get_cali_proofing(void)
+{
+    return cali_proofing;
 }
 
 void aml_wifi_set_con_mode(void *wifimac)
@@ -1209,22 +1215,20 @@ void _aml_rmmod(void)
 }
 
 #ifdef CHIP_RESET_SUPPORT
-extern struct auc_reset_ops g_auc_reset_ops;
-void usb_reset_ops_init(void)
+extern struct drv_reset_ops g_drv_reset_ops;
+void drv_reset_ops_init(void)
 {
-    struct auc_reset_ops *ops = &g_auc_reset_ops;
+    struct drv_reset_ops *ops = &g_drv_reset_ops;
 
-    ops->probe_cb = _aml_insmod;
-    ops->disconnect_cb = _aml_rmmod;
+    ops->enable_cb = _aml_insmod;
+    ops->disable_cb = _aml_rmmod;
 }
 #endif
 
 static int aml_insmod(void)
 {
 #ifdef CHIP_RESET_SUPPORT
-    if (aml_bus_type == 1) {
-        usb_reset_ops_init();
-    }
+    drv_reset_ops_init();
 #endif
     return _aml_insmod();
 }
@@ -1232,9 +1236,7 @@ static int aml_insmod(void)
 static void aml_rmmod(void)
 {
 #ifdef CHIP_RESET_SUPPORT
-    if (aml_bus_type == 1) {
-        memset(&g_auc_reset_ops, 0x00, sizeof(struct auc_reset_ops));
-    }
+    memset(&g_drv_reset_ops, 0x00, sizeof(struct drv_reset_ops));
 #endif
     _aml_rmmod();
 }
@@ -1251,6 +1253,7 @@ module_param(con_mode, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 module_param(plt_ver, charp, S_IRUGO);
 module_param(sdblksize, int, S_IRUGO);
 module_param(en_rf_test, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+module_param(cali_proofing, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
 
 /*Added for pass mac address when load wifi driver

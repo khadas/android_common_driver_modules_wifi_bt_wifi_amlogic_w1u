@@ -87,6 +87,14 @@ struct amlw_hif_scatter_req {
     struct HW_TxBufferInfo bufferinfo[MAX_SG_ENTRIES];
     struct tx_trb_info_ex page;
 };
+
+struct  rx_statics_st {
+    unsigned int rx_ucast;
+    unsigned int rx_other;
+    unsigned int rx_mcast;
+    unsigned int rx_fcserr;
+};
+
 #endif
 
 struct amlw_hif_ops {
@@ -110,16 +118,12 @@ struct amlw_hif_ops {
     unsigned int (*hi_read_word)(unsigned int addr);
 
     void (*hi_rcv_frame)(unsigned char* buf, unsigned char* addr, SYS_TYPE len);
-#if defined (HAL_FPGA_VER)
     int (*hi_enable_scat)(void);
     void (*hi_cleanup_scat)(void);
     struct amlw_hif_scatter_req * (*hi_get_scatreq)(void);
     int (*hi_scat_rw)(struct scatterlist *sg_list, unsigned int sg_num, unsigned int blkcnt,
         unsigned char func_num, unsigned int addr, unsigned char write);
     int (*hi_send_frame)(struct amlw_hif_scatter_req *scat_req);
-#elif defined (HAL_SIM_VER)
-    void (*hi_send_frame)(unsigned char* buf, unsigned char* addr, SYS_TYPE len);
-#endif
 
     /*bt use*/
     void (*bt_hi_write_sram)(unsigned char* buf, unsigned char* addr, SYS_TYPE len);
@@ -129,7 +133,7 @@ struct amlw_hif_ops {
 
     void (*hif_get_sts)(unsigned int op_code, unsigned int ctrl_code);
     void (*hif_pt_rx_start)(unsigned int qos);
-    void (*hif_pt_rx_stop)(void);
+    struct rx_statics_st (*hif_pt_rx_stop)(void);
 
     int (*hif_suspend)(unsigned int suspend_enable);
 
@@ -159,7 +163,7 @@ void show_macframe (unsigned char *start, unsigned char len);
 void set_wifi_baudrate (unsigned int apb_clk);
 
 void hif_pt_rx_start(unsigned int qos);
-void hif_pt_rx_stop(void);
+struct rx_statics_st hif_pt_rx_stop(void);
 
 #if defined (HAL_FPGA_VER)
 struct tx_status_list {

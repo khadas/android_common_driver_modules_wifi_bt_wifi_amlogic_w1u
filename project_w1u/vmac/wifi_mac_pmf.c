@@ -2,7 +2,7 @@
 #include "crypto/aes_wrap.h"
 #include "crypto/wlancrypto_wrap.h"
 
-#ifdef AML_WPA3
+#ifdef SUPPORT_80211W
 
 extern unsigned int fi_ahb_read(unsigned int addr);
 extern void fi_ahb_write(unsigned int addr,unsigned int data);
@@ -674,4 +674,4 @@ int wifi_mac_send_sa_query(struct wifi_station *sta, unsigned char action, unsig
     return 0;
 }
 
-#endif//AML_WPA3
+#endif//SUPPORT_80211W

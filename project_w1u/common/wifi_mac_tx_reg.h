@@ -1337,5 +1337,23 @@ typedef union MAC_RXPKT_CONTROL21_FIELD
   } b;
 } MAC_RXPKT_CONTROL21_FIELD_T;
 
+#define MAC_TXVECTOR_OFFSET_SEL    (WIFI_MAC_TX_REG_BASE + 0x3f8)
+typedef union MAC_TXVECTOR_OFFSET_SEL_FIELD
+{
+  unsigned int data;
+  struct
+  {
+    unsigned int reg_tx_vector_offset : 8;
+    unsigned int reg_tx_buff_base : 8;
+    unsigned int reg_tx_buff_use : 1;
+    unsigned int rsvd_0 : 3;
+    unsigned int reg_tx_pn_swcal : 1;
+    unsigned int reg_tx_iv_incr_mode : 1;
+    unsigned int rsvd_1 : 2;
+    unsigned int reg_fiac_latch_ctrl : 32;
+    unsigned int rsvd_2 : 7;
+  } b;
+} MAC_TXVECTOR_OFFSET_SEL_FIELD_T;
+
 #endif
 

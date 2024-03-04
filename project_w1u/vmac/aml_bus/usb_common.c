@@ -1,10 +1,7 @@
 #include "usb_common.h"
 #include "chip_intf_reg.h"
 
-#ifdef CHIP_RESET_SUPPORT
-struct auc_reset_ops g_auc_reset_ops;
-#endif
-
+struct auc_hif_ops_for_wifi g_auc_hif_ops_for_wifi;
 struct auc_hif_ops g_auc_hif_ops;
 struct usb_device *g_udev = NULL;
 unsigned char auc_driver_insmoded;
@@ -15,6 +12,9 @@ unsigned char *g_kmalloc_buf;
 unsigned char auc_driver_probed = 0;
 typedef void (*lp_shutdown_func)(void);
 lp_shutdown_func g_lp_shutdown_func = NULL;
+/*for bluetooth get read/write point*/
+int bt_wt_ptr = 0;
+int bt_rd_ptr = 0;
 
 void auc_build_cbw(struct crg_msc_cbw *cbw_buf,
                                unsigned char dir,
@@ -284,10 +284,28 @@ void auc_write_sram(unsigned char *buf, unsigned char *sram_addr, SYS_TYPE_U len
     unsigned int addr = (unsigned int)(unsigned long)sram_addr;
     _auc_write_sram(addr, buf, len);
 }
+
+void auc_write_sram_by_ep_for_bt(unsigned char *buf, unsigned char *sram_addr, unsigned int len, unsigned int ep)
+{
+    if (USB_EP2 == ep)
+    {
+        auc_write_sram(buf, sram_addr, len);
+    }
+    else if (USB_EP1 == ep)
+    {
+        auc_send_cmd((unsigned int)sram_addr, len);
+    }
+}
+
 void auc_read_sram(unsigned char *buf,unsigned char *sram_addr, SYS_TYPE_U len)
 {
     unsigned int addr = (unsigned int)(unsigned long)sram_addr;
     _auc_read_sram(addr, buf, len);
+}
+
+void auc_read_sram_by_ep_for_bt(unsigned char *buf, unsigned char *sram_addr, unsigned int len, unsigned int ep)
+{
+    auc_read_sram(buf, sram_addr, len);
 }
 
 void auc_write_word(unsigned int addr,unsigned int data)
@@ -297,6 +315,11 @@ void auc_write_word(unsigned int addr,unsigned int data)
     auc_reg_write(addr, data, len);
 }
 
+void auc_write_word_by_ep_for_bt(unsigned int addr, unsigned int data, unsigned int ep)
+{
+    auc_write_word(addr, data);
+}
+
 unsigned int auc_read_word(unsigned int addr)
 {
     int len = 4;
@@ -304,20 +327,36 @@ unsigned int auc_read_word(unsigned int addr)
     return auc_reg_read(addr, len);
 }
 
+unsigned int auc_read_word_by_ep_for_bt(unsigned int addr, unsigned int ep)
+{
+    return auc_read_word(addr);
+}
+
 void auc_ops_init(void)
 {
-    struct auc_hif_ops *ops = &g_auc_hif_ops;
+    struct auc_hif_ops_for_wifi *ops = &g_auc_hif_ops_for_wifi;
+    struct auc_hif_ops *ops_for_bt = &g_auc_hif_ops;
 
     ops->bt_hi_write_sram = auc_write_sram;
     ops->bt_hi_read_sram = auc_read_sram;
     ops->bt_hi_write_word = auc_write_word;
     ops->bt_hi_read_word = auc_read_word;
 
+    ops_for_bt->hi_write_sram_for_bt = auc_write_sram_by_ep_for_bt;
+    ops_for_bt->hi_read_sram_for_bt = auc_read_sram_by_ep_for_bt;
+    ops_for_bt->hi_write_word_for_bt = auc_write_word_by_ep_for_bt;
+    ops_for_bt->hi_read_word_for_bt = auc_read_word_by_ep_for_bt;
+
     auc_driver_insmoded = 1;
-
-
 }
 
+#ifdef CHIP_RESET_SUPPORT
+struct drv_reset_ops {
+    int (*enable_cb)(void);
+    void (*disable_cb)(void);
+};
+extern struct drv_reset_ops g_drv_reset_ops;
+#endif
 static int auc_probe(struct usb_interface *interface, const struct usb_device_id *id)
 {
     PRINT_U("usb plug in!\n");
@@ -345,8 +384,8 @@ static int auc_probe(struct usb_interface *interface, const struct usb_device_id
     PRINT_U("%s(%d)\n",__func__,__LINE__);
 #ifdef CHIP_RESET_SUPPORT
     wifi_usb_access = 1;
-    if (g_auc_reset_ops.probe_cb) {
-        return g_auc_reset_ops.probe_cb();
+    if (g_drv_reset_ops.enable_cb) {
+        return g_drv_reset_ops.enable_cb();
     }
 #endif
     return 0;
@@ -357,8 +396,8 @@ static void auc_disconnect(struct usb_interface *interface)
     PRINT_U("usb plug out!\n");
 #ifdef CHIP_RESET_SUPPORT
     wifi_usb_access = 0;
-    if (g_auc_reset_ops.disconnect_cb) {
-        g_auc_reset_ops.disconnect_cb();
+    if (g_drv_reset_ops.disable_cb) {
+        g_drv_reset_ops.disable_cb();
     }
 #endif
     USB_LOCK_DESTROY();
@@ -459,23 +498,35 @@ void aml_usb_rmmod(void)
     auc_driver_insmoded = 0;
     PRINT_U("%s(%d) aml usb driver rmsmod\n",__func__, __LINE__);
 }
+
+//in order to satisfy bt to be able to recognize the symbol, no use in wifi
+uint32_t aml_pci_read_for_bt(int base, u32 offset)
+{
+    //do nothing
+    return 0;
+}
+
+void aml_pci_write_for_bt(u32 val, int base, u32 offset)
+{
+    ;//do nothing
+}
+
 EXPORT_SYMBOL(aml_usb_insmod);
 EXPORT_SYMBOL(g_cmd_buf);
+EXPORT_SYMBOL(g_auc_hif_ops_for_wifi);
 EXPORT_SYMBOL(g_auc_hif_ops);
 EXPORT_SYMBOL(g_udev);
 EXPORT_SYMBOL(auc_driver_insmoded);
 EXPORT_SYMBOL(auc_wifi_in_insmod);
-EXPORT_SYMBOL(auc_send_cmd);
 EXPORT_SYMBOL(auc_usb_mutex);
 EXPORT_SYMBOL(wifi_usb_access);
 EXPORT_SYMBOL(auc_driver_probed);
-
-#ifdef CHIP_RESET_SUPPORT
-EXPORT_SYMBOL(g_auc_reset_ops);
-#endif
-
 EXPORT_SYMBOL(g_lp_shutdown_func);
-
+EXPORT_SYMBOL(bt_wt_ptr);
+EXPORT_SYMBOL(bt_rd_ptr);
+//in order to satisfy bt to be able to recognize the symbol, no use in wifi
+EXPORT_SYMBOL(aml_pci_read_for_bt);
+EXPORT_SYMBOL(aml_pci_write_for_bt);
 //module_init(aml_common_insmod);
 //module_exit(aml_common_rmmod);
 //MODULE_LICENSE("GPL");

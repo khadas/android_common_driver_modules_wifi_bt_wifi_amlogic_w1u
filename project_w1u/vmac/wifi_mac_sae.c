@@ -1,7 +1,6 @@
 #include "wifi_mac_sae.h"
 #include "wifi_cfg80211.h"
 
-#ifdef AML_WPA3
 
 unsigned char wifi_mac_pmkid_vattach(struct wlan_net_vif *wnet_vif) {
     wnet_vif->pmk_list = (void *)NET_MALLOC(sizeof(struct aml_pmk_list), GFP_KERNEL, "pmk_list");
@@ -39,7 +38,7 @@ int aml_cfg80211_set_pmksa(struct wiphy *wiphy, struct net_device *dev, struct c
         memcpy(wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, pmksa->pmkid, WPA_PMKID_LEN);
         wnet_vif->pmk_list->pmkid_cache[pmkid_index].in_use = 1;
         find_entry = 1;
-    } 
+    }
 
     if (!find_entry) {
         DPRINTF(AML_DEBUG_CFG80211, "use new entry index:%d,pmkid count:%d\n", wnet_vif->pmk_list->pmkid_index,wnet_vif->pmk_list->pmkid_cnt);
@@ -178,6 +177,7 @@ int aml_cfg80211_flush_pmksa(struct wiphy *wiphy, struct net_device *dev)
     return 0;
 }
 
+#ifdef AML_WPA3
 #if (KERNEL_VERSION(4, 17, 0) <= CFG80211_VERSION_CODE)
 /**
  * wifi_mac_trigger_sae() - Sends SAE info to supplicant

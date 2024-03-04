@@ -192,7 +192,7 @@ enum vm_vendor_command_attr{
     VM_NL80211_SET_COEX_WF_ZGB_MODE = 0xad,
     VM_NL80211_SET_TX_POWER_PERCENTAGE = 0xae,
     VM_NL80211_SET_ANT_MODE = 0xaf,
-
+    VM_NL80211_GET_ANT_INDEX = 0xb0,
     VM_NL80211_VENDER_CMD_ID_MAX,
 };
 

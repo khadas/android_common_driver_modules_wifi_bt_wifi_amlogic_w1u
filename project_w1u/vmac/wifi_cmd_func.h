@@ -36,6 +36,7 @@ struct udp_info
     unsigned char udp_timer_stop;
     unsigned int tx;
     unsigned int rx;
+    unsigned long rx_totlen;
 };
 
 struct udp_timer

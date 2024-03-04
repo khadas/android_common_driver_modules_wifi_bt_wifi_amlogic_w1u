@@ -767,6 +767,8 @@ void driver_open(void)
     callback.intr_ba_recv = Driver_intr_ba_recv;
     callback.dev_remove = drv_dev_remove;
     callback.drv_intr_bt_info_change = drv_intr_bt_info_change;
+    callback.drv_trace_nl_init = aml_log_nl_init;
+    callback.drv_trace_nl_deinit = aml_log_nl_deinit;
     FiOpt2Driver = &hal_priv->hal_ops;
 
     hal_priv->hal_call_back = &callback;

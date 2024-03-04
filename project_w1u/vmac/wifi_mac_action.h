@@ -81,9 +81,9 @@ struct wifi_mac_ba_seqctrl
 {
 #if _BYTE_ORDER == _BIG_ENDIAN
     unsigned short startseqnum:12,
-        fragnum:4;
+        fragment:4;
 #else
-    unsigned short fragnum:4,
+    unsigned short fragment:4,
         startseqnum:12;
 #endif
 } __packed;
@@ -126,6 +126,17 @@ struct wifi_mac_action_ba_delba
     unsigned short dl_reasoncode;
 } __packed;
 
+
+struct wifi_mac_pub_gas_act_frame
+{
+    unsigned char   category;
+    unsigned char   action;
+    unsigned char   dialog_token;
+    unsigned char   tag_num;
+    unsigned char   tag_len;
+    unsigned char   elts[1];
+} __packed;
+
 //AML_CATEGORY_PUBLIC action field
 enum WIFINET_PUBLIC_ACTION
 {
@@ -135,6 +146,9 @@ enum WIFINET_PUBLIC_ACTION
     WIFINET_ACT_PUBLIC_GAS_REQ = 10,
     WIFINET_ACT_PUBLIC_GAS_RSP = 11,
 };
+
+#define OUI_TYPE_P2P            0x09
+#define OUI_TYPE_DPP            0x1a
 
 struct wifi_mac_ie_bss_coex
 {

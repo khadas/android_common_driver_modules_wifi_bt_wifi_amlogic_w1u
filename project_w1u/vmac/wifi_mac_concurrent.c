@@ -140,14 +140,16 @@ static void concurrent_vsdb_change_channel_ex(SYS_TYPE param1,
                 wifi_mac_scan_notify_leave_or_back(p2p_vmac, 1);
                 wifimac->drv_priv->drv_ops.drv_set_is_mother_channel(wifimac->drv_priv, p2p_vmac->wnet_vif_id, 1);
                 wifimac->wm_vsdb_flags |= CONCURRENT_NOTIFY_AP;
-            }
-            else if (IS_APSTA_CONCURRENT(aml_wifi_get_con_mode()) && !concurrent_check_is_vmac_same_pri_channel(wifimac)) {
+            } else if (IS_APSTA_CONCURRENT(aml_wifi_get_con_mode()) && !concurrent_check_is_vmac_same_pri_channel(wifimac)) {
                 if (drv_priv->hal_priv->hal_ops.hal_tx_empty()) {
                     concurrent_vsdb_do_channel_change(wifimac);
                 }
                 else {
                     wifimac->wm_vsdb_flags |= CONCURRENT_AP_SWITCH_CHANNEL;
                 }
+            } else {
+                AML_OUTPUT("current vsdb flags %04x\n", wifimac->wm_vsdb_flags);
+                wifimac->wm_vsdb_flags &= ~CONCURRENT_CHANNEL_SWITCH;
             }
         } else if (wifimac->wm_vsdb_slot == CONCURRENT_SLOT_NONE) {
             wifimac->wm_vsdb_flags &= ~CONCURRENT_CHANNEL_SWITCH;
@@ -277,7 +279,7 @@ struct wlan_net_vif *wifi_mac_running_wnet_vif(struct wifi_mac *wifimac)
     return NULL;
 }
 
-void channel_switch_announce_trigger(struct wifi_mac *wifimac, unsigned short chan_pri_num) {
+void channel_switch_announce_trigger(struct wifi_mac *wifimac, unsigned int chan_pri_num, enum wifi_mac_bwc_width bandwidth, unsigned int center_chan) {
     unsigned int delay_ms = 0;
     struct drv_private *drv_priv = wifimac->drv_priv;
     struct wlan_net_vif *p2p_wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_P2P_VMAC];
@@ -286,6 +288,17 @@ void channel_switch_announce_trigger(struct wifi_mac *wifimac, unsigned short ch
         mdelay(1);
         delay_ms++;
     }
+
+    if (p2p_wnet_vif->vm_curchan && (p2p_wnet_vif->vm_curchan->chan_pri_num == chan_pri_num) && (p2p_wnet_vif->vm_curchan->chan_bw == bandwidth)) {
+        AML_OUTPUT("channel[%d] bandwidth[%d] switch not trigger! \n",chan_pri_num, bandwidth);
+        return;
+    }
+
+    if (wifi_mac_find_chan(wifimac, chan_pri_num, bandwidth, center_chan) == NULL) {
+        ERROR_DEBUG_OUT("channel[%d] bandwidth[%d]  center_chan[%d] not support !\n",chan_pri_num, bandwidth, center_chan);
+        return;
+    }
+
     AML_PRINT(AML_DBG_MODULES_BCN,"chan_pri_num:%d, delay_ms:%d\n",chan_pri_num,delay_ms);
     if (IS_APSTA_CONCURRENT(aml_wifi_get_con_mode()) && concurrent_check_vmac_is_AP(wifimac)) {
         p2p_wnet_vif->vm_wmac->wm_flags |= WIFINET_F_DOTH;

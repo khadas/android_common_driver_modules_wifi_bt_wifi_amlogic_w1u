@@ -12,7 +12,10 @@
 
 struct amlw1_hwif_sdio g_w1_hwif_sdio;
 struct amlw1_hif_ops g_w1_hif_ops;
+struct aml_hif_sdio_ops g_hif_sdio_ops;
 
+unsigned char recovery_notify_bt = 0;
+unsigned char recovery_done = 1;
 unsigned char g_sdio_wifi_bt_alive;
 unsigned char g_sdio_driver_insmoded;
 unsigned char g_sdio_after_porbe;
@@ -205,7 +208,7 @@ static int _aml_w1_sdio_request_byte(unsigned char func_num,
     } else {
         wifi_sdio_timeout++;
         if (wifi_sdio_timeout > 10) {
-          chip_en_access = 1;
+            chip_en_access = 1;
         }
         printk("%s %d timeout times = %d\n", __func__, __LINE__, wifi_sdio_timeout);
     }
@@ -789,6 +792,7 @@ void aml_w1_sdio_recv_frame (unsigned char *buf, unsigned char *addr, SYS_TYPE l
 void aml_w1_sdio_init_ops(void)
 {
     struct amlw1_hif_ops* ops = &g_w1_hif_ops;
+    struct aml_hif_sdio_ops* ops_for_bt = &g_hif_sdio_ops;
 
     ops->hi_bottom_write8 = aml_w1_sdio_bottom_write8;
     ops->hi_bottom_read8 = aml_w1_sdio_bottom_read8;
@@ -818,6 +822,11 @@ void aml_w1_sdio_init_ops(void)
     ops->bt_hi_write_word = aml_w1_bt_hi_write_word;
     ops->bt_hi_read_word = aml_w1_bt_hi_read_word;
     ops->hif_suspend = aml_w1_sdio_suspend;
+
+    ops_for_bt->bt_hi_write_sram = aml_w1_bt_sdio_write_sram;
+    ops_for_bt->bt_hi_read_sram = aml_w1_bt_sdio_read_sram;
+    ops_for_bt->bt_hi_write_word = aml_w1_bt_hi_write_word;
+    ops_for_bt->bt_hi_read_word = aml_w1_bt_hi_read_word;
 
     //ops->hif_get_sts = hif_get_sts;
     //ops->hif_pt_rx_start = hif_pt_rx_start;
@@ -1350,6 +1359,36 @@ void set_wifi_bt_sdio_driver_bit(bool is_register, int shift)
     AML_W1_BT_WIFI_MUTEX_OFF();
 }
 
+#ifdef CHIP_RESET_SUPPORT
+struct work_struct g_sdio_reset_work;
+struct drv_reset_ops {
+    int (*enable_cb)(void);
+    void (*disable_cb)(void);
+};
+extern struct drv_reset_ops g_drv_reset_ops;
+void aml_sdio_wifi_reset_work(struct work_struct *work)
+{
+    if (g_drv_reset_ops.disable_cb != NULL) {
+        g_drv_reset_ops.disable_cb();
+        printk("wifi driver disable done\n");
+    } else {
+        printk("wifi driver disable ops is null\n");
+        return;
+    }
+
+    mdelay(1000);
+
+    if (g_drv_reset_ops.enable_cb != NULL) {
+        g_drv_reset_ops.enable_cb();
+        printk("wifi driver reinit done\n");
+    } else {
+        printk("wifi driver enable ops is null\n");
+        return;
+    }
+}
+#endif
+
+
 extern int aml_init_wlan_mem(void);
 int aml_sdio_insmod(void)
 {
@@ -1361,6 +1400,9 @@ int aml_sdio_insmod(void)
         return -ENOMEM;
     }
 #endif
+#ifdef CHIP_RESET_SUPPORT
+    INIT_WORK(&g_sdio_reset_work, aml_sdio_wifi_reset_work);
+#endif
     aml_sdio_init();
     printk("%s(%d) start...\n",__func__, __LINE__);
     return ret;
@@ -1368,10 +1410,14 @@ int aml_sdio_insmod(void)
 
 void aml_sdio_rmmod(void)
 {
+#ifdef CHIP_RESET_SUPPORT
+    cancel_work_sync(&g_sdio_reset_work);
+#endif
     aml_sdio_exit();
 }
 
-
+EXPORT_SYMBOL(recovery_notify_bt);
+EXPORT_SYMBOL(recovery_done);
 EXPORT_SYMBOL(wifi_irq_enable);
 EXPORT_SYMBOL(aml_sdio_insmod);
 EXPORT_SYMBOL(aml_sdio_rmmod);
@@ -1392,5 +1438,8 @@ EXPORT_SYMBOL(aml_wifi_sdio_power_unlock);
 EXPORT_SYMBOL(g_w1_hif_ops);
 EXPORT_SYMBOL(aml_sdio_init);
 EXPORT_SYMBOL(aml_sdio_exit);
-
+EXPORT_SYMBOL(g_hif_sdio_ops);
+#ifdef CHIP_RESET_SUPPORT
+EXPORT_SYMBOL(g_sdio_reset_work);
+#endif
 

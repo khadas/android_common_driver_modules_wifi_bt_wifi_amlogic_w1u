@@ -3,6 +3,8 @@
 
 struct wifi_mac_rx_status
 {
+    unsigned long long rs_pn;
+    unsigned char rs_encrypt;
     int rs_flags;
     int rs_rssi;
     int rs_datarate;
@@ -10,7 +12,7 @@ struct wifi_mac_rx_status
     int rs_channel;
     int rs_keyid;
     int rs_rate_index;
-    unsigned int channle_bw;
+    unsigned int channel_bw;
     unsigned int rs_sgi;
     unsigned char rs_vendor_rate_code;
 

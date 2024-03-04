@@ -14,15 +14,17 @@
 #define GPIOY_15    226 //IRQ TEST USE OK
 #define GPIOX_20    248  //used to clk_sel,replace before GPIOY_15
 
+#define INVALID_PARAM_VALUE -1
+
 typedef struct version_info {
     char version_name[10];
     unsigned short version_id;
 } version_info;
 
 #ifdef CHIP_RESET_SUPPORT
-struct auc_reset_ops {
-    int (*probe_cb)(void);
-    void (*disconnect_cb)(void);
+struct drv_reset_ops {
+    int (*enable_cb)(void);
+    void (*disable_cb)(void);
 };
 #endif
 
@@ -66,6 +68,7 @@ extern int aml_wifi_get_vif0_opmode(void);
 extern int aml_wifi_get_vif1_opmode(void);
 extern unsigned int aml_wifi_get_con_mode(void);
 extern void aml_wifi_set_con_mode(void *wifimac);
+extern int aml_wifi_get_cali_proofing(void);
 extern unsigned int aml_wifi_get_platform_verid(void);
 extern char *aml_wifi_get_bus_type(void);
 extern char *aml_wifi_get_fw_type(void);

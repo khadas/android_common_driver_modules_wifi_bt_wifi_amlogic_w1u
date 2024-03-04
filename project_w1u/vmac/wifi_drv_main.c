@@ -15,7 +15,8 @@
 #include <linux/netdevice.h>
 #include <linux/inetdevice.h>
 #include <net/addrconf.h>
-
+#include <net/sock.h>
+#include <net/netlink.h>
 #include "wifi_drv_power.h"
 #include "wifi_drv_uapsd.h"
 #include "wifi_drv_xmit.h"
@@ -34,13 +35,8 @@
 #include "wifi_mac_tx_reg.h"
 #include "wifi_mac_xmit.h"
 #include "wifi_common.h"
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <net/sock.h>
-#include <asm/types.h>
-#include <linux/netlink.h>
-#include <linux/skbuff.h>
-
+#include "wifi_mac_amsdu.h"
+#include "wifi_hal.h"
 
 #define AML_TRACE_NL_PROTOCOL (28)
 
@@ -196,7 +192,6 @@ void aml_w1_fw_recovery(void *drv_priv)
     if (aml_wifi_is_enable_rf_test()) {
         rf_test_mode_recover((struct drv_private *)drv_priv);
     }
-    hal_tx_flush(0);
     aml_disable_wifi();
     aml_enable_wifi();
 }
@@ -660,11 +655,11 @@ static int drv_set_vsdb(struct drv_private *drv_priv,
 
 static int
 drv_set_arp_agent(struct drv_private *drv_priv, unsigned char wnet_vif_id,
-    unsigned char enable, unsigned int ipv4, unsigned char *ipv6)
+    unsigned char enable, unsigned int ipv4, unsigned char *ipv6, unsigned char * dhcp_server_mac)
 {
     DPRINTF(AML_DEBUG_HAL, "%s %d vid=%d, enable=%d, ipv4=0x%x\n",
         __func__,__LINE__, wnet_vif_id, enable, ipv4);
-    return drv_priv->hal_priv->hal_ops.phy_set_arp_agent(wnet_vif_id, enable, ipv4, ipv6);
+    return drv_priv->hal_priv->hal_ops.phy_set_arp_agent(wnet_vif_id, enable, ipv4, ipv6, dhcp_server_mac);
 }
 
 static int
@@ -995,7 +990,7 @@ int drv_add_wnet_vif(struct drv_private *drv_priv,
     }
 
     if ((drv_priv->drv_wnet_vif_table[wnet_vif_id] != NULL)
-        && (drv_priv->drv_wnet_vif_table[wnet_vif_id]->vm_wmac->recovery_stat == WIFINET_RECOVERY_END)) {
+        && (drv_priv->drv_wnet_vif_table[wnet_vif_id]->vm_recovery_state == WIFINET_RECOVERY_END)) {
         ERROR_DEBUG_OUT("Invalid interface id = %u\n", wnet_vif_id);
         return -EINVAL;
     }
@@ -1371,10 +1366,10 @@ static void drv_pt_rx_start (unsigned int qos)
        hal_priv->hal_ops.hal_pt_rx_start(qos);
 }
 
-static void drv_pt_rx_stop(void)
+static struct rx_statics_st drv_pt_rx_stop(void)
 {
     struct hal_private* hal_priv = hal_get_priv();
-    hal_priv->hal_ops.hal_pt_rx_stop();
+    return hal_priv->hal_ops.hal_pt_rx_stop();
 }
 
 static void drv_set_bmfm_info(struct drv_private *drv_priv, int wnet_vif_id,
@@ -1429,6 +1424,7 @@ static void drv_init_ops(struct drv_private *drv_priv)
     drv_priv->drv_ops.rx_init = drv_rx_init;                /* rx_init */
     drv_priv->drv_ops.rx_proc_frame = drv_rx_input;               /* rx_proc_frame */
     drv_priv->drv_ops.check_aggr = drv_aggr_check;             /* check_aggr */
+    drv_priv->drv_ops.aggr_tid_query = drv_aggr_tid;             /* aggr_tid_query */
     drv_priv->drv_ops.check_aggr_allow_to_send = drv_aggr_allow_to_send;      /* drv_aggr_allow_to_send */
     drv_priv->drv_ops.set_ampdu_params = drv_set_ampduparams;        /* set_ampdu_params */
     drv_priv->drv_ops.addba_request_setup = drv_addba_req_setup;     /* addba_request_setup */
@@ -1541,7 +1537,7 @@ void aml_interface_shutdown_init(void)
     g_lp_shutdown_func = aml_lp_shutdown_send_req;
 }
 
-int aml_driv_attach( struct drv_private *drv_priv, struct wifi_mac* wmac)
+int aml_drv_attach( struct drv_private *drv_priv, struct wifi_mac* wmac)
 {
     int i ;
     int error;
@@ -1691,13 +1687,18 @@ int aml_driv_attach( struct drv_private *drv_priv, struct wifi_mac* wmac)
     // init sdio/usb/pcie interface
     //aml_lp_shutdown_func_register
     aml_interface_shutdown_init();
+    drv_priv->drv_agg_limit = drv_calc_agg_num(drv_priv, drv_priv->drv_config.cfg_ampdu_subframes);
+    drv_priv->hal_priv->hal_max_mpdu_num = AMPDU_NUM_ONE_TIME_TX * drv_priv->drv_agg_limit;
+
+    AML_OUTPUT("drv_agg_limit:%d, hal_max_mpdu_num:%d\n", drv_priv->drv_agg_limit, drv_priv->hal_priv->hal_max_mpdu_num);
+
     return 0;
 
 bad:
     return -ENODEV;
 }
 
-void aml_driv_detach( struct drv_private * drv_priv)
+void aml_drv_detach( struct drv_private * drv_priv)
 {
     int i;
     g_lp_shutdown_func = NULL;
@@ -1787,7 +1788,7 @@ static void drv_tx_pkt_clear(void *drv_priv)
 }
 
 static void
-drv_intr_rx_ok(void * dpriv,struct sk_buff *skb, unsigned char Rssi,unsigned char vendor_rate_code,
+drv_intr_rx_ok(void * dpriv,struct sk_buff *skb, unsigned long long PN, unsigned char encrypt, unsigned char Rssi,unsigned char vendor_rate_code,
     unsigned char channel, unsigned char aggr, unsigned char wnet_vif_id, unsigned char keyid, unsigned int channel_bw, unsigned int rx_sgi)
 {
     struct wifi_mac *wifimac;
@@ -1798,6 +1799,8 @@ drv_intr_rx_ok(void * dpriv,struct sk_buff *skb, unsigned char Rssi,unsigned cha
     struct wifi_mac_rx_status rxstatus = {0};
     wifimac = drv_priv->wmac;
 
+    rxstatus.rs_pn = PN;
+    rxstatus.rs_encrypt = encrypt;
     rxstatus.rs_flags = aggr;
     rxstatus.rs_channel = channel;
     rxstatus.rs_rssi = Rssi;
@@ -1805,7 +1808,7 @@ drv_intr_rx_ok(void * dpriv,struct sk_buff *skb, unsigned char Rssi,unsigned cha
     rxstatus.rs_wnet_vif_id = wnet_vif_id;
     rxstatus.rs_keyid = keyid;
     rxstatus.rs_vendor_rate_code = vendor_rate_code;
-    rxstatus.channle_bw = channel_bw;
+    rxstatus.channel_bw = channel_bw;
     rxstatus.rs_sgi = rx_sgi;
 
     wh = (struct wifi_frame *)os_skb_data(skb);
@@ -1860,7 +1863,7 @@ static int pmf_encrypt_pkt_handle(void *dpriv, struct sk_buff *skb, unsigned cha
     rxstatus.rs_wnet_vif_id = wnet_vif_id;
     rxstatus.rs_keyid = keyid ;
     rxstatus.rs_vendor_rate_code = vendor_rate_code;
-    rxstatus.channle_bw = channel_bw;
+    rxstatus.channel_bw = channel_bw;
     rxstatus.rs_sgi = rx_sgi;
 
     if (!list_empty(&wifimac->wm_wnet_vifs)) {
@@ -2664,6 +2667,7 @@ drv_dev_probe(void)
     int vif1opmode = -1;
     char * vmac0 = NULL;
     char * vmac1 = NULL;
+    int ifname_len = 0;
 
     /*2 init hal, download fw, host init */
     if ((hal_priv->hal_ops.hal_probe != NULL) && (!hal_priv->hal_ops.hal_probe())) {
@@ -2686,7 +2690,7 @@ drv_dev_probe(void)
         mac_addr0,mac_addr1,mac_addr2, mac_addr3,mac_addr4,mac_addr5);
 
     /*3 init driver */
-    if(aml_driv_attach(drv_priv, wm_mac)) {
+    if (aml_drv_attach(drv_priv, wm_mac)) {
         ERROR_DEBUG_OUT("init driver error\n");
         goto err_ret;
     }
@@ -2699,7 +2703,13 @@ drv_dev_probe(void)
 
     /*5 create vmac 'wlan0' and 'p2p0' */
     vmac0 = aml_wifi_get_vif0_name();
-    memcpy(&vm_param.vm_param_name, vmac0, IFNAMSIZ);
+    ifname_len = strnlen(vmac0, IFNAMSIZ);
+    if (vmac0 != NULL && ifname_len < IFNAMSIZ) {
+        memcpy(&vm_param.vm_param_name, vmac0, ifname_len + 1);
+    } else {
+        ERROR_DEBUG_OUT( "vmac0 == NULL or ifname_len >= IFNAMSIZ\n");
+        goto err_ret;
+    }
 
     vif0opmode = aml_wifi_get_vif0_opmode();
     if ((vif0opmode >= WIFINET_M_IBSS) && (vif0opmode <= WIFINET_M_P2P_DEV)) {
@@ -2710,7 +2720,13 @@ drv_dev_probe(void)
     ret = drv_priv->net_ops->wifi_mac_create_vmac(wm_mac, &vm_param,0);
 
     vmac1 = aml_wifi_get_vif1_name();
-    memcpy(&vm_param.vm_param_name, vmac1, IFNAMSIZ);
+    ifname_len = strnlen(vmac1, IFNAMSIZ);
+    if (vmac1 != NULL && ifname_len < IFNAMSIZ) {
+    memcpy(&vm_param.vm_param_name, vmac1, ifname_len + 1);
+    } else {
+        ERROR_DEBUG_OUT( "vmac1 == NULL or ifname_len >= IFNAMSIZ\n");
+        goto err_ret;
+    }
 
     vif1opmode = aml_wifi_get_vif1_opmode();
     if ((vif1opmode >= WIFINET_M_IBSS) && (vif1opmode <= WIFINET_M_P2P_DEV)) {
@@ -2734,7 +2750,7 @@ drv_dev_probe(void)
     return ret;
 
 err_ret:
-    aml_driv_detach(drv_priv);
+    aml_drv_detach(drv_priv);
     return -ENODEV;
 }
 
@@ -2750,7 +2766,7 @@ int drv_dev_remove(void)
 
     unregister_inetaddr_notifier(&aml_inetaddr_cb);
     unregister_inet6addr_notifier(&aml_inet6addr_cb);
-    aml_driv_detach(drv_priv);
+    aml_drv_detach(drv_priv);
     aml_proc_deinit();
 
     AML_OUTPUT("<running>\n");
@@ -2789,4 +2805,41 @@ struct aml_hal_call_backs hal_call_back_table =
 struct aml_hal_call_backs* get_hal_call_back_table(void)
 {
     return (struct aml_hal_call_backs *)&hal_call_back_table;
+}
+
+unsigned char drv_calc_agg_num(struct drv_private *drv_priv, unsigned char ampdu_subframe_num)
+{
+    unsigned char agg_num = 0;
+
+    if (aml_bus_type == 1) {
+        unsigned char tx_page_num = 0;
+        unsigned char amsdu_page_num = 0;
+        unsigned int efuse_val = 0;
+
+        /* bit[24:22] indicate family revision, 5 means w1u usb revc*/
+        efuse_val = drv_read_efuse_val(drv_priv, VID_PID_EFUSE_ADDR);
+        amsdu_page_num = AMSDU_MAX_BUFFER_SIZE / PAGE_LEN_USB;
+
+        if (((efuse_val >> FAMILY_REV_START) & FAMILY_REV_MASK) < W1U_USB_REV_C) {
+            agg_num = AGG_NUM_PRE_USB;
+        } else {
+            tx_page_num = drv_get_tx_page_total_num(drv_priv);
+            agg_num = tx_page_num / (2 * AMPDU_NUM_ONE_TIME_TX * amsdu_page_num);
+        }
+        agg_num = MIN(agg_num, ampdu_subframe_num);
+    } else if (aml_bus_type == 0) {
+        agg_num = ampdu_subframe_num;
+    }
+
+    return agg_num;
+}
+
+unsigned short drv_get_tx_page_total_num(struct drv_private *drv_priv)
+{
+    return drv_priv->hal_priv->hal_ops.hal_get_tx_page_total_num();
+}
+
+unsigned int drv_read_efuse_val(struct drv_private *drv_priv, unsigned int efuse_addr)
+{
+    return drv_priv->hal_priv->hal_ops.hal_read_efuse_val(efuse_addr);
 }

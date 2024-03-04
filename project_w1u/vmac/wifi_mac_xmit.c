@@ -167,6 +167,7 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
     unsigned short offset;
     unsigned short offset_max;
     unsigned long tcp_tx_payload = 0;
+    unsigned char tid_index = 0;
 
     if ((eh->ether_type == __constant_htons(ETHERTYPE_PAE))
         ||(eh->ether_type == __constant_htons(ETHERTYPE_WPI))) {
@@ -219,7 +220,7 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
         } else if (iphdrp->protocol == IPPROTO_UDP) {
             if (((uh->source == 0x4400) && (uh->dest == 0x4300))
                 || ((uh->source == 0x4300) && (uh->dest == 0x4400))) {
-                if (sta->connect_status == CONNECT_DHCP_GET_ACK) {
+                if (sta->connect_status == CONNECT_DHCP_GET_ACK && sta->sta_wnet_vif->vm_use_static_ip == 0) {
                     return;
                 }
 
@@ -253,6 +254,19 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
         mac_pkt_info->b_arp = 1;
         mac_pkt_info->op_type = *(skb->data + ETHER_HDR_LEN + ARP_OPCODE_SHIFT);
     }
+
+    if (mac_pkt_info->b_arp || mac_pkt_info->b_dhcp || mac_pkt_info->b_eap) {
+        for (tid_index = 1; tid_index < WME_NUM_TID; tid_index++) {
+            if (!wifimac->drv_priv->drv_ops.aggr_tid_query(wifimac->drv_priv, sta->drv_sta, tid_index)) {
+                cb->u_tid = tid_index;
+                break;
+            }
+        }
+        if (tid_index >= WME_NUM_TID) {
+            AML_OUTPUT("all tid with ba session, set arp dhcp eap tid 2\n");
+            cb->u_tid = 2;
+        }
+    }
 }
 
 int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *sta, struct sk_buff *skb)
@@ -264,6 +278,7 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
     struct aml_driver_nsta *drv_sta = sta->drv_sta;
     struct drv_tx_scoreboard *tid = DRV_GET_TIDTXINFO(drv_sta, tid_index);
     unsigned char res = 0;
+    unsigned char queue_id = wifimac->wm_ac2q[os_skb_get_priority(skb)];
 
     if (tid->tid_tx_buff_sending) {
         wnet_vif->vm_devstats.tx_dropped++;
@@ -278,7 +293,7 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
 
     /*check the txlist_x threshhold: been sent to hal and to be sent to hal*/
     /* check msdu pending num*/
-    if (wifimac->drv_priv->drv_ops.txlist_isfull(wifimac->drv_priv, wifimac->wm_ac2q[os_skb_get_priority(skb)], (skb), sta->drv_sta)) {
+    if (wifimac->drv_priv->drv_ops.txlist_isfull(wifimac->drv_priv, queue_id, skb, sta->drv_sta)) {
         if (wifimac->txdesc_flag & TXDESC_FLOW_CTRL_EN) {
             res = NETDEV_TX_OK;
         } else {
@@ -486,6 +501,7 @@ netdev_tx_t wifi_mac_hardstart(struct sk_buff *skb, struct net_device *dev)
 
     if (wifimac->txdesc_flag & TXDESC_FLOW_CTRL_EN) {
         wifi_mac_is_queues_full(wnet_vif);
+        skb_orphan(skb);
     }
 
     ptxdesc = wifi_mac_alloc_txdesc(wifimac);
@@ -1046,7 +1062,7 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *sta, struct sk_buff *skb)
         key = NULL;
     }
 
-    if ((sta->sta_flags & WIFINET_NODE_QOS) && !mac_pkt_info->b_eap && !mac_pkt_info->b_dhcp && !mac_pkt_info->b_arp)
+    if (sta->sta_flags & WIFINET_NODE_QOS)
     {
         hdrsize = sizeof(struct wifi_qos_frame);
         addqos = 1;
@@ -1328,10 +1344,10 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *sta, struct sk_buff *skb)
     *(unsigned short *)wh->i_seq = 0;
     if (fragcnt > 1)
     {
-        int fragnum, offset, pdulen;
+        int fragment, offset, pdulen;
         void *pdu;
 
-        fragnum = 0;
+        fragment = 0;
         wh = twh = (struct wifi_frame *) os_skb_data(skb);
 
         wh->i_fc[1] |= WIFINET_FC1_MORE_FRAG;
@@ -1339,8 +1355,8 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *sta, struct sk_buff *skb)
         *(unsigned short *)&wh->i_seq[0] = htole16(sta->sta_txseqs[cb->u_tid] << WIFINET_SEQ_SEQ_SHIFT);
         sta->sta_txseqs[cb->u_tid]++;
 
-        *(unsigned short *)&wh->i_seq[0] |= htole16((fragnum & WIFINET_SEQ_FRAG_MASK) << WIFINET_SEQ_FRAG_SHIFT);
-        ++fragnum;
+        *(unsigned short *)&wh->i_seq[0] |= htole16((fragment & WIFINET_SEQ_FRAG_MASK) << WIFINET_SEQ_FRAG_SHIFT);
+        ++fragment;
 
         offset = hdrsize + pdusize;
         datalen = (os_skb_get_pktlen(skb) - hdrsize) - pdusize;
@@ -1353,8 +1369,8 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *sta, struct sk_buff *skb)
             twh = (struct wifi_frame *) os_skb_put(tskb, hdrsize);
             memcpy((void *) twh, (void *) wh, hdrsize);
 
-            *(unsigned short *)&twh->i_seq[0] |= htole16((fragnum & WIFINET_SEQ_FRAG_MASK) << WIFINET_SEQ_FRAG_SHIFT);
-            ++fragnum;
+            *(unsigned short *)&twh->i_seq[0] |= htole16((fragment & WIFINET_SEQ_FRAG_MASK) << WIFINET_SEQ_FRAG_SHIFT);
+            ++fragment;
 
             if (pdusize <= datalen)
                 pdulen = pdusize;
@@ -1613,6 +1629,19 @@ wifi_mac_setup_rsn_ie(struct wlan_net_vif *wnet_vif, unsigned char *ie)
 
     return frm;
 
+}
+
+unsigned char *
+wifi_mac_add_rsnxe(unsigned char *frm, struct wlan_net_vif *wnet_vif)
+{
+
+    KASSERT((wnet_vif->vm_flags & WIFINET_F_WPA)
+        && (wnet_vif->vm_flags & WIFINET_F_H2E), ("no WPA/RSNXE!"));
+    *frm++ = WIFINET_ELEMID_RSNX;
+    *frm++ = 0x1;//len
+    *frm++ = 0x20;//h2e
+
+    return frm;
 }
 
 unsigned char *
@@ -1972,7 +2001,7 @@ void print_ht_opt_information(unsigned char* ht_opt)
     /*STA Channel Width parsing*/
     if ( ht_opt[3] & 0x03 )
     {
-       AML_OUTPUT("HT_OP:Allow use of any channel width in the supported channle width set.\n");
+       AML_OUTPUT("HT_OP:Allow use of any channel width in the supported channel width set.\n");
     }
     else
     {
@@ -2496,7 +2525,8 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
 #endif//#ifdef CONFIG_P2P
         + sizeof(struct wifi_mac_ie_htcap) + sizeof(struct wifi_mac_ie_htinfo) + sizeof (struct wifi_mac_ie_obss_scan)
         + sizeof (struct wifi_mac_ie_ext_cap) + WIFINET_APPIE_MAX + sizeof(struct wifi_mac_ie_vht_cap) + sizeof(struct wifi_mac_ie_vht_opt)
-        + sizeof(struct wifi_mac_ie_vht_txpwr_env) + sizeof(struct wifi_mac_ie_vht_ch_sw_wrp) + sizeof(struct wifi_mac_vendor_ie) * VENDOR_IE_MAX;
+        + sizeof(struct wifi_mac_ie_vht_txpwr_env) + sizeof(struct wifi_mac_ie_vht_ch_sw_wrp) + sizeof(struct wifi_mac_vendor_ie) * VENDOR_IE_MAX
+        + (((wnet_vif->vm_flags & WIFINET_F_WPA) && (wnet_vif->vm_flags & WIFINET_F_H2E))? WIFINET_RSNXE_SIZE:0);
 
     skb = wifi_mac_get_mgmt_frm(wifimac, pkt_len);
     if (skb == NULL)
@@ -2602,8 +2632,13 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
     if (WIFINET_INCLUDE_11G(wnet_vif->vm_mac_mode))
         frm = wifi_mac_add_erp(frm, wifimac);
 
-    if (wnet_vif->vm_flags & WIFINET_F_WPA)
+    if (wnet_vif->vm_flags & WIFINET_F_WPA) {
         frm = wifi_mac_add_wpa(frm, wnet_vif);
+        if (wnet_vif->vm_flags & WIFINET_F_H2E) {
+            frm = wifi_mac_add_rsnxe(frm, wnet_vif);
+        }
+    }
+
 
     if (wnet_vif->vm_flags & WIFINET_F_WME)
     {
@@ -2855,20 +2890,22 @@ int aml_rsn_sync_pmkid(struct wifi_station *sta, int pmkid_index)
 void wifi_mac_check_opt_ie(struct wlan_net_vif *wnet_vif)
 {
     unsigned char *frm = wnet_vif->vm_opt_ie;
-    unsigned int i = 0, j = 0;
+    unsigned short ie_len = 0;
+    unsigned int ie_oft = 0;//ie addr offset
 
-    while(i < wnet_vif->vm_opt_ie_len) {
-        if (frm[i] == WIFINET_ELEMID_SUPP_REG_CLASS) {
-            j = i + frm[i+1] + 2;
-            if (j < wnet_vif->vm_opt_ie_len) {
-                memcpy(&frm[i], &frm[j], wnet_vif->vm_opt_ie_len - j);
+    while (ie_oft < wnet_vif->vm_opt_ie_len) {
+        ie_len = frm[ie_oft + 1] + 2;
+        if (frm[ie_oft] == WIFINET_ELEMID_SUPP_REG_CLASS) {
+            if (ie_oft + ie_len <= wnet_vif->vm_opt_ie_len) {
+                memcpy(&frm[ie_oft], &frm[ie_oft + ie_len], wnet_vif->vm_opt_ie_len - ie_oft - ie_len);
+                wnet_vif->vm_opt_ie_len -= ie_len;
             }
-            wnet_vif->vm_opt_ie_len -= (frm[i+1] + 2);
             return;
         }
-        i += frm[i+1] + 2;
+        ie_oft += ie_len;
     }
 }
+
 
 int wifi_mac_send_assoc_req(struct wlan_net_vif *wnet_vif, struct wifi_station *sta,int type)
 {
@@ -3020,7 +3057,8 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
     pkt_len = sizeof(capinfo) + sizeof(unsigned short) + sizeof(unsigned short) + 2 + WIFINET_RATE_SIZE + sizeof(struct wifi_mac_ie_timeout)
         + 2 + (WIFINET_RATE_MAXSIZE - WIFINET_RATE_SIZE) + sizeof(struct wifi_mac_wme_param) + sizeof(struct wifi_mac_ie_htcap)
         + sizeof(struct wifi_mac_ie_htinfo) + sizeof (struct wifi_mac_ie_obss_scan) + sizeof (struct wifi_mac_ie_ext_cap) + WIFINET_APPIE_MAX
-        + sizeof(struct wifi_mac_vendor_ie) * VENDOR_IE_MAX;
+        + sizeof(struct wifi_mac_vendor_ie) * VENDOR_IE_MAX
+        + ((sta->sta_use_h2e == WIFINET_H2E_VALID)? WIFINET_RSNXE_SIZE:0);
 
     skb = wifi_mac_get_mgmt_frm(wifimac, pkt_len);
     if (skb == NULL) {
@@ -3071,6 +3109,11 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
     if ((wnet_vif->vm_flags & WIFINET_F_WME) && sta->sta_wme_ie != NULL) {
         frm = wifi_mac_add_wme_param(frm, &wifimac->wm_wme[wnet_vif->wnet_vif_id],
             WIFINET_VMAC_UAPSD_ENABLED(wnet_vif));
+    }
+
+    if (sta->sta_use_h2e == WIFINET_H2E_VALID) {
+        frm = wifi_mac_add_rsnxe(frm, wnet_vif);
+        AML_OUTPUT("add rsnxe ie\n");
     }
 
     AML_OUTPUT("sta flags: 0x%x, assoc success :%d.\n", sta->sta_flags, *(int *)arg);
@@ -3173,6 +3216,7 @@ void wifi_mac_get_bsscoexist_channel(unsigned char *chan_list, unsigned char *nu
         if (channel > 14) {
             continue;
         }
+        ht_cap = 0;
         ht_ie = se->scaninfo.SI_htcap_ie;
         if (ht_ie && ht_ie[1] == 26) {
             ht_cap = ht_ie[2] | (ht_ie[3] << 8);

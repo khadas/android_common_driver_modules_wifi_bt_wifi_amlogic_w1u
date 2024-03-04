@@ -1,8 +1,13 @@
 #include <linux/netdevice.h>
-#include "wifi_mac_if.h"
-#include "wifi_debug.h"
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
+
+#include "wifi_mac_if.h"
+#include "wifi_debug.h"
+#include "wifi_mac_scan.h"
+#include "wifi_mac_chan.h"
+#include "wifi_mac_concurrent.h"
+
 
 static struct proc_dir_entry *g_proc;
 #define AML_PARENT_NAME "wlan"
@@ -15,6 +20,7 @@ static struct proc_dir_entry *g_proc;
 #define AML_DRVSTATE_NAME "drv_state"
 #define AML_RVRINFO_NAME "rvr_info"
 #define AML_SCANPARAM_NAME "scan_param"
+#define AML_DRVRESET_NAME "drv_reset"
 #define AML_WOW_WAKE_REASON "wow_reason"
 #define DRV_PRINT_OFFT 23
 #define CFG_BWINFO "Sta5gBw"
@@ -24,7 +30,7 @@ static struct proc_dir_entry *g_proc;
 #define LEN_DRV_MAX_CHANINFO 32
 #define LEN_DRV_MAX_DFSINFO 5
 #define LEN_DRV_BYPASSDFS 12
-#define MAX_BUF_LENGTH 200
+#define MAX_BUF_LENGTH 300
 #define CFG_BMFMINFO_1 "StaHTBfee"
 #define CFG_BMFMINFO_2 "StaVHTBfee"
 #define CFG_BMFMINFO_3 "StaVHTMuBfee"
@@ -36,6 +42,7 @@ static struct proc_dir_entry *g_proc;
 #define SCAN_NUM_EACH_CH 255
 #define PROBE_NUM_EACH_SCAN 2
 #define PROBE_SSID_NUM_WACH_SCAN 2
+#define SCAN_DURATION_STR "scan_duration"
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
 #define aml_proc_ops proc_ops
@@ -97,6 +104,70 @@ void aml_proc_deinit(void)
     return;
 }
 
+unsigned char str2uint32(char *str, unsigned int len, unsigned int *pvalue)
+{
+    char *pstr = str;
+    unsigned int value = 0;
+    unsigned int idx = 0;
+
+    for (; idx < len; idx ++) {
+        if (pstr[idx] < '0' || pstr[idx] > '9') {
+            return 1;
+        }
+        value = value * 10 + pstr[idx] - '0';
+    }
+    *pvalue = value;
+    return 0;
+}
+
+unsigned char getOneParam(char *buf, char **param, unsigned int *len)
+{
+    char *pstr = buf;
+
+    *len = 0;
+
+    while (*pstr != '\0') {
+        if ((*pstr == ' ') || (*pstr == ',') || (*pstr == '\n')) {
+            if (*len != 0) {
+                break;
+            }
+        } else {
+            if (*len == 0) {
+                *param = pstr;
+            }
+            (*len) ++;
+        }
+        pstr ++;
+    }
+    if (*len == 0) {
+        return 1;
+    }
+    return 0;
+}
+
+/* Get one u32 param from *@buf and write to @pvalue.
+ * And update *@buf.
+ **/
+unsigned char paramParseU32(char **buf, unsigned int *pvalue)
+{
+    char *param = *buf;
+    unsigned int param_len = 0;
+    unsigned char error = 0;
+
+    error = getOneParam(*buf, &param, &param_len);
+    AML_OUTPUT("param =%s, param_len = %d\n",param, param_len);
+    if (error != 0) {
+        return error;
+    }
+    error = str2uint32(param, param_len, pvalue);
+    if (error != 0) {
+        return error;
+    }
+    *buf = param + param_len;
+    return 0;
+}
+
+
 #if defined(SU_BF) || defined(MU_BF)
 extern int aml_set_beamforming(struct wlan_net_vif *wnet_vif, unsigned int set1,unsigned int set2);
 #endif
@@ -122,6 +193,8 @@ static ssize_t cfgRead(struct file *filp, char __user *buf, size_t count,
     out += sprintf(out, "Sta5gBw|%d\n", wnet_vif->vm_bandwidth);
     out += sprintf(out, "TxRetryLimit|%d\n", wifimac->drv_priv->drv_config.cfg_retrynum);
     len = strlen(g_aucprocbuf);
+
+    ASSERT(len <= MAX_BUF_LENGTH);
 
     if (copy_to_user(buf, g_aucprocbuf, len)) {
         ERROR_DEBUG_OUT("copy to user failed\n");
@@ -538,6 +611,8 @@ static ssize_t rvrinfoRead(struct file *filp, char __user *buf, size_t count, lo
     }
     len = strlen(g_aucprocbuf);
 
+    ASSERT(len <= MAX_BUF_LENGTH);
+
     if (copy_to_user(buf, g_aucprocbuf, len)) {
         ERROR_DEBUG_OUT("copy to user failed\n");
         return -EFAULT;
@@ -551,7 +626,7 @@ static ssize_t scanparamRead(struct file *filp, char __user *buf, size_t count, 
 {
     unsigned int len = 0;
     unsigned char *out;
-    struct wifi_mac *wifimac;
+    struct wifi_mac *wifimac = NULL;
 
     if (*f_pos > 0)
         return 0;
@@ -561,7 +636,7 @@ static ssize_t scanparamRead(struct file *filp, char __user *buf, size_t count, 
     memset(g_aucprocbuf, 0, MAX_BUF_LENGTH);
     out = g_aucprocbuf;
     out += sprintf(out, "scan_ch_ms\t\t\t%d\n", wifimac->wm_scan->scan_chan_wait);
-    out += sprintf(out, "dfs_scan_ch_ms\t\t\t%d\n", WIFINET_SCAN_DEFAULT_INTERVAL);
+    out += sprintf(out, "dfs_scan_ch_ms\t\t\t%d\n", wifimac->wm_scan->scan_passive_chan_wait);
     out += sprintf(out, "rx_ampdu_accept\t\t\t%d\n", RX_AMPDU_ACCEPT);
     out += sprintf(out, "rx_ampdu_size\t\t\t%d\n", RX_AMPDU_SIZE);
     out += sprintf(out, "backop_ms\t\t\t%d\n", BACKOP_MS);
@@ -570,6 +645,8 @@ static ssize_t scanparamRead(struct file *filp, char __user *buf, size_t count, 
     out += sprintf(out, "probe_num_each_scan\t\t%d\n", PROBE_NUM_EACH_SCAN);
     out += sprintf(out, "probe_ssid_num_each_scan\t%d\n", PROBE_SSID_NUM_WACH_SCAN);
     len = strlen(g_aucprocbuf);
+
+    ASSERT(len <= MAX_BUF_LENGTH);
 
     if (copy_to_user(buf, g_aucprocbuf, len)) {
         ERROR_DEBUG_OUT("copy to user failed\n");
@@ -581,6 +658,136 @@ static ssize_t scanparamRead(struct file *filp, char __user *buf, size_t count, 
 
 }
 
+unsigned char aml_parse_scan_duration(char *buf, unsigned int * duration, unsigned int * duration_mandatory)
+{
+    char * pbuf = buf;
+
+    do {
+        if (paramParseU32(&pbuf, duration) != 0) {
+            break;
+        }
+
+        if (paramParseU32(&pbuf, duration_mandatory) != 0) {
+            break;
+        }
+
+        return 0;
+    } while (0);
+
+    *duration = 0;
+    *duration_mandatory = 0;
+
+    return 1;
+}
+
+static ssize_t scanparamWrite(struct file *filp, char __user *buf, size_t count,
+    loff_t *f_pos)
+{
+    struct wlan_net_vif *main_wnet_vif = NULL;
+    struct wifi_mac *wifimac;
+    char *pbuf, *param = NULL;
+    unsigned int len, param_len = 0;
+    unsigned char error = 1;
+
+    unsigned char cmd_list[2][30] = {SCAN_DURATION_STR, ""};
+
+    unsigned int idx = 0;
+    unsigned int duration = 0;
+    unsigned int duration_mandatory = 0;
+
+    wifimac = wifi_mac_get_mac_handle();
+
+    main_wnet_vif = g_wnet_vif0;
+
+    memset(g_aucprocbuf, 0, MAX_BUF_LENGTH);
+    len = (count < MAX_BUF_LENGTH) ? count : (MAX_BUF_LENGTH - 1);
+
+    if (copy_from_user(g_aucprocbuf , buf, len)) {
+        printk("copy to user failed\n");
+        ERROR_DEBUG_OUT("copy to user failed\n");
+        return -EFAULT;
+    }
+    g_aucprocbuf[len - 1] = '\0';
+
+    pbuf = g_aucprocbuf;
+
+    do {
+        if (getOneParam(pbuf, &param, &param_len) != 0) {
+            break;
+        }
+        while (cmd_list[idx][0] != '\0') {
+            if ((strlen(cmd_list[idx]) == param_len) && (strncmp(param, cmd_list[idx], param_len) == 0)) {
+                break;
+            }
+            idx ++;
+        }
+
+        if (cmd_list[idx][0] == '\0') {
+            break;
+        }
+
+        pbuf = param + param_len;
+        switch (idx) {
+            case 0:
+                if (aml_parse_scan_duration(pbuf, &duration, &duration_mandatory) == 0) {
+                    AML_OUTPUT("duration = %d, duration_mandatory = %d\n", duration, duration_mandatory);
+                    if (wifi_mac_set_scan_dwell_time(wifimac, duration, duration_mandatory) == 0) {
+                        error = 0;
+                        break;
+                    }
+                }
+                break;
+
+            default:
+                break;
+        }
+    } while (0);
+
+    if (error != 0) {
+        AML_OUTPUT("usage: %s @duration(u32) @duration_mandatory(u8), @duration shouldn't set to 0\n", SCAN_DURATION_STR);
+    }
+
+    return count;
+}
+
+#ifdef CHIP_RESET_SUPPORT
+extern struct work_struct g_sdio_reset_work;
+static ssize_t drvResetWrite(struct file *filp, char __user *buf, size_t count,
+    loff_t *f_pos)
+{
+    char *pbuf;
+    unsigned int len = 0;
+    unsigned int reset = 0;
+
+    memset(g_aucprocbuf, 0, MAX_BUF_LENGTH);
+    len = (count < MAX_BUF_LENGTH) ? count : (MAX_BUF_LENGTH - 1);
+
+    if (copy_from_user(g_aucprocbuf , buf, len)) {
+        printk("copy to user failed\n");
+        ERROR_DEBUG_OUT("copy to user failed\n");
+        return -EFAULT;
+    }
+    g_aucprocbuf[len - 1] = '\0';
+
+    if (aml_bus_type != 0) {
+        AML_OUTPUT("no need write this node under usb mode\n");
+        return count;
+    }
+
+    pbuf = g_aucprocbuf;
+
+    if (paramParseU32(&pbuf, &reset) != 0 || reset != 1) {
+        AML_OUTPUT("reset should set to [1] before power down\n");
+        return count;
+    }
+
+    schedule_work(&g_sdio_reset_work);
+
+    return count;
+}
+#endif
+
+
 const struct aml_proc_hdl drv_proc_hdls[] = {
     AML_PROC_HDL_SSEQ(AML_DRIVER_NAME, driverRead, NULL),
     AML_PROC_HDL_SSEQ(AML_CFG_NAME, cfgRead, NULL),
@@ -590,6 +797,9 @@ const struct aml_proc_hdl drv_proc_hdls[] = {
     AML_PROC_HDL_SSEQ(AML_DRVSTATE_NAME, drvstateRead, NULL),
     AML_PROC_HDL_SSEQ(AML_RVRINFO_NAME, rvrinfoRead, NULL),
     AML_PROC_HDL_SSEQ(AML_SCANPARAM_NAME, scanparamRead, NULL),
+#ifdef CHIP_RESET_SUPPORT
+    AML_PROC_HDL_SSEQ(AML_DRVRESET_NAME, NULL, drvResetWrite),
+#endif
 };
 
 static int aml_drv_proc_open(struct inode *inode, struct file *file)
@@ -732,14 +942,31 @@ static const struct aml_proc_ops scanparam_ops = {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
             .proc_open = aml_drv_proc_open,
             .proc_read = scanparamRead,
+            .proc_write = scanparamWrite,
             .proc_lseek = seq_lseek,
             .proc_release = seq_release,
 #else
             .owner = THIS_MODULE,
             .open = aml_drv_proc_open,
             .read = scanparamRead,
+            .write = scanparamWrite,
 #endif
 };
+
+#ifdef CHIP_RESET_SUPPORT
+static const struct aml_proc_ops drvreset_ops = {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
+            .proc_open = aml_drv_proc_open,
+            .proc_write = drvResetWrite,
+            .proc_lseek = seq_lseek,
+            .proc_release = seq_release,
+#else
+            .owner = THIS_MODULE,
+            .open = aml_drv_proc_open,
+            .write = drvResetWrite,
+#endif
+};
+#endif
 
 int32_t RemoveProcEntry(void)
 {
@@ -752,6 +979,9 @@ int32_t RemoveProcEntry(void)
     remove_proc_entry(AML_RVRINFO_NAME, g_proc);
     remove_proc_entry(AML_SCANPARAM_NAME, g_proc);
     remove_proc_entry(AML_WOW_WAKE_REASON, g_proc);
+#ifdef CHIP_RESET_SUPPORT
+    remove_proc_entry(AML_DRVRESET_NAME, g_proc);
+#endif
     return 0;
 }
 
@@ -843,6 +1073,13 @@ int32_t CreateProcEntry(void)
         ERROR_DEBUG_OUT("Unable to create /proc entry wow_wakeup_reason\n\r");
         return -1;
     }
+#ifdef CHIP_RESET_SUPPORT
+    aml_proc = proc_create(AML_DRVRESET_NAME, 0664, g_proc, &drvreset_ops);
+    if (aml_proc == NULL) {
+        ERROR_DEBUG_OUT("Unable to create /proc entry drv_reset\n\r");
+        return -1;
+    }
+#endif
     return 0;
 }
 

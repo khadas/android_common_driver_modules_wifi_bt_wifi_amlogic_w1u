@@ -2,6 +2,8 @@
 #include "wifi_mac_if.h"
 #include "wifi_debug.h"
 #include "wifi_mac_p2p.h"
+#include "wifi_mac_chan.h"
+#include "wifi_mac_concurrent.h"
 
 struct wlan_net_vif *g_wnet_vif0;
 struct wlan_net_vif *g_wnet_vif1;
@@ -14,7 +16,6 @@ extern void get_phy_stc_info(unsigned int *arr);
 #define BW_80M_STR "80M"
 
 
-
 static ssize_t show_hang_info(struct device *d, struct device_attribute *attr,
                  char *buf)
 {
@@ -23,6 +24,28 @@ static ssize_t show_hang_info(struct device *d, struct device_attribute *attr,
 
 static DEVICE_ATTR(hang_info, S_IRUGO, show_hang_info, NULL);
 
+unsigned char set_gain_allowed = 1;
+static ssize_t store_set_gain_allowed(struct device *d, struct device_attribute *attr,
+                char *buf, ssize_t len)
+{
+    unsigned char allowed = *buf - 48;
+
+    if ((allowed < 0) || (allowed > 1)) {
+        ERROR_DEBUG_OUT("The input allowed is error");
+        return -EFAULT;
+    }
+    set_gain_allowed = allowed;
+    AML_OUTPUT(" set_gain_allowed:%d \n",set_gain_allowed);
+    return len;
+}
+
+static ssize_t show_set_gain_allowed(struct device *d, struct device_attribute *attr,
+                 char *buf)
+{
+    return sprintf(buf, "set_gain_allowed=%d\n", set_gain_allowed);
+}
+
+static DEVICE_ATTR(set_gain_allowed, S_IWUSR|S_IWGRP|S_IRUGO, show_set_gain_allowed, store_set_gain_allowed);
 
 static ssize_t show_driver(struct device *d, struct device_attribute *attr,
                  char *buf)
@@ -450,6 +473,61 @@ static ssize_t show_p2p_channel(struct device *d, struct device_attribute *attr,
 
 static DEVICE_ATTR(p2p_channel, S_IRUGO, show_p2p_channel, NULL);
 
+static ssize_t show_p2p_home_channel(struct device *d, struct device_attribute *attr,
+                char *buf)
+{
+    struct wifi_mac *wifimac = NULL;
+
+    wifimac = wifi_mac_get_mac_handle();
+
+    return sprintf(buf, "p2p_home_ch: %d\n", wifimac->wm_p2p_home_channel);
+}
+
+extern unsigned char paramParseU32(char * * buf, unsigned int * pvalue);
+unsigned char aml_parse_p2p_home_channel(const char *buf, unsigned int * channel)
+{
+    char ** pbuf = &buf;
+
+    if (paramParseU32(pbuf, channel) != 0) {
+        channel = 0;
+        return 1;
+    }
+    return 0;
+}
+
+static ssize_t store_p2p_home_channel(struct device *d, struct device_attribute *attr,
+                const char *buf, size_t len)
+{
+    struct wlan_net_vif *p2p_wnet_vif = NULL;
+    struct wifi_mac *wifimac = NULL;
+    unsigned int channel = 0;
+    unsigned char error = 1;
+
+    AML_OUTPUT("\n");
+
+    wifimac = wifi_mac_get_mac_handle();
+    p2p_wnet_vif = g_wnet_vif1;
+
+    if (aml_parse_p2p_home_channel(buf, &channel) == 0) {
+        if (wifi_mac_set_p2p_home_chan(wifimac, channel) == 0) {
+            if (!wifi_mac_is_others_wnet_vif_running(p2p_wnet_vif)
+                    && wifi_mac_p2p_home_channel_enabled(p2p_wnet_vif)
+                    && p2p_wnet_vif->vm_curchan->chan_pri_num != channel) {
+                channel_switch_announce_trigger(wifimac, channel, WIFINET_BWC_WIDTH20, channel);
+            }
+            error = 0;
+        } else {
+            AML_OUTPUT("channel %d isn't a legal channel\n", channel);
+        }
+    }
+
+    if (error != 0) {
+        AML_OUTPUT("p2p_home_channel config error\n");
+    }
+    return len;
+}
+
+DEVICE_ATTR(p2p_home_channel, S_IRUGO, show_p2p_home_channel, store_p2p_home_channel);
 
 static ssize_t show_p2p_DevNum(struct device *d, struct device_attribute *attr,
                  char *buf)
@@ -790,11 +868,13 @@ static struct attribute *aml_sysfs_entries[] = {
         &dev_attr_bssid.attr,
         &dev_attr_wakeup_reason.attr,
         &dev_attr_ap_info.attr,
+        &dev_attr_set_gain_allowed.attr,
         NULL,
 };
 
 
 static struct attribute *aml_p2p_sysfs_entries[] = {
+        &dev_attr_p2p_home_channel.attr,
         &dev_attr_p2p_channel.attr,
         &dev_attr_p2p_DevNum.attr,
         &dev_attr_p2p_bandwidth.attr,

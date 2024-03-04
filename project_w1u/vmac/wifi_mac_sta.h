@@ -30,6 +30,7 @@
 #define WIFINET_INACT_NONERP 10
 #define WIFINET_INACT_HT 10
 
+#define WIFINET_DPP_WAIT (300)
 #define WIFINET_TRANS_WAIT 5000
 #define WIFINET_NODE_FREE_WAIT 5000
 #define WIFINET_NODE_HASHSIZE 32
@@ -168,6 +169,7 @@ struct wifi_station
     unsigned char sta_essid[WIFINET_NWID_LEN];
     unsigned char sta_macaddr[WIFINET_ADDR_LEN];
     unsigned char sta_bssid[WIFINET_ADDR_LEN];
+    unsigned char dhcp_server_mac[WIFINET_ADDR_LEN];
     unsigned short sta_listen_intval;
     unsigned char sta_fetch_pkt_method;
     unsigned short sta_capinfo;
@@ -199,8 +201,9 @@ struct wifi_station
     unsigned short sta_txseqs[17];
     unsigned short sta_rxseqs[17];
 
-    unsigned long sta_rxfragstamp;
+    unsigned long sta_rxfragstamp[3];
     struct sk_buff *sta_rxfrag[3];
+    unsigned long long sta_rxfrag_lastpn;
     int8_t sta_tmp_nsta;
 
     unsigned short sta_htcap;
@@ -233,6 +236,8 @@ struct wifi_station
     unsigned char sta_uapsd_ac_delivena[WME_NUM_AC];
 
     unsigned char *sta_rsn_ie;
+    unsigned char *sta_rsnxe_ie;
+    unsigned char sta_use_h2e;
     struct wifi_mac_Rsnparms sta_rsn;
     struct wifi_mac_key sta_ucastkey;
     struct wifi_mac_key pmf_key;
@@ -247,6 +252,8 @@ struct wifi_station
     unsigned int sta_last_txrate;  //kbps
     unsigned int sta_last_rxrate;  //kbps
     unsigned char sta_rxrate_index;
+    unsigned char last_rxrate_bw;
+    unsigned char last_rxrate_gi;
 
     unsigned char sta_maxrate_vht; /* b0-b3: mcs idx; b4-b7: # streams */
     unsigned int sta_vhtcap;        /* VHT capability */
@@ -313,6 +320,7 @@ struct wifi_station
     struct aml_ratecontrol minstrel_sample_rate[MAX_THR_RATES];
     unsigned char sta_vendor_bw;
     unsigned char sta_vendor_rate_code;
+    unsigned char sta_vendor_gi;
     unsigned char is_disconnecting;
     unsigned long sta_bcn_num_connected;
     unsigned long sta_bcn_start_connected;

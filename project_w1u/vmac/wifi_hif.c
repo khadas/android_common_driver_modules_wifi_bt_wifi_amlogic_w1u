@@ -684,7 +684,6 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
 {
     struct hal_private * hal_priv = hal_get_priv();
     struct hw_interface* hif = hif_get_hw_interface();
-    struct wifi_mac *wifimac = wifi_mac_get_mac_handle();
     FIFO_SHARE_CTRL *pCmdDownFifo = &hif->CmdDownFifo;
     unsigned int loop = 0;
 
@@ -729,8 +728,7 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
     {
         if (loop++>10000)
         {
-            if (os_timer_ex_active(&wifimac->wm_monitor_fw) && wifimac->recovery_stat == WIFINET_RECOVERY_END) {
-                wifimac->wm_recovery_req = 1;
+            if (aml_request_recovery(WIFINET_RECOVERY_SRC_CMD_CRASH) == 0) {
                 AML_OUTPUT("request recovery due to the fifo is always full\n");
             }
             AML_OUTPUT("err-> f_fdh: %d, f_fdt: %d, d_fdh %d \n", hif->hif_ops.hi_read_word(0x00a10038),
@@ -1995,14 +1993,11 @@ void hif_pt_rx_start(unsigned int qos)
 
 }
 
-void hif_pt_rx_stop(void)
+struct rx_statics_st hif_pt_rx_stop(void)
 {
 #if defined (HAL_FPGA_VER)
      unsigned int chg_data = 0;
-     unsigned int rx_ucast = 0;
-     unsigned int rx_other = 0;
-     unsigned int rx_mcast= 0;
-     unsigned int rx_fcserr = 0;
+    struct rx_statics_st  rx_data;
 
     struct data_rx_local_cnt_bits*  data_rx_local_cnt =NULL;
     struct data_rx_cnt_bits* data_rx_cnt =NULL;
@@ -2029,16 +2024,16 @@ void hif_pt_rx_stop(void)
     data_rx_cnt->clr = 0;
     hif->hif_ops.hi_write_word(RG_MAC_RX_DATA_MUTIL_CNT, chg_data);
 
-    rx_ucast = hif->hif_ops.hi_read_word(RG_MAC_RX_DATA_LOCAL_CNT);
-    rx_other = hif->hif_ops.hi_read_word(RG_MAC_RX_DATA_OTHER_CNT);
-    rx_mcast = hif->hif_ops.hi_read_word(RG_MAC_RX_DATA_MUTIL_CNT);
-    rx_fcserr = hif->hif_ops.hi_read_word(RG_MAC_IRQ_STATUS_CNT3);
+    rx_data.rx_ucast = hif->hif_ops.hi_read_word(RG_MAC_RX_DATA_LOCAL_CNT);
+    rx_data.rx_other = hif->hif_ops.hi_read_word(RG_MAC_RX_DATA_OTHER_CNT);
+    rx_data.rx_mcast = hif->hif_ops.hi_read_word(RG_MAC_RX_DATA_MUTIL_CNT);
+    rx_data.rx_fcserr = hif->hif_ops.hi_read_word(RG_MAC_IRQ_STATUS_CNT3);
 
     //hif->sts_snr.snr_run = 0;
     //hif->sts_snr.snr_avr /=hif->sts_snr.snr_num;
 
     AML_OUTPUT("rx_ucast=0x%x,rx_other=0x%x,rx_mcast=0x%x,rx_fcserr=0x%x,\n",
-                    (rx_ucast<<3)>>3, (rx_other<<2)>>2, (rx_mcast<<2)>>2,rx_fcserr);
+                    (rx_data.rx_ucast<<3)>>3, (rx_data.rx_other<<2)>>2, (rx_data.rx_mcast<<2)>>2,rx_data.rx_fcserr);
 
     chg_data = hif->hif_ops.hi_read_word(RG_MAC_RX_DATA_LOCAL_CNT);
     data_rx_local_cnt = ( struct data_rx_local_cnt_bits*)&chg_data;
@@ -2067,6 +2062,8 @@ void hif_pt_rx_stop(void)
     cnt_irq_ctrl->en3 = 1;
     cnt_irq_ctrl->clr3 = 1;
     hif->hif_ops.hi_write_word(RG_MAC_CNT_CTRL_FIQ, chg_data);
+
+    return rx_data;
 #endif
 }
 

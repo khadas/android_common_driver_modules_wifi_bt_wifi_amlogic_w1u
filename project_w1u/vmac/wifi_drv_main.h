@@ -388,6 +388,7 @@ struct driver_ops
 
     /* aggregation callbacks */
     int          (*check_aggr)(struct drv_private *, void *, unsigned char tid_index);
+    int          (*aggr_tid_query)(struct drv_private *, void *, unsigned char tid_index);
     int          (*check_aggr_allow_to_send)(struct drv_private *, void *, unsigned char tid_index);
     void        (*set_ampdu_params)(struct drv_private *, void *, unsigned short maxampdu, unsigned int mpdudensity);
     void        (*addba_request_setup)(struct drv_private *, void *, unsigned char tid_index,
@@ -478,8 +479,8 @@ struct driver_ops
     int (*drv_keep_alive)(struct drv_private *drv_priv, struct NullDataCmd null_data, int len, int enable, int period);
     int (*drv_set_beacon_miss)(struct drv_private *drv_priv, unsigned char wnet_vif_id, unsigned char enable, int period);
     int (*drv_set_vsdb)(struct drv_private *drv_priv, unsigned char wnet_vif_id, unsigned char enable);
-    int (*drv_set_arp_agent)(struct drv_private *drv_priv, unsigned char wnet_vif_id, unsigned char enable,
-        unsigned int ipv4, unsigned char *ipv6);
+    int (*drv_set_arp_agent)(struct drv_private *drv_priv, unsigned char wnet_vif_id,
+        unsigned char enable, unsigned int ipv4, unsigned char *ipv6, unsigned char * dhcp_server_mac);
     int (*drv_set_pattern)(struct drv_private *drv_priv, unsigned char vid, unsigned char offset,
         unsigned char len, unsigned char id, unsigned char *mask, unsigned char *pattern);
     int (*drv_set_suspend)(struct drv_private *drv_priv, unsigned char vid, unsigned char enable,
@@ -514,7 +515,7 @@ struct driver_ops
     unsigned int (*drv_bt_read_word)(unsigned int addr);
 
     void (*drv_pt_rx_start)(unsigned int qos);
-    void (*drv_pt_rx_stop)(void);
+    struct rx_statics_st (*drv_pt_rx_stop)(void);
 
     /* beamforming */
     void (*drv_set_bmfm_info)(struct drv_private *drv_priv, int wnet_vif_id,
@@ -601,6 +602,7 @@ struct drv_private
     spinlock_t hr_timer_lock;
     spinlock_t minstrel_lock;
     unsigned long minstrel_lockflags;
+    unsigned char drv_agg_limit;
 };
 
 #ifdef CONFIG_P2P
@@ -609,10 +611,14 @@ int drv_p2p_go_opps_cwend_may_sleep (struct wlan_net_vif *wnet_vif);
 void p2p_noa_start_irq (struct wifi_mac_p2p *p2p, struct drv_private *drv_priv);
 #endif
 
-int aml_driv_attach( struct drv_private *drv_priv, struct wifi_mac* wmac);
-void aml_driv_detach(struct drv_private * );
+int aml_drv_attach( struct drv_private *drv_priv, struct wifi_mac* wmac);
+void aml_drv_detach(struct drv_private * );
 struct drv_private* drv_get_drv_priv(void);
 struct aml_hal_call_backs * get_hal_call_back_table(void);
 int drv_dev_remove(void);
-
+int aml_log_nl_init(void);
+void aml_log_nl_deinit(void);
+unsigned char drv_calc_agg_num(struct drv_private *drv_priv, unsigned char ampdu_subframe_num);
+unsigned short drv_get_tx_page_total_num(struct drv_private *drv_priv);
+unsigned int drv_read_efuse_val(struct drv_private *drv_priv, unsigned int efuse_addr);
 #endif /* _DRIV_MAIN_H_ */

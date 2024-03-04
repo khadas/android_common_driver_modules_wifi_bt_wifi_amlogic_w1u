@@ -856,7 +856,7 @@ unsigned char minstrel_find_rate(
 
     sta->sta_vendor_bw = ratectrl[0].bw;
     sta->sta_vendor_rate_code = ratectrl[0].vendor_rate_code;
-
+    sta->sta_vendor_gi = ratectrl[0].shortgi_en;
     return 1;
 }
 
