@@ -44,7 +44,7 @@ extern int wifi_irq_trigger_level(void);
 extern int wifi_irq_num(void);
 extern struct urb *g_urb;
 extern unsigned char *g_buffer;
-int aml_usb_ctlread_complete(struct urb *urb)
+void aml_usb_ctlread_complete(struct urb *urb)
 {
     struct hal_private *hal_priv = hal_get_priv();
     static unsigned int print_cnt = 0;
@@ -54,7 +54,7 @@ int aml_usb_ctlread_complete(struct urb *urb)
         if (!(print_cnt++ % 1000)) {
             AML_OUTPUT("aml_usb_ctlread_complete, bhalOpen:%d\n", hal_priv->bhalOpen);
         }
-        goto exit;
+        return;
     }
 #if defined (HAL_FPGA_VER)
     hal_priv->gpio_irq_cnt++;
@@ -64,9 +64,6 @@ int aml_usb_ctlread_complete(struct urb *urb)
 #elif defined (HAL_SIM_VER)
     OS_SCHEDULE_TQUEUE(&hal_priv->hi_tasktq);
 #endif
-
-    exit:
-        return IRQ_HANDLED;
 }
 
 #ifndef USE_SDIO_IRQ

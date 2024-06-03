@@ -56,7 +56,7 @@ int hal_download_sdio_fw_img(void);
 int hal_download_usb_fw_img(void);
 unsigned int bbpll_init(void);
 unsigned int bbpll_start (void);
-int aml_usb_ctlread_complete(struct urb *urb);
+void aml_usb_ctlread_complete(struct urb *urb);
 void aml_disable_wifi(void);
 void aml_enable_wifi(void);
 
