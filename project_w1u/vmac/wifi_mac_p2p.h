@@ -314,7 +314,7 @@ enum reason_restore_bsschan
 struct channel_list_param
 {
     unsigned char operating_class;
-    unsigned short chan_pri_num[16];
+    unsigned short chan_pri_num[28];
     unsigned char per_chan_num;
 };
 

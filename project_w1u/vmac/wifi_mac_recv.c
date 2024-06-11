@@ -3289,7 +3289,7 @@ void wifi_mac_recv_beacon(struct wlan_net_vif *wnet_vif,
                                 wnet_vif->vm_bcn_intval, real_bcn_interval, ratio_recv_bcn, wnet_vif->vm_pwrsave.ips_sta_psmode, *((unsigned short *)&wh->i_seq[0]) >> 4);
             }
 
-            if (wnet_vif->vm_pwrsave.ips_sta_psmode > WIFINET_PWRSAVE_NONE)
+            if (scan.tim && wnet_vif->vm_pwrsave.ips_sta_psmode > WIFINET_PWRSAVE_NONE)
             {
                 struct wifi_mac_tim_ie *tim = (struct wifi_mac_tim_ie *) scan.tim;
                 if (tim->tim_count == 0)

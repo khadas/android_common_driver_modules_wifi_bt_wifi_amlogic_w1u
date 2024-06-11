@@ -5428,7 +5428,7 @@ void vm_cfg80211_chan_switch_notify_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TY
 
     if (start) {
     #if CFG80211_VERSION_CODE >= KERNEL_VERSION(5,15,0)
-    #if (defined (AML_KERNEL_VERSION) && AML_KERNEL_VERSION < 15) || defined (LINUX_PLATFORM)
+    #if (defined (AML_KERNEL_VERSION) && AML_KERNEL_VERSION < 15) || LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
         cfg80211_ch_switch_started_notify(ndev, &chandef, wnet_vif->vm_wmac->wm_doth_tbtt, 0, false);/*#define CSA_BLOCK_TX            1*/
     #else
         cfg80211_ch_switch_started_notify(ndev, &chandef, 0, wnet_vif->vm_wmac->wm_doth_tbtt, 1, 0);/*#define CSA_BLOCK_TX            1*/
@@ -5438,7 +5438,7 @@ void vm_cfg80211_chan_switch_notify_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TY
     #endif
     } else {
     #if CFG80211_VERSION_CODE >= KERNEL_VERSION(5,15,0)
-    #if (defined (AML_KERNEL_VERSION) && AML_KERNEL_VERSION < 15) || defined (LINUX_PLATFORM)
+    #if (defined (AML_KERNEL_VERSION) && AML_KERNEL_VERSION < 15) || LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
         cfg80211_ch_switch_notify(ndev, &chandef, 0);
     #else
         cfg80211_ch_switch_notify(ndev, &chandef, 0, 0);
