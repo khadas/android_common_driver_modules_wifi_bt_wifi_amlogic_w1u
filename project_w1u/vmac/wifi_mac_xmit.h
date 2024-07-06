@@ -24,6 +24,22 @@
 #define EN_AP_MODE_IN_QUIET_IE (1)
 #define DIS_AP_MODE_IN_QUIET_IE (0)
 
+#define CSA_COUNT               1
+#define CSA_BLOCK_TX            1
+
+
+struct wifi_mac_csa_wrapper{
+    u8 ie;
+    u8 len;
+    u8 info[3];
+} __packed;
+
+struct wifi_mac_csa_data {
+    //struct ieee80211_header mac_header;
+    struct wifi_mac_action_csa_frame extend_csa;
+    struct wifi_mac_csa_wrapper csa_wrapper;
+} __packed;
+
 void wifi_mac_complete_wbuf(struct sk_buff * skbbuf, int errcode);
 void wifi_mac_send_setup(struct wlan_net_vif *wnet_vif, struct wifi_station *sta, struct wifi_frame *wh,
     int type, const unsigned char sa[WIFINET_ADDR_LEN], const unsigned char da[WIFINET_ADDR_LEN], const unsigned char bssid[WIFINET_ADDR_LEN]);
@@ -82,4 +98,7 @@ unsigned char *wifi_mac_add_extended_chanswitch(unsigned char *frm,struct wifi_s
 unsigned char *wifi_mac_add_chanswitch(unsigned char *frm,struct wifi_station *sta);
 void wifi_mac_is_queues_full(struct wlan_net_vif * wnet_vif);
 void wifi_mac_wake_queues(struct wlan_net_vif * wnet_vif);
+int wifi_mac_csa_send_action(struct wifi_mac *wifimac, struct wlan_net_vif *wnet_vif, struct wifi_station *sta, struct cfg80211_chan_def chan_def);
+void wifi_mac_csa_send_action_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
+
 #endif

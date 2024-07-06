@@ -121,7 +121,7 @@ static int _aml_sdio_request_byte(unsigned char   func_num,
 #if defined(DBG_PRINT_COST_TIME)
     getnstimeofday(&now);
 
-    AML_OUTPUT("[sdio byte]: len=1 cost=%lds %luus\n",
+    AML_PRINT_LOG_INFO("[sdio byte]: len=1 cost=%lds %luus\n",
         now.tv_sec-before.tv_sec, now.tv_nsec/1000 - before.tv_nsec/1000);
 #endif /* End of DBG_PRINT_COST_TIME */
 
@@ -184,7 +184,7 @@ static int _aml_sdio_request_buffer(unsigned char func_num,
 #if defined(DBG_PRINT_COST_TIME)
     getnstimeofday(&now);
 
-    AML_OUTPUT("[sdio buffer]: len=%d cost=%lds %luus\n",
+    AML_PRINT_LOG_INFO("[sdio buffer]: len=%d cost=%lds %luus\n",
         nbytes, now.tv_sec-before.tv_sec, now.tv_nsec/1000 - before.tv_nsec/1000);
 #endif /* End of DBG_PRINT_COST_TIME */
 
@@ -484,7 +484,7 @@ static int amlw_sdio_alloc_prep_scat_req(struct amlw_hwif_sdio *hif_sdio)
     scat_req = ZMALLOC(sizeof(struct amlw_hif_scatter_req), "sdio_alloc_prep_scat_req", GFP_ATOMIC|GFP_DMA);
     if (scat_req == NULL)
     {
-        ERROR_DEBUG_OUT("[sdio sg alloc_scat_req]: no mem\n");
+        AML_PRINT_LOG_ERR("[sdio sg alloc_scat_req]: no mem\n");
         return 1;
     }
 
@@ -576,9 +576,9 @@ int aml_sdio_scat_rw(struct scatterlist *sg_list, unsigned int sg_num, unsigned 
     sdio_release_host(func);
 
     if (mmc_cmd.error || mmc_dat.error) {
-	    AML_OUTPUT("ERROR CMD53 %s cmd_error = %d data_error=%d\n",
-		write ? "write" : "read", mmc_cmd.error, mmc_dat.error);
-	    ret  = mmc_cmd.error;
+        AML_PRINT_LOG_INFO("ERROR CMD53 %s cmd_error = %d data_error=%d\n",
+        write ? "write" : "read", mmc_cmd.error, mmc_dat.error);
+        ret  = mmc_cmd.error;
     }
 
     return ret;
@@ -589,7 +589,7 @@ void aml_sdio_cleanup_scatter(void)
     struct hw_interface * hif = hif_get_hw_interface();
     struct amlw_hwif_sdio *hif_sdio = aml_sdio_priv();
 
-    AML_OUTPUT("[sdio sg cleanup]: enter\n");
+    AML_PRINT_LOG_INFO("[sdio sg cleanup]: enter\n");
 
     ASSERT(hif != NULL);
     ASSERT(hif_sdio != NULL);
@@ -602,7 +602,7 @@ void aml_sdio_cleanup_scatter(void)
     /* empty the free list */
     FREE(hif_sdio->scat_req, "sdio_alloc_prep_scat_req");
 
-    AML_OUTPUT("[sdio sg cleanup]: exit\n");
+    AML_PRINT_LOG_INFO("[sdio sg cleanup]: exit\n");
 
     return;
 }
@@ -709,7 +709,7 @@ int aml_sdio_bottom_read(unsigned char  func_num, int addr, void *buf, size_t le
 
     if (hal_wake_fw_req() == 0)
     {
-        ERROR_DEBUG_OUT("wake up failed\n");
+        AML_PRINT_LOG_ERR("wake up failed\n");
         return -1;
     }
 
@@ -733,7 +733,7 @@ int aml_sdio_bottom_read(unsigned char  func_num, int addr, void *buf, size_t le
     }
     if (kmalloc_buf == NULL)
     {
-        ERROR_DEBUG_OUT("kmalloc buf fail\n");
+        AML_PRINT_LOG_ERR("kmalloc buf fail\n");
         return SDIOH_API_RC_FAIL;
     }
 
@@ -757,18 +757,18 @@ int aml_sdio_bottom_write(unsigned char  func_num,int addr, void *buf, size_t le
 
     if (hal_wake_fw_req() == 0)
     {
-        ERROR_DEBUG_OUT("wake up failed\n");
+        AML_PRINT_LOG_ERR("wake up failed\n");
         return -1;
     }
 
     kmalloc_buf =  (unsigned char *)ZMALLOC(len, "sdio_bottom_write", GFP_DMA|GFP_ATOMIC);//virt_to_phys(fwICCM);
     if (kmalloc_buf == NULL)
     {
-        ERROR_DEBUG_OUT("kmalloc buf fail\n");
+        AML_PRINT_LOG_ERR("kmalloc buf fail\n");
         return SDIOH_API_RC_FAIL;
     }
     memcpy(kmalloc_buf, buf, len);
-    //AML_OUTPUT("%s, buf:%p\n", kmalloc_buf);
+    //AML_PRINT_LOG_INFO("%s, buf:%p\n", kmalloc_buf);
 
     result = _aml_sdio_request_buffer(func_num, incr_addr, SDIO_WRITE, addr, kmalloc_buf, len);
 
@@ -871,7 +871,7 @@ void aml_sdio_scat_complete (struct amlw_hif_scatter_req * scat_req)
     }
     else
     {
-        ERROR_DEBUG_OUT("error: no complete function\n");
+        AML_PRINT_LOG_ERR("error: no complete function\n");
     }
 
     scat_req->free = true;
@@ -946,7 +946,7 @@ int aml_sdio_scat_req_rw(struct amlw_hif_scatter_req *scat_req)
             sg_data_size = ALIGN(packet_len, blk_size);
             if (sg_data_size > (max_req_size - ttl_len))
             {
-                AML_OUTPUT(" setup scat-data: sg_data_size %d, remain %d \n",
+                AML_PRINT_LOG_INFO(" setup scat-data: sg_data_size %d, remain %d \n",
                     sg_data_size, max_req_size - ttl_len);
                 break;
             }
@@ -980,14 +980,14 @@ int aml_sdio_scat_req_rw(struct amlw_hif_scatter_req *scat_req)
             }
 #endif
             /*
-            AML_OUTPUT("setup scat-data: offset: %d: ttl: %d, datalen:%d\n",
+            AML_PRINT_LOG_INFO("setup scat-data: offset: %d: ttl: %d, datalen:%d\n",
                 pkt_offset, ttl_len, sg_data_size);
             */
         }
 
         if ((ttl_len == 0) || (ttl_len % blk_size != 0))
         {
-            AML_OUTPUT(" setup scat-data: ttl_len %d \n", ttl_len);
+            AML_PRINT_LOG_INFO(" setup scat-data: ttl_len %d \n", ttl_len);
             return result;
         }
 
@@ -1023,14 +1023,14 @@ int aml_sdio_scat_req_rw(struct amlw_hif_scatter_req *scat_req)
         sdio_release_host(func);
 
         /*
-        AML_OUTPUT("setup scat-data: (%s) ====addr: 0x%X, (blksz: %d, blocks: %d) , (ttl:%d,sg:%d,scat_count:%d,ttl_page:%d)====\n",
+        AML_PRINT_LOG_INFO("setup scat-data: (%s) ====addr: 0x%X, (blksz: %d, blocks: %d) , (ttl:%d,sg:%d,scat_count:%d,ttl_page:%d)====\n",
             (scat_req->req & HIF_WRITE) ? "wr" : "rd", scat_req->addr,
             mmc_dat.blksz, mmc_dat.blocks, ttl_len,
             sg_count, scat_req->scat_count, ttl_page_num);
         */
         if (mmc_cmd.error || mmc_dat.error)
         {
-            ERROR_DEBUG_OUT("ERROR CMD53 %s cmd_error = %d data_error=%d\n",
+            AML_PRINT_LOG_ERR("ERROR CMD53 %s cmd_error = %d data_error=%d\n",
                 (scat_req->req & HIF_WRITE) ? "write" : "read", mmc_cmd.error, mmc_dat.error);
         }
         else
@@ -1052,7 +1052,7 @@ int aml_sdio_scat_req_rw(struct amlw_hif_scatter_req *scat_req)
     scat_req->result = result;
 
     if (scat_req->result)
-        ERROR_DEBUG_OUT("Scatter write request failed:%d\n", scat_req->result);
+        AML_PRINT_LOG_ERR("Scatter write request failed:%d\n", scat_req->result);
 
     if (scat_req->req & HIF_ASYNCHRONOUS)
         aml_sdio_scat_complete(scat_req);
@@ -1072,7 +1072,7 @@ void aml_sdio_reset()
     unsigned char reg = 1;
     struct hw_interface* hif = hif_get_hw_interface();
 
-    AML_OUTPUT("aml_sdio_reset \n");
+    AML_PRINT_LOG_INFO("aml_sdio_reset \n");
     ASSERT(hif != NULL && hif->hif_ops.hi_bottom_write8 != NULL);
 
     hif->hif_ops.hi_bottom_write8(SDIO_FUNC0, SDIO_CCCR_IOABORT, reg);
@@ -1084,18 +1084,18 @@ void aml_sdio_irq_path(unsigned char b_gpio)
     unsigned int ck_reg = 0;
     struct hw_interface* hif = hif_get_hw_interface();
 
-    AML_OUTPUT("b_gpio=%d \n", b_gpio);
+    AML_PRINT_LOG_INFO("b_gpio=%d \n", b_gpio);
 
     if (b_gpio)
     {
         if (!aml_bus_type) {
             regdata= hif->hif_ops.hi_read8_func0(SDIO_CCCR_IEN);
 
-            AML_OUTPUT(" SDIO_CCCR_IEN=0x%x \n", regdata);
+            AML_PRINT_LOG_INFO(" SDIO_CCCR_IEN=0x%x \n", regdata);
                 regdata &= ~0x3;
 
             hif->hif_ops.hi_write8_func0(SDIO_CCCR_IEN,regdata);
-            AML_OUTPUT(" SDIO CCCR IEN=0x%x \n", regdata);
+            AML_PRINT_LOG_INFO(" SDIO CCCR IEN=0x%x \n", regdata);
         }
 
         regdata = hif->hif_ops.hi_read_word(RG_WIFI_IF_FW2HST_CLR);
@@ -1104,16 +1104,16 @@ void aml_sdio_irq_path(unsigned char b_gpio)
         hif->hif_ops.hi_write_word(RG_WIFI_IF_FW2HST_CLR, regdata);
 
         ck_reg = hif->hif_ops.hi_read_word(RG_WIFI_IF_FW2HST_CLR);
-        AML_OUTPUT("ck_reg 0x%x\n", ck_reg);
+        AML_PRINT_LOG_INFO("ck_reg 0x%x\n", ck_reg);
     }
     else
     {
         regdata= hif->hif_ops.hi_read8_func0(SDIO_CCCR_IEN);
-        AML_OUTPUT(" SDIO_CCCR_IEN=0x%x \n", regdata);
+        AML_PRINT_LOG_INFO(" SDIO_CCCR_IEN=0x%x \n", regdata);
         regdata |= 0x3;
 
         hif->hif_ops.hi_write8_func0(SDIO_CCCR_IEN,regdata);
-        AML_OUTPUT(" SDIO_CCCR_IEN=0x%x \n", regdata);
+        AML_PRINT_LOG_INFO(" SDIO_CCCR_IEN=0x%x \n", regdata);
 
         regdata = hif->hif_ops.hi_read_word(RG_WIFI_IF_FW2HST_CLR);
         regdata &= ~SDIO_FW2HOST_GPIO_EN;
@@ -1138,7 +1138,7 @@ int amlhal_gpio_open(struct hal_private * hal_priv)
 
     if (ret != 0)
     {
-        ERROR_DEBUG_OUT("request_gpio ERR!\n");
+        AML_PRINT_LOG_ERR("request_gpio ERR!\n");
         return ret;
     }
     else
@@ -1147,7 +1147,7 @@ int amlhal_gpio_open(struct hal_private * hal_priv)
 
         reg5c = hif->hif_ops.hi_read_word(RG_WIFI_IF_FW2HST_CLR);
 
-        AML_OUTPUT("-----------0x5C register=0x%x\n", reg5c);
+        AML_PRINT_LOG_INFO("-----------0x5C register=0x%x\n", reg5c);
         reg5c |= BIT(31);
 
         hif->hif_ops.hi_write_word(RG_WIFI_IF_FW2HST_CLR, reg5c);
@@ -1173,7 +1173,7 @@ int amlhal_gpio_open(struct hal_private * hal_priv)
 
         //reg = hw_if->hif_ops.hi_read_word(RG_WIFI_IF_GPIO_IRQ_CNF);
 
-        AML_OUTPUT("SDIO GPIO IRQ CONFIG REG=0x%x\n",reg);
+        AML_PRINT_LOG_INFO("SDIO GPIO IRQ CONFIG REG=0x%x\n",reg);
 
         aml_sdio_irq_path(1); //  1: GPIO LINE PATH. 0: SDIO DATA LINE PATH
     }
@@ -1271,10 +1271,10 @@ void aml_sdio_calibration(void)
                     if (err) {
                         //msleep(3000);
                         hif->hif_ops.hi_bottom_write8(SDIO_FUNC0, SDIO_CCCR_IOABORT, 0x1);
-                        AML_OUTPUT("error: i:%d, j:%d, k:%d, l:%d\n", i, j, k, l);
+                        AML_PRINT_LOG_INFO("error: i:%d, j:%d, k:%d, l:%d\n", i, j, k, l);
 
                     } else {
-                        AML_OUTPUT("right, use this config: i:%d, j:%d, k:%d, l:%d\n", i, j, k, l);
+                        AML_PRINT_LOG_INFO("right, use this config: i:%d, j:%d, k:%d, l:%d\n", i, j, k, l);
                         return;
                     }
                 }
@@ -1336,12 +1336,12 @@ static void aml_customer_gpio_wlan_ctrl(int onoff)
     switch (onoff)
     {
         case WLAN_POWER_OFF:
-            AML_OUTPUT("call customer specific GPIO to turn off WL_REG_ON\n");
+            AML_PRINT_LOG_INFO("call customer specific GPIO to turn off WL_REG_ON\n");
             break;
 
         case WLAN_POWER_ON:
             platform_wifi_reset();
-            AML_OUTPUT("=========== WLAN placed in POWER ON ========\n");
+            AML_PRINT_LOG_INFO("=========== WLAN placed in POWER ON ========\n");
             break;
     }
 }
@@ -1366,7 +1366,7 @@ static void config_pmu_reg(bool is_power_on)
     struct hw_interface * hif = hif_get_hw_interface();
 
     wifi_pmu_status = halpriv->hal_ops.hal_get_fw_ps_status();
-    AML_OUTPUT("wifi_pmu_status:0x%x\n", wifi_pmu_status);
+    AML_PRINT_LOG_INFO("wifi_pmu_status:0x%x\n", wifi_pmu_status);
 
     if (is_power_on) {
         host_req_status = 0;
@@ -1383,7 +1383,7 @@ static void config_pmu_reg(bool is_power_on)
         value_pmu_A20 = hif->hif_ops.hi_read_word(RG_PMU_A20);
         value_pmu_A22 = hif->hif_ops.hi_read_word(RG_PMU_A22);
 
-        AML_OUTPUT("power on: before write A12=0x%x, A13=0x%x, A14=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
+        AML_PRINT_LOG_INFO("power on: before write A12=0x%x, A13=0x%x, A14=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
             value_pmu_A12, value_pmu_A13, value_pmu_A14, value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
 
         hif->hif_ops.hi_write_word(RG_PMU_A12, 0x2a2c);
@@ -1404,10 +1404,10 @@ static void config_pmu_reg(bool is_power_on)
 
 
 
-        AML_OUTPUT("wifi_pmu_status:0x%x\n", wifi_pmu_status);
+        AML_PRINT_LOG_INFO("wifi_pmu_status:0x%x\n", wifi_pmu_status);
 
         while ((wifi_pmu_status & 0xF) != PMU_ACT_MODE) {
-            AML_OUTPUT("wifi_pmu_status:0x%x\n", wifi_pmu_status);
+            AML_PRINT_LOG_INFO("wifi_pmu_status:0x%x\n", wifi_pmu_status);
             wifi_pmu_status = halpriv->hal_ops.hal_get_fw_ps_status();
         }
 
@@ -1416,7 +1416,7 @@ static void config_pmu_reg(bool is_power_on)
         value_pmu_A18 = hif->hif_ops.hi_read_word(RG_PMU_A18);
         value_pmu_A20 = hif->hif_ops.hi_read_word(RG_PMU_A20);
         value_pmu_A22 = hif->hif_ops.hi_read_word(RG_PMU_A22);
-        AML_OUTPUT("power on: after write A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
+        AML_PRINT_LOG_INFO("power on: after write A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
             value_pmu_A15, value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
 
     } else {
@@ -1426,7 +1426,7 @@ static void config_pmu_reg(bool is_power_on)
         value_pmu_A18 = hif->hif_ops.hi_read_word(RG_PMU_A18);
         value_pmu_A20 = hif->hif_ops.hi_read_word(RG_PMU_A20);
         value_pmu_A22 = hif->hif_ops.hi_read_word(RG_PMU_A22);
-        AML_OUTPUT("power off: before write A12=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
+        AML_PRINT_LOG_INFO("power off: before write A12=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
             value_pmu_A12,value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
 
         hif->hif_ops.hi_write_word(RG_PMU_A12, 0x282c); //add set dpll_val(bit16) for sdio resp_timeout
@@ -1443,7 +1443,7 @@ static void config_pmu_reg(bool is_power_on)
         value_pmu_A18 = hif->hif_ops.hi_read_word(RG_PMU_A18);
         value_pmu_A20 = hif->hif_ops.hi_read_word(RG_PMU_A20);
         value_pmu_A22 = hif->hif_ops.hi_read_word(RG_PMU_A22);
-        AML_OUTPUT("power off: before write A12=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
+        AML_PRINT_LOG_INFO("power off: before write A12=0x%x, A15=0x%x, A17=0x%x, A18=0x%x, A20=0x%x, A22=0x%x\n",
             value_pmu_A12,value_pmu_A15,value_pmu_A17,value_pmu_A18,value_pmu_A20,value_pmu_A22);
 
      //force wifi pmu fsm to sleep mode
@@ -1464,11 +1464,11 @@ int aml_w1_init(void)
     struct hal_private * hal_priv = hal_get_priv();
     struct sdio_func *func;
 
-    AML_OUTPUT("SDIO_BUILD_IN \n");
+    AML_PRINT_LOG_INFO("SDIO_BUILD_IN \n");
     aml_customer_gpio_wlan_ctrl(WLAN_POWER_ON);
 
     if (!g_sdio_after_porbe) {
-          AML_OUTPUT("sdio not probe, need set power \n");
+          AML_PRINT_LOG_INFO("sdio not probe, need set power \n");
           set_usb_wifi_power(0);
           msleep(100);
           set_usb_wifi_power(1);
@@ -1481,7 +1481,7 @@ int aml_w1_init(void)
     }
 
     if (!g_sdio_after_porbe) {
-        ERROR_DEBUG_OUT("can't probe sdio!\n");
+        AML_PRINT_LOG_ERR("can't probe sdio!\n");
         //aml_w1_sdio_exit();
         return -ENODEV;
     }
@@ -1503,7 +1503,7 @@ int aml_w1_init(void)
     /*set parent dev for net dev. */
     vm_cfg80211_set_parent_dev(&func->dev);
     if (!(hif->hif_ops.hi_bottom_write8)) {
-        ERROR_DEBUG_OUT("not found w1 wifi\n");
+        AML_PRINT_LOG_ERR("not found w1 wifi\n");
         goto create_thread_error;
     }
     aml_sdio_calibration();
@@ -1512,7 +1512,7 @@ int aml_w1_init(void)
     if ((hal_priv->hal_call_back != NULL)
         &&(hal_priv->hal_call_back->dev_probe != NULL))
     {
-        AML_OUTPUT("hal_priv->hal_call_back->dev_probe\n");
+        AML_PRINT_LOG_INFO("hal_priv->hal_call_back->dev_probe\n");
         /*call driver probe to create vmac0 and vmac1 eventually*/
         ret = hal_priv->hal_call_back->dev_probe();
         if (ret < 0)
@@ -1522,12 +1522,12 @@ int aml_w1_init(void)
     }
     hal_priv->powersave_init_flag = 0;
 
-    AML_OUTPUT("sg ops init\n");
+    AML_PRINT_LOG_INFO("sg ops init\n");
     hif->hif_ops.hi_enable_scat();
 
     aml_sdio_enable_irq(SDIO_FUNC1);
 
-    AML_OUTPUT("aml_sdio_probe-- ret %d\n", ret);
+    AML_PRINT_LOG_INFO("aml_sdio_probe-- ret %d\n", ret);
 
     if (aml_wifi_is_enable_rf_test()) {
         mib_init();
@@ -1548,7 +1548,7 @@ void aml_sdio_disable_wifi(void)
 {
     unsigned char bt_alive = 0;
     wifi_sdio_access = 0;
-    AML_OUTPUT("wifi_sdio_access:%d, chip_en_access:%d\n", wifi_sdio_access, chip_en_access);
+    AML_PRINT_LOG_INFO("wifi_sdio_access:%d, chip_en_access:%d\n", wifi_sdio_access, chip_en_access);
 
     //if (chip_en_access) {
     if (wifi_mac_need_chip_reset()) {
@@ -1606,7 +1606,7 @@ void aml_sdio_enable_wifi(void)
     aml_customer_gpio_wlan_ctrl(WLAN_POWER_ON);
     hal_recovery_init_priv();
     config_pmu_reg(AML_W1_WIFI_POWER_ON);
-    AML_OUTPUT("aml_sdio_enable_wifi start sdio access %d\n", wifi_sdio_access);
+    AML_PRINT_LOG_INFO("aml_sdio_enable_wifi start sdio access %d\n", wifi_sdio_access);
     wifi_sdio_access = 1;
     hal_fw_repair();
     recovery_done = 1;
@@ -1651,13 +1651,13 @@ int aml_sdio_pm_suspend(struct device *device)
         cnt++;
         if (cnt > 20)
         {
-            ERROR_DEBUG_OUT("wifi suspend fail \n");
+            AML_PRINT_LOG_ERR("wifi suspend fail \n");
             return -1;
         }
     }
 
     atomic_inc(&hal_priv->sdio_suspend_cnt);
-    //AML_OUTPUT("wifi suspend %d, suspend cnt 0x%x, func num %d \n",
+    //AML_PRINT_LOG_INFO("wifi suspend %d, suspend cnt 0x%x, func num %d \n",
     //    hal_priv->hal_suspend_mode, atomic_read(&hal_priv->suspend_cnt) , func->num);
 
     /* we shall suspend all card for sdio. */
@@ -1669,7 +1669,7 @@ int aml_sdio_pm_suspend(struct device *device)
 
         if (ret != 0)
         {
-            ERROR_DEBUG_OUT("host can't keep power while suspend \n");
+            AML_PRINT_LOG_ERR("host can't keep power while suspend \n");
             return -1;
         }
 
@@ -1683,7 +1683,7 @@ int aml_sdio_pm_suspend(struct device *device)
 
         if (ret != 0)
         {
-            ERROR_DEBUG_OUT("host can't set irq while suspend \n");
+            AML_PRINT_LOG_ERR("host can't set irq while suspend \n");
             return -1;
         }
     }
@@ -1706,7 +1706,7 @@ int aml_sdio_pm_resume(struct device *device)
 //        return -1;
 
     atomic_dec(&hal_priv->sdio_suspend_cnt);
-    //AML_OUTPUT("func num %d, no resume 0x%x \n",
+    //AML_PRINT_LOG_INFO("func num %d, no resume 0x%x \n",
     //        func->num, atomic_read(&hal_priv->suspend_cnt));
 
     return 0;
@@ -1736,7 +1736,7 @@ int aml_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
     else
         sdio_set_block_size(func, BLKSIZE);
 
-    AML_OUTPUT("func->num %d sdio block size=%d, \n",
+    AML_PRINT_LOG_INFO("func->num %d sdio block size=%d, \n",
         func->num,  func->cur_blksize);
 
     if (func->num == 1)
@@ -1746,14 +1746,14 @@ int aml_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
         hwif_sdio->sdio_func_if[0] = &sdio_func_0;
     }
     hwif_sdio->sdio_func_if[func->num] = func;
-    AML_OUTPUT("func->num %d sdio_func=%p, \n",
+    AML_PRINT_LOG_INFO("func->num %d sdio_func=%p, \n",
         func->num,  func);
 
     sdio_release_host(func);
     sdio_set_drvdata(func, hwif_sdio);
     if (func->num != FUNCNUM_SDIO_LAST)
     {
-        AML_OUTPUT("func_num=%d, lastfuncnum=%d\n",
+        AML_PRINT_LOG_INFO("func_num=%d, lastfuncnum=%d\n",
             func->num, FUNCNUM_SDIO_LAST);
         return 0;
     }
@@ -1777,7 +1777,7 @@ int aml_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
     if ((hal_priv->hal_call_back != NULL)
         &&(hal_priv->hal_call_back->dev_probe != NULL))
     {
-        AML_OUTPUT("hal_priv->hal_call_back->dev_probe\n");
+        AML_PRINT_LOG_INFO("hal_priv->hal_call_back->dev_probe\n");
         /*call driver probe to create vmac0 and vmac1 eventually*/
         ret = hal_priv->hal_call_back->dev_probe();
         if (ret < 0)
@@ -1787,12 +1787,12 @@ int aml_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
     }
     hal_priv->powersave_init_flag = 0;
 
-    AML_OUTPUT("sg ops init\n");
+    AML_PRINT_LOG_INFO("sg ops init\n");
     hif->hif_ops.hi_enable_scat();
 
     aml_sdio_enable_irq(SDIO_FUNC1);
 
-    AML_OUTPUT("aml_sdio_probe-- ret %d\n", ret);
+    AML_PRINT_LOG_INFO("aml_sdio_probe-- ret %d\n", ret);
 
 
     if (aml_wifi_is_enable_rf_test()) {
@@ -1808,7 +1808,7 @@ create_thread_error:
     sdio_disable_func(func);
 
 sdio_enable_error:
-    ERROR_DEBUG_OUT("sdio_enable_error\n");
+    AML_PRINT_LOG_ERR("sdio_enable_error\n");
     sdio_release_host(func);
     return ret;
 }
@@ -1822,9 +1822,9 @@ static void  aml_sdio_remove(struct sdio_func *func)
         return ;
     }
 
-    AML_OUTPUT("\n==========================================\n");
-    AML_OUTPUT("aml_sdio_remove++ func->num =%d \n",func->num);
-    AML_OUTPUT("==========================================\n");
+    AML_PRINT_LOG_INFO("\n==========================================\n");
+    AML_PRINT_LOG_INFO("aml_sdio_remove++ func->num =%d \n",func->num);
+    AML_PRINT_LOG_INFO("==========================================\n");
     aml_sdio_disable_irq(SDIO_FUNC1);
     hal_priv->powersave_init_flag = 1;
     hal_free();
@@ -1892,7 +1892,7 @@ int  aml_w1_init(void)
 
     err = sdio_register_driver(&aml_sdio_driver);
     if (err)
-        ERROR_DEBUG_OUT("failed to register sdio driver: %d \n", err);
+        AML_PRINT_LOG_ERR("failed to register sdio driver: %d \n", err);
 
     return err;
 }

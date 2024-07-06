@@ -240,6 +240,10 @@ endif
 endif	#CONFIG_AML_CFG80211
 endif 	#CONFIG_CFG80211
 
+ifeq ($(CONFIG_USB_CLOSE),y)
+EXTRA_CFLAGS += -DCONFIG_USB_CLOSE
+endif
+
 TARGET_LIST := $(filter-out $(DISCARD), $(TARGET_FILE))
 $(TARGET)-objs = $(TARGET_LIST)
 

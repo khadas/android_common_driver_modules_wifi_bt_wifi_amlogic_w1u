@@ -25,7 +25,7 @@ int drv_set_config(void * dev, enum cip_param_id id, int data)
     struct drv_private *drv_priv = ( struct drv_private *)dev;
     struct hal_private* hal_priv = hal_get_priv();
     
-    AML_OUTPUT("id 0x%x data 0x%x\n", id, data);
+    AML_PRINT_LOG_INFO("id 0x%x data 0x%x\n", id, data);
 
     switch (id) {
         case CHIP_PARAM_TXCHAINMASK:
@@ -49,28 +49,28 @@ int drv_set_config(void * dev, enum cip_param_id id, int data)
             break;
 
         case CHIP_PARAM_AMPDU:
-            AML_OUTPUT("<running>\n");
+            AML_PRINT_LOG_INFO("<running>\n");
             drv_priv->drv_config.cfg_txaggr = data;
             drv_priv->drv_config.cfg_rxaggr = data;
             break;
 
         case CHIP_PARAM_AMPDU_RX:
-            AML_OUTPUT("<running>\n");
+            AML_PRINT_LOG_INFO("<running>\n");
             drv_priv->drv_config.cfg_rxaggr = data;
             break;
 
         case CHIP_PARAM_AMPDU_LIMIT:
-            AML_OUTPUT("<running>\n");
+            AML_PRINT_LOG_INFO("<running>\n");
             drv_priv->drv_config.cfg_ampdu_limit = data;
             break;
 
         case CHIP_PARAM_AMPDU_SUBFRAMES:
-            AML_OUTPUT("<running>\n");
+            AML_PRINT_LOG_INFO("<running>\n");
             drv_priv->drv_config.cfg_ampdu_subframes = data;
             break;
 
         case CHIP_PARAM_AGGR_PROT:
-            AML_OUTPUT("<running>\n");
+            AML_PRINT_LOG_INFO("<running>\n");
             drv_priv->drv_config.cfg_aggr_prot = data;
             break;
 
@@ -79,12 +79,12 @@ int drv_set_config(void * dev, enum cip_param_id id, int data)
             break;
 
         case CHIP_PARAM_BURST_ACK:
-            AML_OUTPUT("<running> CHIP_PARAM_BURST_ACK\n");
+            AML_PRINT_LOG_INFO("<running> CHIP_PARAM_BURST_ACK\n");
             drv_priv->drv_config.cfg_burst_ack = data;
             break;
 
         case CHIP_PARAM_ACK_POLICY:
-            AML_OUTPUT("<running> CHIP_PARAM_ACK_POLICY\n");
+            AML_PRINT_LOG_INFO("<running> CHIP_PARAM_ACK_POLICY\n");
             drv_priv->drv_config.cfg_ampduackpolicy= data;
             break;
 
@@ -135,7 +135,8 @@ int drv_set_config(void * dev, enum cip_param_id id, int data)
             break;
 
         case CHIP_PARAM_DEBUG:
-            aml_debug= data;
+            //aml_debug= data;
+            AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_INFO,"\n");
             break;
 
         case CHIP_PARAM_DBG_RXERR_RESET:
@@ -147,7 +148,7 @@ int drv_set_config(void * dev, enum cip_param_id id, int data)
             break;
 
         case CHIP_PARAM_SHORTPREAMBLE:
-            AML_OUTPUT("Before set short preamble.\n\n");
+            AML_PRINT_LOG_INFO("Before set short preamble.\n\n");
             drv_priv->drv_config.cfg_shortpreamble = data;
             break;
 
@@ -201,27 +202,27 @@ int drv_get_config(void *dev, enum cip_param_id id)
             break;
 
         case CHIP_PARAM_AMPDU:
-            AML_OUTPUT("<running>\n");
+            AML_PRINT_LOG_INFO("<running>\n");
             supported = drv_priv->drv_config.cfg_txaggr;
             break;
 
         case CHIP_PARAM_AMPDU_RX:
-            AML_OUTPUT("<running>\n");
+            AML_PRINT_LOG_INFO("<running>\n");
             supported = drv_priv->drv_config.cfg_rxaggr;
             break;
 
         case CHIP_PARAM_AMPDU_LIMIT:
-            AML_OUTPUT("<running>\n");
+            AML_PRINT_LOG_INFO("<running>\n");
             supported = drv_priv->drv_config.cfg_ampdu_limit;
             break;
 
         case CHIP_PARAM_AMPDU_SUBFRAMES:
-            AML_OUTPUT("<running>\n");
+            AML_PRINT_LOG_INFO("<running>\n");
             supported = drv_priv->drv_config.cfg_ampdu_subframes;
             break;
 
         case CHIP_PARAM_AGGR_PROT:
-            AML_OUTPUT("<running>\n");
+            AML_PRINT_LOG_INFO("<running>\n");
             supported = drv_priv->drv_config.cfg_aggr_prot;
             break;
 
@@ -298,7 +299,8 @@ int drv_get_config(void *dev, enum cip_param_id id)
             break;
 
         case CHIP_PARAM_DEBUG:
-            supported = aml_debug;
+            // supported = aml_debug;
+            AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_INFO,"\n");
             break;
 
         case CHIP_PARAM_EAT_COUNT:
@@ -376,7 +378,7 @@ unsigned char parse_drv_cfg_param(char *varbuf, int len)
 
     get_s8_item(varbuf, len, "cfg_band", &drv_priv->drv_config.cfg_band);
     //get_s16_item(varbuf, len, "cali_config", cali_config);
-    AML_OUTPUT("======>>>>>> drv_config cfg_band = %d\n", drv_priv->drv_config.cfg_band);
+    AML_PRINT_LOG_INFO("======>>>>>> drv_config cfg_band = %d\n", drv_priv->drv_config.cfg_band);
 
     return 0;
 }

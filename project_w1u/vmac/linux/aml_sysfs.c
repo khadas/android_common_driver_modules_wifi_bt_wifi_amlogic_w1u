@@ -4,6 +4,7 @@
 #include "wifi_mac_p2p.h"
 #include "wifi_mac_chan.h"
 #include "wifi_mac_concurrent.h"
+#include "wifi_iwpriv_cmd.h"
 
 struct wlan_net_vif *g_wnet_vif0;
 struct wlan_net_vif *g_wnet_vif1;
@@ -14,6 +15,8 @@ extern void get_phy_stc_info(unsigned int *arr);
 #define BW_20M_STR "20M"
 #define BW_40M_STR "40M"
 #define BW_80M_STR "80M"
+#define CCA_THRD_DEFAULT 0x002d8328
+#define CCA_THRD_CE_FCC 0x002a42a4
 
 
 static ssize_t show_hang_info(struct device *d, struct device_attribute *attr,
@@ -31,11 +34,11 @@ static ssize_t store_set_gain_allowed(struct device *d, struct device_attribute 
     unsigned char allowed = *buf - 48;
 
     if ((allowed < 0) || (allowed > 1)) {
-        ERROR_DEBUG_OUT("The input allowed is error");
+        AML_PRINT_LOG_ERR("The input allowed is error");
         return -EFAULT;
     }
     set_gain_allowed = allowed;
-    AML_OUTPUT(" set_gain_allowed:%d \n",set_gain_allowed);
+    AML_PRINT_LOG_INFO(" set_gain_allowed:%d \n",set_gain_allowed);
     return len;
 }
 
@@ -99,7 +102,7 @@ static ssize_t show_bandwidth(struct device *d, struct device_attribute *attr,
     struct wlan_net_vif *wnet_vif = g_wnet_vif0;
 
     if (!wnet_vif || !wnet_vif->vm_curchan) {
-        ERROR_DEBUG_OUT("wnet_vif/vm_curchan is null !!! \n");
+        AML_PRINT_LOG_ERR("wnet_vif/vm_curchan is null !!! \n");
         return -EFAULT;
     }
 
@@ -121,7 +124,7 @@ static ssize_t show_bandwidth(struct device *d, struct device_attribute *attr,
             sprintf(bandwidth, "bandwidth :80+80\n");
             break;
         default:
-            ERROR_DEBUG_OUT("unsupported  bandwidth \n");
+            AML_PRINT_LOG_ERR("unsupported  bandwidth \n");
             break;
     }
 
@@ -206,16 +209,26 @@ static DEVICE_ATTR(iSnrR1Phase2, S_IRUGO, show_iSnrR1Phase2, NULL);
 static ssize_t show_Glitch_Diff(struct device *d, struct device_attribute *attr,
                  char *buf)
 {
-    return 0;
+    static unsigned int last_glitch = 0;
+    struct hw_interface* hif = hif_get_hw_interface();
+
+    sprintf(buf, "%d \n", hif->HiStatus.tx_fail_num - last_glitch);
+
+    last_glitch = hif->HiStatus.tx_fail_num;
+
+    return strlen(buf);
 }
 
 static DEVICE_ATTR(Glitch_Diff, S_IRUGO, show_Glitch_Diff, NULL);
 
 
-static ssize_t show_Glitch_Total(struct device *d, struct device_attribute *attr,
-                 char *buf)
+static ssize_t show_Glitch_Total(struct device *d, struct device_attribute *attr, char *buf)
 {
-    return 0;
+    struct hw_interface* hif = hif_get_hw_interface();
+
+    sprintf(buf, "%d \n", hif->HiStatus.tx_fail_num);
+
+    return strlen(buf);
 }
 
 static DEVICE_ATTR(Glitch_Total, S_IRUGO, show_Glitch_Total, NULL);
@@ -503,7 +516,7 @@ static ssize_t store_p2p_home_channel(struct device *d, struct device_attribute 
     unsigned int channel = 0;
     unsigned char error = 1;
 
-    AML_OUTPUT("\n");
+    AML_PRINT_LOG_INFO("\n");
 
     wifimac = wifi_mac_get_mac_handle();
     p2p_wnet_vif = g_wnet_vif1;
@@ -517,17 +530,17 @@ static ssize_t store_p2p_home_channel(struct device *d, struct device_attribute 
             }
             error = 0;
         } else {
-            AML_OUTPUT("channel %d isn't a legal channel\n", channel);
+            AML_PRINT_LOG_INFO("channel %d isn't a legal channel\n", channel);
         }
     }
 
     if (error != 0) {
-        AML_OUTPUT("p2p_home_channel config error\n");
+        AML_PRINT_LOG_INFO("p2p_home_channel config error\n");
     }
     return len;
 }
 
-DEVICE_ATTR(p2p_home_channel, S_IRUGO, show_p2p_home_channel, store_p2p_home_channel);
+DEVICE_ATTR(p2p_home_channel, S_IWUSR|S_IWGRP|S_IRUGO, show_p2p_home_channel, store_p2p_home_channel);
 
 static ssize_t show_p2p_DevNum(struct device *d, struct device_attribute *attr,
                  char *buf)
@@ -817,7 +830,7 @@ static ssize_t store_go_hidden_mode(struct device *d, struct device_attribute *a
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
     if (!wnet_vif || (mode < 0) || (mode > 1)) {
-        ERROR_DEBUG_OUT("The input mode is error");
+        AML_PRINT_LOG_ERR("The input mode is error");
         return -EFAULT;
     }
 
@@ -830,7 +843,7 @@ static ssize_t store_go_hidden_mode(struct device *d, struct device_attribute *a
             }
 
         }
-        AML_OUTPUT(" go_hidden_mode:%d \n",mode);
+        AML_PRINT_LOG_INFO(" go_hidden_mode:%d \n",mode);
         wnet_vif->vm_p2p->go_hidden_mode = mode;
     }
 
@@ -838,6 +851,123 @@ static ssize_t store_go_hidden_mode(struct device *d, struct device_attribute *a
 }
 
 static DEVICE_ATTR(go_hidden_mode, S_IWUSR|S_IWGRP|S_IRUGO, show_go_hidden_mode, store_go_hidden_mode);
+
+void cca_thrd_cfg_change_handle(struct wlan_net_vif *wnet_vif, unsigned char cfg)
+{
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+
+    /*default cfg is disable*/
+    AML_PRINT_LOG_INFO("%s\n", cfg ? "ENABLE" : "DISABLE");
+
+    if (cfg) {
+        aml_iwpriv_set_recovery(0);
+        wifimac->drv_priv->drv_config.cfg_burst_ack = 0;
+        wnet_vif->vif_ops.write_word(DF_AGC_REG_A29, CCA_THRD_CE_FCC);
+    } else {
+        aml_iwpriv_set_recovery(1);
+        wifimac->drv_priv->drv_config.cfg_burst_ack = 1;
+        wnet_vif->vif_ops.write_word(DF_AGC_REG_A29, CCA_THRD_DEFAULT);
+    }
+
+    return;
+}
+
+void cca_thrd_cfg_change_task(SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3, SYS_TYPE param4,SYS_TYPE param5)
+{
+    struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param1;
+    unsigned char cfg = (unsigned char)param2;
+
+    cca_thrd_cfg_change_handle(wnet_vif, cfg);
+
+    return;
+}
+
+static ssize_t show_cca_thrd_cfg(struct device *d, struct device_attribute *attr,
+                 char *buf)
+{
+    struct wlan_net_vif *wnet_vif = g_wnet_vif0;
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+
+    if (!wnet_vif)
+        return -EFAULT;
+
+    return sprintf(buf, "cfg: %s\n",wifimac->cca_thrd_cfg ? "ENABLE" : "DISABLE");
+}
+
+static ssize_t store_cca_thrd_cfg(struct device *d, struct device_attribute *attr,
+                char *buf, ssize_t len)
+{
+    struct wlan_net_vif *wnet_vif = g_wnet_vif0;
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+    unsigned char cfg = (unsigned char)simple_strtoul(buf,NULL,0);
+
+    if (!wnet_vif || (cfg < 0) || (cfg > 1)) {
+        AML_PRINT_LOG_ERR("The input mode is error");
+        return -EFAULT;
+    }
+
+    if (wifimac->cca_thrd_cfg != cfg) {
+        if ( !cfg) {
+            cca_thrd_cfg_change_handle(wnet_vif,DISABLE);
+        } else if (cfg && (wnet_vif->vm_state == WIFINET_S_CONNECTED)) {
+            cca_thrd_cfg_change_handle(wnet_vif,ENABLE);
+        }
+        wifimac->cca_thrd_cfg = cfg;
+    }
+
+    AML_PRINT_LOG_INFO("wifimac->cca_thrd_cfg:%d \n",wifimac->cca_thrd_cfg);
+
+    return len;
+}
+
+static DEVICE_ATTR(cca_thrd_cfg, S_IWUSR|S_IWGRP|S_IRUGO, show_cca_thrd_cfg, store_cca_thrd_cfg);
+
+static ssize_t rate_statics_show(struct device *d, struct device_attribute *attr, char *buf)
+{
+    unsigned char tmp_buf_bw[10];
+    unsigned char tmp_buf_gi[10];
+    unsigned char tmp_buf_rate[10];
+    struct wlan_net_vif *wnet_vif = g_wnet_vif0;
+    struct drv_private *drv_priv = drv_get_drv_priv();
+    struct hw_interface* hif = hif_get_hw_interface();
+
+    if (!wnet_vif) {
+        AML_PRINT_LOG_ERR("wnet_vif is null!\n");
+        return -EFAULT;
+    }
+
+    if (wnet_vif->vm_state != WIFINET_S_CONNECTED) {
+        AML_PRINT_LOG_ERR("vm_state is not in connection!\n");
+        return -EFAULT;
+    }
+
+    if (wnet_vif->vm_mainsta == NULL) {
+        AML_PRINT_LOG_ERR("vm_mainsta is null!\n");
+        return -EFAULT;
+    }
+
+    sprintf(buf, "sta_avg_rssi:%d, sta_avg_bcn_rssi:%d, avg_snr:%d, ",
+            wnet_vif->vm_mainsta->sta_avg_rssi - 256,
+            wnet_vif->vm_mainsta->sta_avg_bcn_rssi,
+            wnet_vif->vm_mainsta->sta_avg_snr);
+
+    aml_get_rate_idx(wnet_vif->vm_mainsta->sta_vendor_rate_code, tmp_buf_rate);
+    aml_get_rate_bw(wnet_vif->vm_mainsta->sta_vendor_bw, tmp_buf_bw);
+    aml_get_rate_gi(wnet_vif->vm_mainsta->sta_vendor_gi, tmp_buf_gi);
+    sprintf(buf + strlen(buf), "txRate:%s, tx_bw:%s, tx_gi:%s, gbpps:%d, ",tmp_buf_rate, tmp_buf_bw, tmp_buf_gi, hif->HiStatus.avg_tx_fail_num);
+
+    memset(tmp_buf_rate, 0, sizeof(tmp_buf_rate));
+    memset(tmp_buf_bw, 0, sizeof(tmp_buf_bw));
+    memset(tmp_buf_gi, 0, sizeof(tmp_buf_gi));
+    aml_get_rate_idx(drv_priv->drv_currratetable->info[wnet_vif->vm_mainsta->sta_rxrate_index].vendor_rate_code, tmp_buf_rate);
+    aml_get_rate_bw(wnet_vif->vm_mainsta->last_rxrate_bw, tmp_buf_bw);
+    aml_get_rate_gi(wnet_vif->vm_mainsta->last_rxrate_gi, tmp_buf_gi);
+    sprintf(buf + strlen(buf), "rxRate:%s, rx_bw:%s, rx_gi:%s\n",tmp_buf_rate, tmp_buf_bw, tmp_buf_gi);
+
+    return strlen(buf);
+}
+
+static DEVICE_ATTR(rate_statics, S_IRUGO, rate_statics_show, NULL);
 
 static struct attribute *aml_sysfs_entries[] = {
         &dev_attr_hang_info.attr,
@@ -869,6 +999,8 @@ static struct attribute *aml_sysfs_entries[] = {
         &dev_attr_wakeup_reason.attr,
         &dev_attr_ap_info.attr,
         &dev_attr_set_gain_allowed.attr,
+        &dev_attr_cca_thrd_cfg.attr,
+        &dev_attr_rate_statics.attr,
         NULL,
 };
 
@@ -919,9 +1051,9 @@ int32_t sysfsCreateSysFsEntry(void)
 
     ret = sysfs_create_group(&wnet_vif0->vm_ndev->dev.kobj, &aml_attribute_group);
     if (ret < 0) {
-        ERROR_DEBUG_OUT("ERROR init sysfs failed\n");
+        AML_PRINT_LOG_ERR("ERROR init sysfs failed\n");
     } else {
-        AML_OUTPUT(" init sysfs succeed!!\n");
+        AML_PRINT_LOG_INFO(" init sysfs succeed!!\n");
     }
 
     wnet_vif1 = wifi_mac_get_wnet_vif_by_vid(wifimac, 1);
@@ -929,9 +1061,9 @@ int32_t sysfsCreateSysFsEntry(void)
 
     ret = sysfs_create_group(&wnet_vif1->vm_ndev->dev.kobj, &aml_p2p_attribute_group);
     if (ret < 0) {
-        ERROR_DEBUG_OUT("ERROR init p2p sysfs failed\n");
+        AML_PRINT_LOG_ERR("ERROR init p2p sysfs failed\n");
     } else {
-        AML_OUTPUT("init p2p sysfs succeed!!\n");
+        AML_PRINT_LOG_INFO("init p2p sysfs succeed!!\n");
     }
     return 0;
 }

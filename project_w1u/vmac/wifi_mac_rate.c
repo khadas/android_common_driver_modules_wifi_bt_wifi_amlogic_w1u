@@ -52,7 +52,7 @@ void wifi_mac_set_legacy_rates(struct wifi_mac_rateset *rs, struct wlan_net_vif 
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
     struct wifi_mac_rateset *srs;
 
-    DPRINTF(AML_DEBUG_CONNECT, "%s(%d): phy mode=%d\n", __func__, __LINE__, wnet_vif->vm_mac_mode);
+    AML_PRINT(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_DEBUG, "phy mode=%d\n",wnet_vif->vm_mac_mode);
     KASSERT(wnet_vif->vm_mac_mode < WIFINET_MODE_MAX, ("invalid mode %u", wnet_vif->vm_mac_mode));
 
     srs = &wnet_vif->vm_legacy_rates;
@@ -284,7 +284,7 @@ int check_ht_rate(struct wlan_net_vif *wnet_vif, const struct wifi_scan_info *sc
             }
 
             if (j == srs->dot11_rate_num) {
-                DPRINTF(AML_DEBUG_SCAN, "%s(%d) error\n", __func__, __LINE__);
+                AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_ERROR,"error\n");
                 return 0;
             }
         }
@@ -316,7 +316,7 @@ int wifi_mac_setup_rates(struct wifi_station *sta, const unsigned char *rates, c
         if (rrs.dot11_rate_num + nxrates > WIFINET_RATE_MAXSIZE)
         {
             nxrates = WIFINET_RATE_MAXSIZE - rrs.dot11_rate_num;
-            WIFINET_DPRINTF_STA( AML_DEBUG_RATE, sta, "extended rate set too large; only using %u of %u rates\n", nxrates, xrates[1]);
+            WIFINET_DPRINTF_STA( AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG, sta, "extended rate set too large; only using %u of %u rates\n", nxrates, xrates[1]);
         }
         memcpy(rrs.dot11_rate + rrs.dot11_rate_num, xrates+2, nxrates);
         rrs.dot11_rate_num += nxrates;
@@ -404,7 +404,7 @@ int wifi_mac_setup_ht_rates(struct wifi_station *sta, unsigned char *ie,int flag
 
             if (j == WIFINET_RATE_MAXSIZE)
             {
-                WIFINET_DPRINTF_STA(AML_DEBUG_RATE, sta, \
+                WIFINET_DPRINTF_STA(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG, sta, \
                                     "ht extended rate set too large; only using %u rates", j);
                 break;
             }
@@ -462,7 +462,7 @@ void wifi_mac_setup_basic_ht_rates(struct wifi_station *sta, unsigned char *ie)
     }
     else
     {
-        WIFINET_DPRINTF_STA(AML_DEBUG_RATE, sta, "ht rate set %s;", "empty");
+        WIFINET_DPRINTF_STA(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG, sta, "ht rate set %s;", "empty");
     }
 }
 
@@ -548,43 +548,43 @@ int wifi_mac_setup_vht_rates(struct wifi_station *sta,
 
     /* Our Supported Tx rates,*/
     wifi_mac_get_vht_rates(sta->sta_wnet_vif->vm_vhtcap_max_mcs.tx_mcs_set.mcs_map, &tsrs);
-    DPRINTF(AML_DEBUG_RATE,"Our Supported Tx rates,num_streams=%d\n", tsrs.num_streams);
+    AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG, "Our Supported Tx rates,num_streams=%d\n", tsrs.num_streams);
     for( i=0; i<tsrs.num_streams; i++)
     {
-        DPRINTF(AML_DEBUG_RATE,"i=%d,rates=0x%x\n ", i, tsrs.rates[i]);
+        AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"i=%d,rates=0x%x\n ", i, tsrs.rates[i]);
     }
     
     /* Our Supported Rx rates, */
     wifi_mac_get_vht_rates(sta->sta_wnet_vif->vm_vhtcap_max_mcs.rx_mcs_set.mcs_map, &rsrs);
-    DPRINTF(AML_DEBUG_RATE,"Our Supported Rx rates,num_streams=%d\n", rsrs.num_streams);
+    AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"Our Supported Rx rates,num_streams=%d\n", rsrs.num_streams);
     for( i=0; i<rsrs.num_streams; i++)
     {
-        DPRINTF(AML_DEBUG_RATE,"i=%d,rates=0x%x\n ", i, rsrs.rates[i]);
+        AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"i=%d,rates=0x%x\n ", i, rsrs.rates[i]);
     }
     
     /* Our Basic rates */
     wifi_mac_get_vht_rates(sta->sta_wnet_vif->vm_vhtop_basic_mcs, &brs);
-    DPRINTF(AML_DEBUG_RATE,"Our Basic rates, num_streams=%d\n",brs.num_streams);
+    AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"Our Basic rates, num_streams=%d\n",brs.num_streams);
     for( i=0; i<brs.num_streams; i++)
     {
-        DPRINTF(AML_DEBUG_RATE,"i=%d,rates=0x%x\n ", i, brs.rates[i]);
+        AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"i=%d,rates=0x%x\n ", i, brs.rates[i]);
     }
 
     
     /* Received Rx Rates in (re)assoc req/resp - vht parse had already copied the info to sta */
     wifi_mac_get_vht_rates(sta->sta_rx_vhtrates, &rx_rrs);
-    DPRINTF(AML_DEBUG_RATE,"ap support Rx Rates, num_streams=%d\n",  rx_rrs.num_streams);
+    AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"ap support Rx Rates, num_streams=%d\n",  rx_rrs.num_streams);
     for( i=0; i<rx_rrs.num_streams; i++)
     {
-        DPRINTF(AML_DEBUG_RATE,"i=%d,rates=0x%x\n ", i, rx_rrs.rates[i]);
+        AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"i=%d,rates=0x%x\n ", i, rx_rrs.rates[i]);
     }
     
     /* Received Tx Rates in (re)assoc req/resp - vht parse has already copied this info to sta */
     wifi_mac_get_vht_rates(sta->sta_tx_vhtrates, &tx_rrs);
-    DPRINTF(AML_DEBUG_RATE,"ap support tx Rates num_streams=%d\n", tx_rrs.num_streams );
+    AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"ap support tx Rates num_streams=%d\n", tx_rrs.num_streams );
     for( i=0; i<tx_rrs.num_streams; i++)
     {
-        DPRINTF(AML_DEBUG_RATE,"i=%d,rates=0x%x\n ", i, tx_rrs.rates[i]);
+        AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"i=%d,rates=0x%x\n ", i, tx_rrs.rates[i]);
     }
 
     /* Intersection (SRC TX & DST RX) and (SRC RX & DST TX) */ 
@@ -599,10 +599,10 @@ int wifi_mac_setup_vht_rates(struct wifi_station *sta,
         memcpy( &rx_irs, &tx_rrs,  sizeof(struct wifi_mac_vht_rate_s) );
     }
 
-    DPRINTF(AML_DEBUG_RATE,"Negotiated Tx VHT rates num_streams=%d\n",tx_irs.num_streams);
+    AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"Negotiated Tx VHT rates num_streams=%d\n",tx_irs.num_streams);
     for( i=0; i<tx_irs.num_streams; i++)
     {
-        DPRINTF(AML_DEBUG_RATE,"i=%d,rates=0x%x\n ", i, tx_irs.rates[i]);
+        AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"i=%d,rates=0x%x\n ", i, tx_irs.rates[i]);
     }
 
     if( tx_irs.rates[tx_irs.num_streams-1] == VHT_MCS0_MC9 )
@@ -611,7 +611,7 @@ int wifi_mac_setup_vht_rates(struct wifi_station *sta,
         {
             /*set mcs0 - mcs9 */
             sta->sta_vhtrates.dot11_rate[i] = i;
-            DPRINTF(AML_DEBUG_RATE,"i =%d,dot11_rate=0x%x\n", i, sta->sta_vhtrates.dot11_rate[i]);
+            AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"i =%d,dot11_rate=0x%x\n", i, sta->sta_vhtrates.dot11_rate[i]);
         }
         sta->sta_vhtrates.dot11_rate_num = 10;  
     }
@@ -621,7 +621,7 @@ int wifi_mac_setup_vht_rates(struct wifi_station *sta,
         {
             /*set mcs0 - mcs8*/
             sta->sta_vhtrates.dot11_rate[i] = i;
-            DPRINTF(AML_DEBUG_RATE,"i =%d,dot11_rate=0x%x\n", i, sta->sta_vhtrates.dot11_rate[i]);
+            AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"i =%d,dot11_rate=0x%x\n", i, sta->sta_vhtrates.dot11_rate[i]);
         }
         sta->sta_vhtrates.dot11_rate_num = 9;  
     
@@ -631,17 +631,17 @@ int wifi_mac_setup_vht_rates(struct wifi_station *sta,
         for( i = 0; i<8; i++ )
         {
             sta->sta_vhtrates.dot11_rate[i] = i;
-            DPRINTF(AML_DEBUG_RATE,"i =%d,dot11_rate=0x%x\n", i, sta->sta_vhtrates.dot11_rate[i]);
+            AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"i =%d,dot11_rate=0x%x\n", i, sta->sta_vhtrates.dot11_rate[i]);
         }
         sta->sta_vhtrates.dot11_rate_num = 8;  
     }
     else
     {
-        DPRINTF(AML_DEBUG_RATE,"Negotiated Tx VHT rates error\n");
+        AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"Negotiated Tx VHT rates error\n");
          for( i = 0; i<8; i++ )
         {
             sta->sta_vhtrates.dot11_rate[i] = i;
-            DPRINTF(AML_DEBUG_RATE,"i =%d,dot11_rate=0x%x\n", i, sta->sta_vhtrates.dot11_rate[i]);
+            AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"i =%d,dot11_rate=0x%x\n", i, sta->sta_vhtrates.dot11_rate[i]);
         }
         sta->sta_vhtrates.dot11_rate_num = 8; 
         
@@ -656,19 +656,19 @@ int wifi_mac_setup_vht_rates(struct wifi_station *sta,
     {
         if (!wifi_mac_vht_basic_rate_check(&tx_irs, &brs)) 
         {
-             DPRINTF(AML_DEBUG_RATE,"%s: Mismatch in Tx basic rate set\n", __func__);
+            AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_WARN," Mismatch in Tx basic rate set\n");
              return 0;
         }
 
         if (!wifi_mac_vht_basic_rate_check(&rx_irs, &brs))
         {
-              DPRINTF(AML_DEBUG_RATE,"%s: Mismatch in Rx basic rate set\n", __func__);
+              AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_WARN," Mismatch in Rx basic rate set\n");
              return 0;
         }
  
     }
     
-    DPRINTF(AML_DEBUG_RATE,"Negotiated: txrates = %x rxrates = %x\n", sta->sta_tx_vhtrates, sta->sta_rx_vhtrates);
+    AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"Negotiated: txrates = %x rxrates = %x\n", sta->sta_tx_vhtrates, sta->sta_rx_vhtrates);
     return 1;
 
 }
@@ -752,15 +752,14 @@ void wifi_mac_rate_init(void * ieee,
 
     if (mode >= WIFINET_MODE_MAX)
     {
-        DPRINTF( AML_DEBUG_ANY, "%s: unsupported mode %u\n",
-                 __func__, mode);
+        AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_ERROR, "unsupported mode %u\n", mode);
         return;
     }
 
     if (rt->rateCount > WIFINET_RATE_MAXSIZE)
     {
-        DPRINTF( AML_DEBUG_ANY,"%s: rate table too small (%u > %u)\n",
-            __func__, rt->rateCount, WIFINET_RATE_MAXSIZE);
+        AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_INFO," rate table too small (%u > %u)\n",
+             rt->rateCount, WIFINET_RATE_MAXSIZE);
         maxrates = WIFINET_RATE_MAXSIZE;
     }
     else
@@ -808,7 +807,7 @@ void wifi_mac_rate_init(void * ieee,
         }
     }
 
-    AML_OUTPUT("maxrates %d mode %d \n", maxrates,mode);
+    AML_PRINT_LOG_INFO("maxrates %d mode %d \n", maxrates,mode);
 }
 
 int wifi_mac_iserp_rateset(struct wifi_mac *wifimac, struct wifi_mac_rateset *rs)

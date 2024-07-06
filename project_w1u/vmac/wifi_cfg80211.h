@@ -96,6 +96,8 @@ enum vendor_event {
     event_max,
 };
 
+#define IW_CMD_PARAMETER_TWO	2
+
 enum vm_vendor_command_attr{
     VM_NL80211_VENDER_CMD_ID_NONE,
     VM_NL80211_VENDER_SUBCMD_AMSDU=0x01,

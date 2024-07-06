@@ -421,7 +421,7 @@ static inline void vm_p2p_set_role(struct wifi_mac_p2p *p2p, enum NET80211_P2P_R
     if (p2p->p2p_role != p2p_role)
     {
         p2p->p2p_role = p2p_role;
-        DPRINTF(AML_DEBUG_ANY, "%s %d p2p_role =%d\n", __func__, __LINE__, p2p_role);
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_INFO, "p2p_role =%d\n", p2p_role);
         if( p2p->p2p_role == NET80211_P2P_ROLE_DEVICE)
         {
             p2p->oper_channel = 0;

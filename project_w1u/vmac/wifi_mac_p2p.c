@@ -108,7 +108,7 @@ int vm_p2p_update_noa_ie (struct wifi_mac_p2p *p2p)
     }
     else
     {
-       AML_PRINT(AML_DBG_MODULES_P2P,"clear noa ie\n");
+       AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"clear noa ie\n");
     }
     wifi_mac_save_app_ie(noa_beacon_ie, p2p_ie, p2p_len);
     ret = vm_p2p_update_beacon_app_ie(p2p->wnet_vif);
@@ -145,7 +145,7 @@ int vm_p2p_noa_start(struct wifi_mac_p2p *p2p, const struct p2p_noa *noa)
             ps_trigger_timeout_backup = 0;
         }
     }
-    AML_PRINT(AML_DBG_MODULES_P2P,"beacon_interval=%d count=%d duration=%d interval=%d start=%d\n",
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"beacon_interval=%d count=%d duration=%d interval=%d start=%d\n",
               beacon_interval, l_noa->count,
              l_noa->duration, l_noa->interval, l_noa->start);
     if (l_noa->count)
@@ -156,8 +156,8 @@ int vm_p2p_noa_start(struct wifi_mac_p2p *p2p, const struct p2p_noa *noa)
             (l_noa->duration + P2P_NOA_DURATION_MIN >= l_noa->interval) ||
             (l_noa->interval > 3 * beacon_interval * TU_DURATION)))
         {
-            DPRINTF(AML_DEBUG_WARNING, "%s %d duration=%d  interval=%d beacon_interval=%d, opps ignore\n",
-                    __func__, __LINE__, l_noa->duration, l_noa->interval, beacon_interval);
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_WARN, "duration=%d  interval=%d beacon_interval=%d, opps ignore\n",
+                    l_noa->duration, l_noa->interval, beacon_interval);
             return P2P_NOA_IGNORE;
         }
         p2p->HiP2pNoaCountNow = (l_noa->count << 1);
@@ -187,7 +187,7 @@ int vm_p2p_noa_start(struct wifi_mac_p2p *p2p, const struct p2p_noa *noa)
         ltsf = (unsigned int)tsf;
         next_tbtt = roundup(ltsf, beacon_interval*TU_DURATION);
         l_noa->start = next_tbtt + (l_noa->interval - l_noa->duration);
-        AML_PRINT(AML_DBG_MODULES_P2P,"tsf=%u %u\n",
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"tsf=%u %u\n",
             (unsigned int)(tsf>>32), ltsf);
     }
 
@@ -203,7 +203,7 @@ int vm_p2p_noa_start(struct wifi_mac_p2p *p2p, const struct p2p_noa *noa)
             p2p->p2p_flag |= P2P_NOA_END_MATCH_BEACON_HI;
         }
     }
-    AML_PRINT(AML_DBG_MODULES_P2P,"interval=%d start=%u flag=0x%x\n",
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"interval=%d start=%u flag=0x%x\n",
              l_noa->interval, l_noa->start, p2p->p2p_flag);
     wifimac->drv_priv->drv_ops.drv_hal_set_p2p_noa_enable(wifimac->drv_priv,wnet_vif->wnet_vif_id, \
             l_noa->duration, l_noa->interval, l_noa->start, l_noa->count, p2p->p2p_flag);
@@ -238,7 +238,7 @@ int vm_p2p_opps_start(struct wifi_mac_p2p *p2p, const union type_ctw_opps_u *ctw
         }
     }
 
-    AML_PRINT(AML_DBG_MODULES_P2P,"beacon_interval=%d ctw_opps=0x%x ctw 0x%x\n",
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"beacon_interval=%d ctw_opps=0x%x ctw 0x%x\n",
             beacon_interval, l_ctw_opps_s->opps,l_ctw_opps_s->ctw);
 
     if (!((wifi_mac_pwrsave_is_sta_sleeping(wnet_vif) ==0)
@@ -246,7 +246,7 @@ int vm_p2p_opps_start(struct wifi_mac_p2p *p2p, const union type_ctw_opps_u *ctw
     {
         p2p->noa_index = 0;
         p2p->ctw_opps_u.ctw_opps_u8 = 0;
-        AML_PRINT(AML_DBG_MODULES_P2P,"mode=%d cannot opps\n",
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"mode=%d cannot opps\n",
                  wnet_vif->vm_opmode);
         return P2P_OPPS_IGNORE;
     }
@@ -258,12 +258,12 @@ int vm_p2p_opps_start(struct wifi_mac_p2p *p2p, const union type_ctw_opps_u *ctw
 
         if ((ctw < P2P_OPPS_CTW_MIN) || (ctw+P2P_OPPS_CTW_MIN > beacon_interval))
         {
-            DPRINTF(AML_DEBUG_WARNING,
-                    "%s %d ctw=%d  beacon_interval=%d, opps ignore\n",
-                    __func__, __LINE__, ctw, beacon_interval);
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_WARN,
+                    "ctw=%d  beacon_interval=%d, opps ignore\n",
+                    ctw, beacon_interval);
             return P2P_OPPS_IGNORE;
         }
-        AML_PRINT(AML_DBG_MODULES_P2P,"wait_bcn_timer %d ctwindow %d\n",
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"wait_bcn_timer %d ctwindow %d\n",
                 wnet_vif->vm_pwrsave.ips_ps_waitbeacon_timeout,
                 (l_ctw_opps_s->ctw*TU_DURATION)/1000);
 
@@ -352,8 +352,8 @@ vm_p2p_get_noa_param (const unsigned char *pnoa,
 
     if (ctw_opps_u.ctw_opps_s.opps && !(ctw_opps_u.ctw_opps_s.ctw))
     {
-        DPRINTF(AML_DEBUG_ERROR, "%s %d noa opps=%d ctw=%d error\n",
-                __func__, __LINE__, ctw_opps_u.ctw_opps_s.opps, ctw_opps_u.ctw_opps_s.ctw);
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_ERROR, "noa opps=%d ctw=%d error\n",
+                ctw_opps_u.ctw_opps_s.opps, ctw_opps_u.ctw_opps_s.ctw);
         return -1;
     }
 
@@ -361,7 +361,7 @@ vm_p2p_get_noa_param (const unsigned char *pnoa,
     {
         if (len != 15)
         {
-            DPRINTF(AML_DEBUG_ERROR, "%s noa len=%d error\n", __func__, len);
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_ERROR, " noa len=%d error\n", len);
             return -1;
         }
         noa.count = *p;
@@ -378,7 +378,7 @@ vm_p2p_get_noa_param (const unsigned char *pnoa,
 
         if (!noa.count)
         {
-            DPRINTF(AML_DEBUG_ERROR, "%s noa count=%d error\n", __func__, count);
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_ERROR, " noa count=%d error\n", count);
             return -1;
         }
 
@@ -413,21 +413,21 @@ int vm_p2p_client_parse_noa_ie (struct wifi_mac_p2p *p2p, const unsigned char *p
             {
                 p2p->p2p_flag &= (~P2P_NOA_INDEX_INIT_FLAG);
                 p2p->noa_index = index;
-                AML_PRINT(AML_DBG_MODULES_P2P,"first GO noa index=%d\n", index);
+                AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"first GO noa index=%d\n", index);
             }
             else if (p2p->noa_index != index)
             {
-                AML_PRINT(AML_DBG_MODULES_P2P,"index=%d->%d\n", p2p->noa_index, index);
+                AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"index=%d->%d\n", p2p->noa_index, index);
                 p2p->noa_index = index;
             }
             else
             {
-                AML_PRINT(AML_DBG_MODULES_P2P, "noa start err\n");
+                AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "noa start err\n");
                 break;
             }
 
             if (p2p->p2p_negotiation_state == NET80211_P2P_STATE_GO_COMPLETE) {
-                AML_PRINT(AML_DBG_MODULES_P2P,"ctw_opps_u8:%d\n", ctw_opps_u.ctw_opps_u8);
+                AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"ctw_opps_u8:%d\n", ctw_opps_u.ctw_opps_u8);
                 vm_p2p_noa_start(p2p, &noa);
                 vm_p2p_opps_start(p2p, &ctw_opps_u);
             }
@@ -436,7 +436,7 @@ int vm_p2p_client_parse_noa_ie (struct wifi_mac_p2p *p2p, const unsigned char *p
     }
     else  if (!(p2p->p2p_flag & P2P_NOA_INDEX_INIT_FLAG))
     {
-        AML_PRINT(AML_DBG_MODULES_P2P,"GO cancel noa ie\n");
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"GO cancel noa ie\n");
         p2p->p2p_flag |= P2P_NOA_INDEX_INIT_FLAG;
         vm_p2p_client_cancel_opps(p2p);
         vm_p2p_client_cancel_noa(p2p);
@@ -501,7 +501,7 @@ int vm_p2p_update_noa_count_start (struct wifi_mac_p2p *p2p)
                 {
                     break;
                 }
-                DPRINTF(AML_DEBUG_P2P, "%s %d found noa in our beacon\n", __func__, __LINE__);
+                AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "found noa in our beacon\n");
                 break;
             }
             else
@@ -528,7 +528,7 @@ int vm_p2p_update_noa_count_start (struct wifi_mac_p2p *p2p)
         if (p2p_noa_start_time_cond(next_tbtt, p2p->noa.start+P2P_NOA_START_TIME_WRAP)
             & P2P_NOA_START_IN_PAST)
         {
-            AML_OUTPUT("noa_len %d, count=%d\n",
+            AML_PRINT_LOG_INFO("noa_len %d, count=%d\n",
                 wnet_vif->app_ie[WIFINET_APPIE_FRAME_BEACON].length, p2p->noa.count);
             wnet_vif->vm_p2p->noa_index ++;
             p2p->noa.start += P2P_NOA_START_TIME_WRAP;
@@ -575,7 +575,7 @@ unsigned char *vm_get_wfd_ie(unsigned char *in_ie,
     unsigned char *wfd_ie_ptr = NULL;
     unsigned char eid;
 
-    AML_PRINT(AML_DBG_MODULES_P2P,"in_len=%d\n", in_len);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"in_len=%d\n", in_len);
 
 
     ASSERT(wfd_ielen != NULL);
@@ -688,7 +688,7 @@ unsigned int vm_wfd_add_beacon_ie(struct wifi_mac_p2p *p2p, unsigned char *frm)
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
     unsigned short devinfo = 0;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
     //memset(frm, 0, _len);
     wfdie[0] = WIFINET_ELEMID_VENDOR;
@@ -736,7 +736,7 @@ unsigned int vm_wfd_add_probereq_ie(struct wifi_mac_p2p *p2p, unsigned char *frm
     unsigned int wfdielen = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
 
     //memset(frm, 0, _len);
@@ -776,7 +776,7 @@ unsigned int vm_wfd_add_probersp_ie(struct wifi_mac_p2p *p2p, unsigned char *frm
     unsigned int  wfdielen = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
 
     //memset(frm, 0, _len);
@@ -860,7 +860,7 @@ unsigned int vm_wfd_add_assocreq_ie(struct wifi_mac_p2p *p2p, unsigned char *frm
     unsigned int  wfdielen = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
 
     //memset(frm, 0, _len);
@@ -890,7 +890,7 @@ unsigned int vm_wfd_add_assocrsp_ie(struct wifi_mac_p2p *p2p, unsigned char *frm
     unsigned int wfdielen = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
     //memset(frm, 0, _len);
     wfdie[0] = WIFINET_ELEMID_VENDOR;
@@ -921,7 +921,7 @@ vm_wfd_add_nego_req_ie(struct wifi_mac_p2p *p2p, unsigned char *wfdie)
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
 
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
 
     //memset(frm, 0, _len);
@@ -950,7 +950,7 @@ vm_wfd_add_nego_resp_ie(struct wifi_mac_p2p *p2p, unsigned char *wfdie)
     unsigned int wfdielen = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
 
     //memset(frm, 0, _len);
@@ -980,7 +980,7 @@ vm_wfd_add_nego_confirm_ie(struct wifi_mac_p2p *p2p, unsigned char *wfdie)
     unsigned int wfdielen = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
 
     //memset(frm, 0, _len);
@@ -1012,7 +1012,7 @@ vm_wfd_add_invitation_req_ie(struct wifi_mac_p2p *p2p, unsigned char *wfdie)
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
 
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
     //memset(frm, 0, _len);
     wfdie[0] = WIFINET_ELEMID_VENDOR;
@@ -1046,7 +1046,7 @@ vm_wfd_add_invitation_resp_ie(struct wifi_mac_p2p *p2p, unsigned char *wfdie)
     unsigned int wfdielen = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
 
     wfdie[0] = WIFINET_ELEMID_VENDOR;
@@ -1079,7 +1079,7 @@ vm_wfd_add_provdisc_req_ie(struct wifi_mac_p2p *p2p, unsigned char *wfdie)
     unsigned int wfdielen = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
 
     //memset(frm, 0, _len);
@@ -1111,7 +1111,7 @@ vm_wfd_add_provdisc_resp_ie(struct wifi_mac_p2p *p2p, unsigned char *wfdie)
     unsigned int wfdielen = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
     struct wifi_mac_wfd_info   *pwfdinfo = &p2p->wfd_info;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
 
     //memset(frm, 0, _len);
@@ -1149,10 +1149,10 @@ unsigned int vm_wfd_add_ie(struct wlan_net_vif *wnet_vif,
 
     if (pwfdinfo->wfd_enable == false)
     {
-        AML_PRINT(AML_DBG_MODULES_P2P,"wfd not enable \n");
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"wfd not enable \n");
         return len;
     }
-    AML_PRINT(AML_DBG_MODULES_P2P,"ACT_P2P, category=%x action=%x, dialog_token %x\n",
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"ACT_P2P, category=%x action=%x, dialog_token %x\n",
             p2p_pub_act->category, p2p_pub_act->action,p2p_pub_act->dialog_token);
 
 
@@ -1162,7 +1162,7 @@ unsigned int vm_wfd_add_ie(struct wlan_net_vif *wnet_vif,
         {
             if ( p2p_pub_act->action == WIFINET_ACT_PUBLIC_P2P)
             {
-                AML_PRINT(AML_DBG_MODULES_P2P,"p2p_public_action %s \n",
+                AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"p2p_public_action %s \n",
                         p2p_public_action_tmp[p2p_pub_act->subtype]);
                 switch (p2p_pub_act->subtype)
                 {
@@ -1212,7 +1212,7 @@ unsigned int vm_wfd_add_ie(struct wlan_net_vif *wnet_vif,
             }
             else
             {
-                AML_PRINT(AML_DBG_MODULES_P2P,"p2p_public_action not p2p action\n");
+                AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"p2p_public_action not p2p action\n");
             }
         }
         break;
@@ -1225,11 +1225,11 @@ unsigned int vm_wfd_add_ie(struct wlan_net_vif *wnet_vif,
                 case P2P_PRESENCE_REQ:
                 case P2P_PRESENCE_RESP:
                 case P2P_GO_DISC_REQ:
-                    AML_PRINT(AML_DBG_MODULES_P2P,"p2p_public_action %s \n",
+                    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"p2p_public_action %s \n",
                             p2p_action_tmp[p2p_pub_act->subtype]);
                     break;
                 default:
-                    AML_PRINT(AML_DBG_MODULES_P2P,"ACTION_CAT subtype %d UNKNOWN\n",
+                    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"ACTION_CAT subtype %d UNKNOWN\n",
                             p2p_act->subtype);
                     break;
             }
@@ -1237,7 +1237,7 @@ unsigned int vm_wfd_add_ie(struct wlan_net_vif *wnet_vif,
         break;
         default:
         {
-           AML_PRINT(AML_DBG_MODULES_P2P,"not p2p action frame category=%d\n",
+           AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"not p2p action frame category=%d\n",
                     p2p_pub_act->category);
         }
         break;
@@ -1538,7 +1538,7 @@ void vm_set_p2pie_channelList(struct wifi_mac_p2p *p2p ,
     struct p2p_ie_chan_list_attr *chan_list_attr = NULL;
     struct p2p_ie_chanlist_attr_chan_entry * chan_entry = NULL;
 
-    AML_PRINT(AML_DBG_MODULES_P2P,"channel = %d\n", channel);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"channel = %d\n", channel);
 
     p2p_ie = vm_get_p2p_ie( frm, len, NULL, &p2p_ielen );
 
@@ -1603,7 +1603,7 @@ vm_change_p2pie_operchannel(struct wifi_mac_p2p *p2p, const unsigned char *frm, 
             operate_chan_attr = (struct p2p_ie_operate_chan_attr *)(pattr - 3);
             operate_chan_attr->operat_class = vm_get_p2pie_oper_class(p2p);
             operate_chan_attr->channel = main_vmac_chan->chan_pri_num;
-            AML_PRINT(AML_DBG_MODULES_P2P, "channel=%d\n", operate_chan_attr->channel);
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "channel=%d\n", operate_chan_attr->channel);
         }
 
         if (ielt_len <= 2 + (p2p_ie -frm + p2p_ielen))
@@ -1627,17 +1627,17 @@ void vm_change_p2pie_listenchannel(struct wifi_mac_p2p *p2p , const unsigned cha
         return;
     }
     wifimac = p2p->wnet_vif->vm_wmac;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
     p2p_ie = vm_get_p2p_ie( frm, len, NULL, &p2p_ielen );
     while (p2p_ie != NULL)
     {
-        //DPRINTF(AML_DEBUG_P2P,"%s %d \n", __func__, __LINE__);
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG," \n");
 
         if ((pattr = vm_p2p_get_p2pie_attrib(p2p_ie,  P2P_ATTR_LISTEN_CHANNEL))!=NULL)
         {
             listen_chan_attr = (struct p2p_ie_listen_chan_attr *)(pattr-3);
             listen_chan_attr->channel = p2p->wnet_vif->vm_curchan->chan_pri_num;
-            AML_PRINT(AML_DBG_MODULES_P2P,"channel = %d\n",
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"channel = %d\n",
                     p2p->wnet_vif->vm_curchan->chan_pri_num);
         }
 
@@ -1664,7 +1664,7 @@ vm_get_p2p_ie(const unsigned char *in_ie, unsigned int in_len,
     unsigned int cnt = 0;
     unsigned char eid;
 
-    AML_PRINT(AML_DBG_MODULES_P2P,"in_len=%d\n", in_len);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"in_len=%d\n", in_len);
 
 
     ASSERT(p2p_ielen != NULL);
@@ -1737,7 +1737,7 @@ vm_change_p2pie_go_intent(struct wifi_mac_p2p *p2p, const unsigned char *frm, un
                     intent_attr->go_intent &= ~0x1e;
                 }
             }
-            AML_PRINT(AML_DBG_MODULES_P2P, "p2p_action_type:%d, go_intent=%d\n", p2p_action_type, intent_attr->go_intent);
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "p2p_action_type:%d, go_intent=%d\n", p2p_action_type, intent_attr->go_intent);
         }
 
         if (ielt_len <= 2 + (p2p_ie -frm + p2p_ielen))
@@ -1755,10 +1755,10 @@ unsigned char *vm_p2p_get_p2pie_attrib(const void *frm, unsigned char element_id
     unsigned char subelt_id;
     unsigned short subelt_len;
 
-    //DPRINTF(AML_DEBUG_P2P,"%s\n", __func__);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG," \n");
     if (!frm)
     {
-        ERROR_DEBUG_OUT("frm=NULL error\n");
+        AML_PRINT_LOG_ERR("frm=NULL error\n");
         return NULL;
     }
 
@@ -1814,7 +1814,7 @@ void vm_p2p_print_attr(const void *frm)
 
     if (!frm)
     {
-        ERROR_DEBUG_OUT("frm = NULL error\n");
+        AML_PRINT_LOG_ERR("frm = NULL error\n");
         return;
     }
     if (READ_32B((unsigned char *)(frm + 2)) == WFD_OUI_BE)
@@ -1822,7 +1822,7 @@ void vm_p2p_print_attr(const void *frm)
         frm += *(unsigned char *)(frm + 1) + 2;
         if (!frm || (*(unsigned char *)(frm) != WIFINET_ELEMID_VENDOR))
         {
-            ERROR_DEBUG_OUT("frm = NULL error\n");
+            AML_PRINT_LOG_ERR("frm = NULL error\n");
             return;
         }
     }
@@ -1844,11 +1844,11 @@ void vm_p2p_print_attr(const void *frm)
 
         len -= 2;
         len -= subelt_len;
-        AML_PRINT(AML_DBG_MODULES_P2P, "chris p2p ie: %02x:%04x: ", subelt_id, subelt_len);
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "chris p2p ie: %02x:%04x: ", subelt_id, subelt_len);
         for (i = 0; i < subelt_len; ++i) {
-            AML_PRINT(AML_DBG_MODULES_P2P, "%02x ", *(subel + i));
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "%02x ", *(subel + i));
         }
-        AML_PRINT(AML_DBG_MODULES_P2P, "\n");
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "\n");
 
         subel += subelt_len;
     }
@@ -1863,9 +1863,9 @@ void vm_p2p_print_buf(const void *frm, int len)
     unsigned char *ie = (unsigned char *)frm;
     for (i = 0; i < len; i++)
     {
-        AML_OUTPUT("---%02x\n", *(ie + i));
+        AML_PRINT_LOG_INFO("---%02x\n", *(ie + i));
         if (i % 10 == 0)
-            AML_OUTPUT("\n");
+            AML_PRINT_LOG_INFO("\n");
     }
 }
 #endif
@@ -2031,7 +2031,7 @@ void set_p2p_negotiation_status(struct wifi_station *sta, enum NET80211_P2P_NEGO
     if ((wnet_vif != NULL) && (wnet_vif->vm_p2p_support)) {
         p2p = wnet_vif->vm_p2p;
         p2p->p2p_negotiation_state = status;
-        AML_OUTPUT("p2p_negotiation_state:%d\n", p2p->p2p_negotiation_state);
+        AML_PRINT_LOG_INFO("p2p_negotiation_state:%d\n", p2p->p2p_negotiation_state);
     }
 }
 
@@ -2047,7 +2047,7 @@ unsigned char is_p2p_negotiation_complete(struct wifi_mac *wifimac) {
             && (p2p->p2p_negotiation_state < NET80211_P2P_STATE_GO_COMPLETE)) {
             return 1;
         }
-        AML_OUTPUT("p2p_negotiation_state:%d\n", p2p->p2p_negotiation_state);
+        AML_PRINT_LOG_INFO("p2p_negotiation_state:%d\n", p2p->p2p_negotiation_state);
     }
 
     return 0;
@@ -2060,7 +2060,7 @@ unsigned char is_need_process_p2p_action(unsigned char* buf) {
     char category = *(buf + sizeof(struct wifi_frame));
     p2p_act = (struct wifi_mac_p2p_action_frame *)(buf + sizeof(struct wifi_frame));
     p2p_pub_act = (struct wifi_mac_p2p_pub_act_frame *)(buf + sizeof(struct wifi_frame));
-    AML_PRINT(AML_DBG_MODULES_P2P, "category:%d, subtype:%d, action:%d\n", category, p2p_act->subtype, p2p_pub_act->action);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "category:%d, subtype:%d, action:%d\n", category, p2p_act->subtype, p2p_pub_act->action);
     switch(category) {
         case AML_CATEGORY_P2P:
             if (p2p_act->subtype == P2P_PRESENCE_REQ
@@ -2241,7 +2241,7 @@ int vm_p2p_parse_negotiation_frames(struct wifi_mac_p2p *p2p,
 
     printbuf = ZMALLOC(128, "printbuf", GFP_ATOMIC);
     if (printbuf == NULL) {
-        DPRINTF(AML_DEBUG_ERROR,"%s %d\n", __func__, __LINE__);
+        AML_PRINT(AML_LOG_ID_P2P,AML_LOG_LEVEL_ERROR,"\n");
         return -ENOMEM;
     }
     buflen += sprintf(printbuf+buflen, "%s ACT_P2P %s ", __func__, (tx)?"Tx":"Rx");
@@ -2253,20 +2253,20 @@ int vm_p2p_parse_negotiation_frames(struct wifi_mac_p2p *p2p,
                 is_p2p_frame = true;
                 buflen += sprintf(printbuf+buflen, "%s>%s dialog_token=%d", tx?"tx":"rx",
                     p2p_public_action_tmp[p2p_pub_act->subtype], p2p_pub_act->dialog_token);
-                AML_OUTPUT("%s\n", printbuf);
+                AML_PRINT_LOG_INFO("%s\n", printbuf);
 
             } else {
-                 AML_PRINT(AML_DBG_MODULES_P2P,"p2p_public_action not p2p action\n");
+                 AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"p2p_public_action not p2p action\n");
             }
             break;
 
         case AML_CATEGORY_P2P:
             is_p2p_frame = true;
-            AML_PRINT(AML_DBG_MODULES_P2P,"AML_CATEGORY_P2P:%d\n", p2p_act->subtype);
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"AML_CATEGORY_P2P:%d\n", p2p_act->subtype);
             break;
 
         default:
-            AML_PRINT(AML_DBG_MODULES_P2P," not p2p action frame category=%d\n", p2p_pub_act->category);
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG," not p2p action frame category=%d\n", p2p_pub_act->category);
             break;
     }
 
@@ -2309,7 +2309,7 @@ void vm_p2p_scanstart(struct wiphy *wiphy, struct net_device *ndev,
 
     if (request->n_ssids == 0)
     {
-        DPRINTF(AML_DEBUG_ERROR|AML_DEBUG_SCAN,"%s  ssids->ssid == NULL ERR\n", __func__);
+        AML_PRINT(AML_LOG_ID_SCAN, AML_LOG_LEVEL_ERROR,"ssids->ssid == NULL ERR\n");
         return ;
     }
 
@@ -2330,13 +2330,13 @@ void vm_p2p_scanstart(struct wiphy *wiphy, struct net_device *ndev,
             request->channels[2]->center_freq == SOCIAL_CHAN_3)
         {
             p2p->social_channel = 1;
-            AML_PRINT(AML_DBG_MODULES_P2P,
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,
                     "use social channel\n");
         }
         else
         {
             p2p->social_channel = 0;
-            AML_PRINT(AML_DBG_MODULES_P2P,"not use social channel\n");
+            AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"not use social channel\n");
         }
     }
 
@@ -2350,7 +2350,7 @@ void vm_p2p_scanend(struct wifi_mac_p2p *p2p)
 {
     vm_p2p_set_state(p2p, NET80211_P2P_STATE_IDLE);
     p2p->social_channel = 0;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 }
 
 
@@ -2366,7 +2366,7 @@ static void vm_p2p_generate_bss_mac(unsigned char *primary_addr,
 
     memcpy(out_interface_addr, out_dev_addr, WIFINET_ADDR_LEN);
     out_interface_addr[4] ^= 0x80;
-    AML_PRINT(AML_DBG_MODULES_P2P,"p2p_mac_addr %s\n",
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"p2p_mac_addr %s\n",
             ether_sprintf(out_interface_addr));
 
 }
@@ -2376,11 +2376,11 @@ unsigned int vm_p2p_rx_assocreq(struct wifi_mac_p2p *p2p,
 {
     unsigned char *p2p_attr=NULL;
     unsigned short cap_attr=0;
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
     if (!vm_p2p_chk_p2p_role(p2p, NET80211_P2P_ROLE_GO))
     {
-        AML_PRINT(AML_DBG_MODULES_P2P,"p2p role=%d\n",
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"p2p role=%d\n",
                  vm_p2p_role(p2p));
         return P2P_SC_FAIL_UNABLE_TO_ACCOMMODATE;
     }
@@ -2388,7 +2388,7 @@ unsigned int vm_p2p_rx_assocreq(struct wifi_mac_p2p *p2p,
     if (p2pie == NULL)
     {
 
-        AML_PRINT(AML_DBG_MODULES_P2P,"rx legacy sta assocreq\n");
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"rx legacy sta assocreq\n");
         //return P2P_SC_FAIL_INVALID_PARAMS;
         return P2P_SC_SUCCESS;
     }
@@ -2396,14 +2396,14 @@ unsigned int vm_p2p_rx_assocreq(struct wifi_mac_p2p *p2p,
     p2p_attr = vm_p2p_get_p2pie_attrib(p2pie,P2P_ATTR_CAPABILITY);
     if (p2p_attr)
     {
-         AML_PRINT(AML_DBG_MODULES_P2P,"Got  P2P_ATTR_CAPABILITY !!\n");
+         AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"Got  P2P_ATTR_CAPABILITY !!\n");
         cap_attr = *(unsigned short *)p2p_attr;
         sta->sta_p2p_dev_cap = le16_to_cpu(cap_attr)&0xff;
     }
     p2p_attr = vm_p2p_get_p2pie_attrib(p2pie,P2P_ATTR_DEVICE_INFO);
     if (p2p_attr)
     {
-        AML_PRINT(AML_DBG_MODULES_P2P," Got P2P_ATTR_DEVICE_INFO !!\n");
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG," Got P2P_ATTR_DEVICE_INFO !!\n");
         memcpy(sta->sta_p2p_dev_addr, p2p_attr, WIFINET_ADDR_LEN);
         p2p_attr += WIFINET_ADDR_LEN;
         memcpy(&sta->sta_p2p_config_methods, p2p_attr, 2);
@@ -2419,7 +2419,7 @@ unsigned int vm_p2p_rx_assocreq(struct wifi_mac_p2p *p2p,
 unsigned int
 vm_p2p_discover_listen(struct wifi_mac_p2p *p2p, int channel, unsigned int duration_ms)
 {
-    AML_PRINT(AML_DBG_MODULES_P2P,"Enter Channel : %d, Duration : %d\n",
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"Enter Channel : %d, Duration : %d\n",
             channel, duration_ms);
     if (!vm_p2p_enabled(p2p))
     {
@@ -2439,7 +2439,7 @@ vm_p2p_discover_listen(struct wifi_mac_p2p *p2p, int channel, unsigned int durat
 
 void vm_p2p_cancel_remain_channel(struct wifi_mac_p2p *p2p )
 {
-    AML_PRINT(AML_DBG_MODULES_P2P, "++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "++\n");
     if (os_timer_ex_active(&(p2p->listen_timer)))
     {
         os_timer_ex_cancel(&(p2p->listen_timer), CANCEL_SLEEP);
@@ -2455,8 +2455,8 @@ void vm_p2p_cancel_remain_channel(struct wifi_mac_p2p *p2p )
         cfg80211_remain_on_channel_expired(p2p->wnet_vif->vm_wdev, p2p->remain_on_ch_cookie,
             &p2p->remain_on_ch_channel, GFP_KERNEL);
 
-        DPRINTF(AML_DEBUG_CFG80211, "%s %d <%s> cancel WIFINET_F_NOSCAN\n",
-                __func__, __LINE__, VMAC_DEV_NAME(p2p->wnet_vif));
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "<%s> cancel WIFINET_F_NOSCAN\n",
+                VMAC_DEV_NAME(p2p->wnet_vif));
     }
 
     if (p2p->need_restore_bsschan != REASON_RESOTRE_BSSCHAN_NONE) {
@@ -2484,7 +2484,7 @@ static int vm_p2p_listen_timer_expired(void* data)
     struct wlan_net_vif  *wnet_vif=   p2p->wnet_vif;
     struct wifi_mac *wifimac  =   wnet_vif->vm_wmac;
 
-    AML_PRINT(AML_DBG_MODULES_P2P,"++\n");
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"++\n");
 
     wifi_mac_add_work_task(wifimac,vm_p2p_listen_timer_expired_ex, NULL,(SYS_TYPE)data,0,0,0,0 );
     return OS_TIMER_NOT_REARMED;
@@ -2495,7 +2495,7 @@ int vm_p2p_initial(struct wifi_mac_p2p *p2p)
     int index = 0;
     struct wlan_net_vif *wnet_vif = p2p->wnet_vif;
 
-    AML_OUTPUT("\n");
+    AML_PRINT_LOG_INFO("\n");
 #ifdef CONFIG_WFD
     vm_wfd_initial(p2p);
 #endif //CONFIG_WFD
@@ -2533,7 +2533,7 @@ int vm_p2p_attach(struct wlan_net_vif *wnet_vif)
     struct wifi_mac_p2p *p2p = &pwdev_priv->p2p;
     int index = 0;
 
-    DPRINTF(AML_DEBUG_WARNING, "%s ++\n", __func__);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_INFO, " ++\n" );
     p2p->wnet_vif = wnet_vif;
     p2p->p2p_role=NET80211_P2P_ROLE_DEVICE;
     p2p->need_restore_bsschan = REASON_RESOTRE_BSSCHAN_NONE;
@@ -2569,7 +2569,7 @@ void vm_p2p_dettach(void *vm_wdev_priv_ptr)
     struct vm_wdev_priv *pwdev_priv = (struct vm_wdev_priv *)vm_wdev_priv_ptr;
     struct wifi_mac_p2p *p2p = &pwdev_priv->p2p;
 
-    DPRINTF(AML_DEBUG_WARNING,"<exit>%s ++ \n", __func__);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_INFO,"<exit> ++ \n");
 
     vm_p2p_cancel_remain_channel(p2p);
     os_timer_ex_del(&(p2p->listen_timer), CANCEL_SLEEP);
@@ -2587,7 +2587,7 @@ int vm_p2p_up(struct wlan_net_vif *wnet_vif)
     vm_p2p_initial(p2p);
     concurrent_vsdb_init(wnet_vif->vm_wmac);
 
-    AML_OUTPUT("<%s> wnet_vif_id=%d vm_myaddr=%s\n", VMAC_DEV_NAME(wnet_vif), wnet_vif->wnet_vif_id,
+    AML_PRINT_LOG_INFO("<%s> wnet_vif_id=%d vm_myaddr=%s\n", VMAC_DEV_NAME(wnet_vif), wnet_vif->wnet_vif_id,
             ether_sprintf(wnet_vif->vm_myaddr));
 
     vm_p2p_generate_bss_mac(wnet_vif->vm_myaddr, p2p->dev_addr, p2p->interface_addr);
@@ -2606,7 +2606,7 @@ void vm_p2p_down(struct wlan_net_vif *wnet_vif)
     struct vm_wdev_priv *pwdev_priv = wdev_to_priv(wnet_vif->vm_wdev);
     struct wifi_mac_p2p *p2p = &pwdev_priv->p2p;
 
-    AML_OUTPUT("<%s>\n", VMAC_DEV_NAME(wnet_vif));
+    AML_PRINT_LOG_INFO("<%s>\n", VMAC_DEV_NAME(wnet_vif));
     vm_p2p_cancel_remain_channel(p2p);
     vm_p2p_initial(p2p);
     return;

@@ -71,22 +71,16 @@
 #include "wifi_pkt_desc.h"
 #include "rf_d_adda_xmit_reg.h"
 
-extern unsigned long long g_dbg_info_enable;
 extern const char *wifi_mac_state_name[WIFINET_S_MAX];
 
-#define WIFINET_DEBUG_LEVEL (AML_DEBUG_STATE|AML_DEBUG_P2P|AML_DEBUG_CFG80211|AML_DEBUG_WARNING)
-
-#define WIFINET_DPRINTF(_m, _fmt, ...) do {         \
-                if (wnet_vif->vm_debug & (_m))                    \
-                        AML_OUTPUT("<%s> "_fmt"\n", wnet_vif->vm_ndev->name ,__VA_ARGS__);       \
+#define WIFINET_DPRINTF(_m, _level, _fmt, ...) do {         \
+                AML_PRINT(_m,_level, "<%s> "_fmt"\n", wnet_vif->vm_ndev->name ,##__VA_ARGS__);       \
         } while (0)
-#define WIFINET_DPRINTF_MACADDR( _m, _mac, _fmt, ...) do {      \
-                if (wnet_vif->vm_debug & (_m))                    \
-                        AML_OUTPUT("<%s> mac[%s] "_fmt"\n",wnet_vif->vm_ndev->name ,ether_sprintf(_mac),__VA_ARGS__);  \
+#define WIFINET_DPRINTF_MACADDR( _m, _level, _mac, _fmt, ...) do {      \
+                AML_PRINT(_m, _level, "<%s> mac[%s] "_fmt"\n",wnet_vif->vm_ndev->name ,ether_sprintf(_mac),##__VA_ARGS__);  \
         } while (0)
-#define WIFINET_DPRINTF_STA( _m, _sta, _fmt, ...)do {           \
-                if ((_sta)->sta_wnet_vif->vm_debug & (_m))                    \
-                        AML_OUTPUT("<%s> mac[%s] "_fmt"\n", (_sta)->sta_wnet_vif->vm_ndev->name , ether_sprintf((_sta)->sta_macaddr),__VA_ARGS__);  \
+#define WIFINET_DPRINTF_STA( _m, _level, _sta, _fmt, ...)do {           \
+                AML_PRINT(_m, _level, "<%s> mac[%s] "_fmt"\n", (_sta)->sta_wnet_vif->vm_ndev->name , ether_sprintf((_sta)->sta_macaddr),##__VA_ARGS__);  \
         } while (0)
 
 #define BOOL2STR_EFFECT(_bool) (_bool?"enable":"disable")

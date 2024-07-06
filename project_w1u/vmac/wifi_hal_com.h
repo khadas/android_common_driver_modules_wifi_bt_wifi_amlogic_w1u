@@ -41,7 +41,6 @@
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,29)
 #include <linux/wakelock.h>
 #endif
-extern unsigned long long g_dbg_info_enable;
 #endif
 
 #elif defined (HAL_SIM_VER)
@@ -511,6 +510,7 @@ struct  hal_work_task
     unsigned int Tx_Free_num;    //num of tx frames have been freed after tx completed
     unsigned int tx_ok_num;
     unsigned int tx_fail_num;
+    unsigned int avg_tx_fail_num;
     unsigned int Rx_Rcv_num;
     unsigned int PushDownEvent_Err_num;
     unsigned int PushDownCmd_Err_num;
@@ -1033,6 +1033,9 @@ struct hal_layer_ops
     unsigned char dpd_delay_cail;
     unsigned char dpd_wait_pkt_clear;
     unsigned char hal_max_mpdu_num;
+    unsigned char dpd_process_flag;
+    bool g_get_fw_log;
+
 };
 
 /*** aml platform***/

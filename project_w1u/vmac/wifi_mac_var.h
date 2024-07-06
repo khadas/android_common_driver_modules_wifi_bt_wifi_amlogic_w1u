@@ -547,6 +547,7 @@ struct wifi_mac
     unsigned char wm_zgb_exist_flag;
     unsigned int wow_wakeup_reason;
     unsigned char wm_wfa_enable;
+    unsigned char cca_thrd_cfg;
 };
 
 struct wifi_net_vif_ops
@@ -647,7 +648,6 @@ struct wlan_net_vif
     struct wifi_station_tbl vm_sta_tbl;
     struct wifi_mac_wme_state vm_wme;
     struct wifi_net_vif_ops vif_ops;
-    unsigned int vm_debug;
 
     unsigned char wnet_vif_id;
     enum wifi_mac_opmode vm_opmode;
@@ -806,6 +806,8 @@ struct wlan_net_vif
     unsigned char vm_use_static_ip;
     unsigned char vm_static_ipv4[IPV4_LEN];
     unsigned char vm_sae_h2e_only;
+    unsigned char csa_count;
+    unsigned int  regulatory_flags;
 };
 
 #define WIFINET_PSQUEUE_PS4QUIET 0x0001

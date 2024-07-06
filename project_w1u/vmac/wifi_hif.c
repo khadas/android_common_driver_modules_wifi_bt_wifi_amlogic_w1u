@@ -126,7 +126,7 @@ void b2b_rx_throughput_calc(HW_RxDescripter_bit *RxPrivHdr)
             do_gettimeofday(&t_start);
             start = ((long)t_start.tv_sec)*1000+(long)t_start.tv_usec/1000;
 #endif
-            AML_OUTPUT("Rx side:Got the first packet and the start time is :%ld ms.\n",start);
+            AML_PRINT_LOG_INFO("Rx side:Got the first packet and the start time is :%ld ms.\n",start);
             length_start += RxPrivHdr->RxLength;
             length_end += RxPrivHdr->RxLength;
         }
@@ -145,7 +145,7 @@ void b2b_rx_throughput_calc(HW_RxDescripter_bit *RxPrivHdr)
                 throughput = (length_end-length_start)*8/time_cost;
                 start = end;
                 length_start = length_end;
-                AML_OUTPUT("---B2B debug---Rx side: Current throughput: %d kbps.\n\n",throughput);
+                AML_PRINT_LOG_INFO("---B2B debug---Rx side: Current throughput: %d kbps.\n\n",throughput);
             }
         }
     }
@@ -445,7 +445,7 @@ void hi_rx_fifo_init(void)
 
 #endif
     if (g_rx_fifo == NULL)
-        ERROR_DEBUG_OUT("rx fifo alloc failed\n");
+        AML_PRINT_LOG_ERR("rx fifo alloc failed\n");
 
     hif->rx_fifo.FDH = 0;
     hif->rx_fifo.FDT = 0;
@@ -480,7 +480,7 @@ int hi_sdio_setup_scat_data(struct scatterlist *sg_list, struct hi_tx_desc **pTx
 
     if (sg_num > SG_NUM_MAX || sg_num == 0)
     {
-        ERROR_DEBUG_OUT("ERROR: sg_num=%d\n", sg_num);
+        AML_PRINT_LOG_ERR("ERROR: sg_num=%d\n", sg_num);
         return -1;
     }
 
@@ -500,7 +500,7 @@ int hi_sdio_setup_scat_data(struct scatterlist *sg_list, struct hi_tx_desc **pTx
             /*if there is already mpdu in sg list, just send this sg list firstly. */
             if (sg_total_len == 0)
             {
-                ERROR_DEBUG_OUT("mpdu length too large:%d\n", sg_data_size);
+                AML_PRINT_LOG_ERR("mpdu length too large:%d\n", sg_data_size);
             }
             break;
         }
@@ -550,7 +550,7 @@ int hi_tx_frame(struct hi_tx_desc **pTxDPape, unsigned int mpdu_num,  unsigned i
         }
         if (blkcnt <= 0)
         {
-            ERROR_DEBUG_OUT("sg init fail.\n\n");
+            AML_PRINT_LOG_ERR("sg init fail.\n\n");
             ret = -1;
             break;
         }
@@ -559,7 +559,7 @@ int hi_tx_frame(struct hi_tx_desc **pTxDPape, unsigned int mpdu_num,  unsigned i
         {
             if (loop > 4)
             {
-                ERROR_DEBUG_OUT("sg process fail.\n\n");
+                AML_PRINT_LOG_ERR("sg process fail.\n\n");
                 break;
             }
             loop++;
@@ -576,7 +576,7 @@ int hi_tx_frame(struct hi_tx_desc **pTxDPape, unsigned int mpdu_num,  unsigned i
             page_tmp += send_page_num;
             if (page_tmp > page_num)
             {
-                AML_OUTPUT("update host wr ptr failed. page_tmp :%d, all page num%d\n",
+                AML_PRINT_LOG_INFO("update host wr ptr failed. page_tmp :%d, all page num%d\n",
                             page_tmp, page_num);
             }
             hal_priv->tx_page_offset = CIRCLE_Addition2(send_page_num, hal_priv->tx_page_offset, TX_ADDRESSTABLE_NUM);
@@ -590,7 +590,7 @@ int hi_tx_frame(struct hi_tx_desc **pTxDPape, unsigned int mpdu_num,  unsigned i
         else
         {
             /* Theoretically,  sdio shall not transmit failed, if fail and fix it. */
-            AML_OUTPUT("SDIO try re-transmit %d times, but fail\n", loop);
+            AML_PRINT_LOG_INFO("SDIO try re-transmit %d times, but fail\n", loop);
         }
         /*offset for mpdu in pTxDPape list and continue. */
         offset += sg_num;
@@ -703,7 +703,7 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
     if (!wifi_usb_access)
 #endif
     {
-        AML_OUTPUT("recovering downloading firmware\n");
+        AML_PRINT_LOG_INFO("recovering downloading firmware\n");
         return false;
     }
 
@@ -729,9 +729,9 @@ unsigned char hi_set_cmd(unsigned char *pdata,unsigned int len)
         if (loop++>10000)
         {
             if (aml_request_recovery(WIFINET_RECOVERY_SRC_CMD_CRASH) == 0) {
-                AML_OUTPUT("request recovery due to the fifo is always full\n");
+                AML_PRINT_LOG_INFO("request recovery due to the fifo is always full\n");
             }
-            AML_OUTPUT("err-> f_fdh: %d, f_fdt: %d, d_fdh %d \n", hif->hif_ops.hi_read_word(0x00a10038),
+            AML_PRINT_LOG_INFO("err-> f_fdh: %d, f_fdt: %d, d_fdh %d \n", hif->hif_ops.hi_read_word(0x00a10038),
             hif->hif_ops.hi_read_word(0x00a1003c), pCmdDownFifo->FDH);
             PRINT("hi_set_cmd err, cmd=0x%x, vid=0x%x\n", pdata[0], pdata[3]);
 
@@ -853,12 +853,12 @@ void hi_soft_tx_irq(void)
     hal_priv->HalTxPageDoneCounter = hal_priv->txcompletestatus->txpagecounter;
 
     if (hal_priv->bhaltxdrop) {
-        AML_OUTPUT("page:%d, txdoneframecounter:%d, HalTxFrameDoneCounter:%d\n",
+        AML_PRINT_LOG_INFO("page:%d, txdoneframecounter:%d, HalTxFrameDoneCounter:%d\n",
             hal_priv->txPageFreeNum, hal_priv->txcompletestatus->txdoneframecounter, hal_priv->HalTxFrameDoneCounter);
     }
 
 #if defined (HAL_FPGA_VER)
-    AML_PRINT(AML_DBG_MODULES_TX, "txPageFreeNum:%d, HalTxPageDoneCounter:%d\n", hal_priv->txPageFreeNum, hal_priv->HalTxPageDoneCounter);
+    AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG, "txPageFreeNum:%d, HalTxPageDoneCounter:%d\n", hal_priv->txPageFreeNum, hal_priv->HalTxPageDoneCounter);
 #endif
 
     while (hal_priv->txcompletestatus->txdoneframecounter !=  hal_priv->HalTxFrameDoneCounter)
@@ -923,10 +923,10 @@ void hi_soft_fw_event(void)
 
     if (CIRCLE_SUBTRACT(hal_priv->fw_event->event_counter, hal_priv->hal_fw_event_counter, 256) > WIFI_MAX_FW_EVENT)
     {
-        ERROR_DEBUG_OUT("fw_event_counter:%d, hal_event_count:%d\n", hal_priv->fw_event->event_counter, hal_priv->hal_fw_event_counter);
+        AML_PRINT_LOG_ERR("fw_event_counter:%d, hal_event_count:%d\n", hal_priv->fw_event->event_counter, hal_priv->hal_fw_event_counter);
         for (index = 0; index < WIFI_MAX_FW_EVENT; index++)
         {
-            ERROR_DEBUG_OUT("event_type[%d]:%d \n",index,event->event_data[index].data[0]);
+            AML_PRINT_LOG_ERR("event_type[%d]:%d \n",index,event->event_data[index].data[0]);
         }
     }
 
@@ -1032,7 +1032,8 @@ void hi_soft_rx_irq(struct hal_private *hal_priv, unsigned int rx_fw_ptr)
     if ((hal_priv->rx_host_offset == rx_fifo_fw) || !hal_open)
     {
         if (print_cnt++ == 200) {
-            AML_OUTPUT("rx_host_offset:%d, rx_fifo_fw:%d, hal_open:%d\n", hal_priv->rx_host_offset, rx_fifo_fw, hal_open);
+            AML_PRINT(AML_LOG_ID_RECV, AML_LOG_LEVEL_INFO,"rx_host_offset:%d, rx_fifo_fw:%d, hal_open:%d\n",
+                                                                 hal_priv->rx_host_offset, rx_fifo_fw, hal_open);
         }
         return;
     }
@@ -1047,7 +1048,7 @@ void hi_soft_rx_irq(struct hal_private *hal_priv, unsigned int rx_fw_ptr)
 
     if (fifo_empty_size <= rx_total_len + hif->CommStaticParam.tx_page_len)
     {
-        //AML_OUTPUT("host rx buf full\n");
+        //AML_PRINT_LOG_INFO("host rx buf full\n");
         up(&hal_priv->rx_thread_sem);
         return ;
     }
@@ -1251,7 +1252,7 @@ void hi_soft_rx_irq(struct hal_private *hal_priv, unsigned int rx_fw_ptr)
         memset(rx_buffer, 0, frame_offset);
 }
 #endif
-
+#ifndef CONFIG_USB_CLOSE
 extern struct urb *g_urb;
 extern unsigned char *g_buffer;
 void hi_supplement_usb_buffer(void)
@@ -1263,7 +1264,7 @@ void hi_supplement_usb_buffer(void)
         usb_submit_urb(g_urb, GFP_ATOMIC);
     }
 }
-
+#endif
 void hi_irq_task(struct hal_private *hal_priv)
 #if defined (HAL_FPGA_VER)
 {
@@ -1293,8 +1294,10 @@ void hi_irq_task(struct hal_private *hal_priv)
     if (hal_priv->ps_host_state == 3)
     {
         if(aml_bus_type) {
+#ifndef CONFIG_USB_CLOSE
             atomic_set(&hal_priv->usb_isr_done, 0);
             usb_submit_urb(g_urb, GFP_ATOMIC);
+#endif
         }
         return ;
     }
@@ -1302,16 +1305,20 @@ void hi_irq_task(struct hal_private *hal_priv)
     if (atomic_read(&hal_priv->drv_suspend_cnt) != 0)
     {
         if(aml_bus_type) {
+#ifndef CONFIG_USB_CLOSE
             atomic_set(&hal_priv->usb_isr_done, 0);
             usb_submit_urb(g_urb, GFP_ATOMIC);
+#endif
         }
         return;
     }
 
 //int_loop:
     if(aml_bus_type) {
+#ifndef CONFIG_USB_CLOSE
         intr_status = hal_priv->int_status_copy;
         memset(g_buffer, 0, 2*sizeof(int));
+#endif
     }
 #ifdef SDIO_MODE_ON
     else {
@@ -1470,8 +1477,10 @@ void hi_irq_task(struct hal_private *hal_priv)
     {
 
         if (aml_bus_type) {
+#ifndef CONFIG_USB_CLOSE
             atomic_set(&hal_priv->usb_isr_done, 0);
             usb_submit_urb(g_urb, GFP_ATOMIC);
+#endif
         }
 #ifdef SDIO_MODE_ON
         else {
@@ -1787,7 +1796,7 @@ static void hif_get_mac_sts(void)
             rd_data = (rd_data << 6 ) >> 6;
         }
 
-        AML_OUTPUT("%s, %d\n", rd_info[i].prt, rd_data);
+        AML_PRINT_LOG_INFO("%s, %d\n", rd_info[i].prt, rd_data);
     }
 #endif
 }
@@ -1819,34 +1828,34 @@ static void hif_get_phy_sts(void)
         if(rd_info[i].addr ==  RG_AGC_STATE)
         {
             struct sts_agc_state* agc_state = (struct sts_agc_state*) &rd_data;
-            AML_OUTPUT("agc-state=0x%x,\n", agc_state->state);
+            AML_PRINT_LOG_INFO("agc-state=0x%x,\n", agc_state->state);
         }
 
         if(rd_info[i].addr ==  RG_AGC_OB_IC_GAIN)
         {
             struct sts_agc_ob_ic_gain* agc_ob_ic_gain =(struct sts_agc_ob_ic_gain*)&rd_data;
-            AML_OUTPUT("r_agc_fine_db=0x%x, r_rx_ic_gain=0x%x,\n",
+            AML_PRINT_LOG_INFO("r_agc_fine_db=0x%x, r_rx_ic_gain=0x%x,\n",
                 agc_ob_ic_gain->r_agc_fine_db, agc_ob_ic_gain->r_rx_ic_gain);
         }
 
         if(rd_info[i].addr ==  RG_AGC_WATCH1)
         {
             struct sts_agc_watch1* agc_watch1 = (struct sts_agc_watch1*)&rd_data;
-            AML_OUTPUT("r_pow_sat_db=0x%x, r_primary20_db=0x%x,\n",
+            AML_PRINT_LOG_INFO("r_pow_sat_db=0x%x, r_primary20_db=0x%x,\n",
                 agc_watch1->r_pow_sat_db, agc_watch1->r_primary20_db);
         }
 
         if(rd_info[i].addr ==  RG_AGC_WATCH2)
         {
             struct sts_agc_watch2* agc_watch2 = (struct sts_agc_watch2*)&rd_data;
-            AML_OUTPUT("r_primary40_db=0x%x, r_primary80_db=0x%x,\n",
+            AML_PRINT_LOG_INFO("r_primary40_db=0x%x, r_primary80_db=0x%x,\n",
                     agc_watch2->r_primary40_db, agc_watch2->r_primary80_db);
         }
 
         if(rd_info[i].addr ==  RG_AGC_WATCH3)
         {
             struct sts_agc_watch3*agc_watch3 = (struct sts_agc_watch3*)&rd_data;
-            AML_OUTPUT("r_rssi0_db=0x%x, r_rssi1_db=0x%x,\n",
+            AML_PRINT_LOG_INFO("r_rssi0_db=0x%x, r_rssi1_db=0x%x,\n",
                     agc_watch3->r_rssi0_db, agc_watch3->r_rssi1_db);
         }
 
@@ -1854,33 +1863,33 @@ static void hif_get_phy_sts(void)
         {
             struct sts_agc_watch4* agc_watch4 = (struct sts_agc_watch4*)&rd_data;
 
-            AML_OUTPUT("r_rssi2_db=0x%x, r_rssi3_db=0x%x,\n",
+            AML_PRINT_LOG_INFO("r_rssi2_db=0x%x, r_rssi3_db=0x%x,\n",
                         agc_watch4->r_rssi2_db, agc_watch4->r_rssi3_db);
         }
 
         if(rd_info[i].addr ==  RG_AGC_OB_ANT_NFLOOR)
         {
             struct sts_ob_ant_nfloor* ob_ant_nfloor = (struct  sts_ob_ant_nfloor*)&rd_data;
-            AML_OUTPUT("r_ant_nfloor_qdb=0x%x, r_snr_qdb=0x%x,\n", ob_ant_nfloor->r_ant_nfloor_qdb, ob_ant_nfloor->r_snr_qdb);
+            AML_PRINT_LOG_INFO("r_ant_nfloor_qdb=0x%x, r_snr_qdb=0x%x,\n", ob_ant_nfloor->r_ant_nfloor_qdb, ob_ant_nfloor->r_snr_qdb);
         }
 
         if(rd_info[i].addr ==  RG_AGC_OB_CCA_RES)
         {
             struct sts_ob_cca_res* ob_cca_res = (struct sts_ob_cca_res*)&rd_data;
-            AML_OUTPUT("cca_cond8=0x%x, cca_cond_rdy=0x%x,\n", ob_cca_res->cca_cond8, ob_cca_res->cca_cond_rdy);
+            AML_PRINT_LOG_INFO("cca_cond8=0x%x, cca_cond_rdy=0x%x,\n", ob_cca_res->cca_cond8, ob_cca_res->cca_cond_rdy);
         }
 
         if(rd_info[i].addr ==  RG_AGC_OB_CCA_COND01)
         {
             struct sts_ob_cca_cond01* ob_cca_cond01 =  (struct sts_ob_cca_cond01*)&rd_data;
-            AML_OUTPUT("cca_cond0=0x%x, cca_cond1=0x%x,\n",
+            AML_PRINT_LOG_INFO("cca_cond0=0x%x, cca_cond1=0x%x,\n",
                         ob_cca_cond01->cca_cond0, ob_cca_cond01->cca_cond1);
         }
 
         if(rd_info[i].addr ==  RG_AGC_OB_CCA_COND23)
         {
             struct sts_ob_cca_cond23* ob_cca_cond23 = (struct sts_ob_cca_cond23*)&rd_data;
-            AML_OUTPUT("cca_cond2=0x%x, cca_cond3=0x%x,\n",ob_cca_cond23->cca_cond2, ob_cca_cond23->cca_cond3);
+            AML_PRINT_LOG_INFO("cca_cond2=0x%x, cca_cond3=0x%x,\n",ob_cca_cond23->cca_cond2, ob_cca_cond23->cca_cond3);
         }
     }
 #endif
@@ -1895,7 +1904,7 @@ void hif_get_hst_int_status(void)
 {
        struct hal_private *hal_prv = hal_get_priv();
 
-       AML_OUTPUT("fw2hst_int_status 0x%x  rx_dbuf_fw_rptr 0x%x\n",
+       AML_PRINT_LOG_INFO("fw2hst_int_status 0x%x  rx_dbuf_fw_rptr 0x%x\n",
                     (hal_prv->int_status_copy>> 16) & 0xffff,
                     hal_prv->int_status_copy & 0xffff);
 
@@ -1911,7 +1920,7 @@ void hif_get_sts(unsigned int op_code, unsigned int ctrl_code)
 
     if((ctrl_code & STS_MOD_HIF) == STS_MOD_HIF)
     {
-        AML_OUTPUT("\n--------hif statistic--------\n");
+        AML_PRINT_LOG_INFO("\n--------hif statistic--------\n");
         buf_rd = hif->hif_ops.hi_read_word(RG_WIFI_IF_RXPAGE_BUF_RDPTR) ;
         mac_wt = hif->hif_ops.hi_read_word(RG_MAC_RX_WPTR);
         fw_rd = hif->hif_ops.hi_read_word(RG_MAC_RX_FRPTR);
@@ -1919,18 +1928,20 @@ void hif_get_sts(unsigned int op_code, unsigned int ctrl_code)
 
         if ((ctrl_code & STS_TYP_RX) == STS_TYP_RX)
         {
-            AML_OUTPUT("rx_fifo: head %ld, tail %ld, total %ld\n",
+            AML_PRINT_LOG_INFO("rx_fifo: head %ld, tail %ld, total %ld\n",
                 hif->rx_fifo.FDH, hif->rx_fifo.FDT, hif->rx_fifo.FDN);
             if(aml_bus_type) {
-                AML_OUTPUT("rx by word: free %d, fw_to_do %d, sdio_to_mv %d, buf_rd_ptr 0x%x, mac_wt_ptr 0x%x, fw_rd_ptr 0x%x, sdio_rd_ptr 0x%x \n",
+#ifndef CONFIG_USB_CLOSE
+                AML_PRINT_LOG_INFO("rx by word: free %d, fw_to_do %d, sdio_to_mv %d, buf_rd_ptr 0x%x, mac_wt_ptr 0x%x, fw_rd_ptr 0x%x, sdio_rd_ptr 0x%x \n",
                 CIRCLE_Subtract2(sdio_rd, mac_wt, USB_DEFAULT_RXPAGENUM*PAGE_LEN/4),
                 CIRCLE_Subtract2(mac_wt, fw_rd, USB_DEFAULT_RXPAGENUM*PAGE_LEN/4),
                 CIRCLE_Subtract2( fw_rd, sdio_rd,USB_DEFAULT_RXPAGENUM*PAGE_LEN/4),
                 buf_rd,mac_wt,fw_rd,sdio_rd);
+#endif
             }
 #ifdef SDIO_MODE_ON
             else {
-                AML_OUTPUT("rx by word: free %d, fw_to_do %d, sdio_to_mv %d, buf_rd_ptr 0x%x, mac_wt_ptr 0x%x, fw_rd_ptr 0x%x, sdio_rd_ptr 0x%x \n",
+                AML_PRINT_LOG_INFO("rx by word: free %d, fw_to_do %d, sdio_to_mv %d, buf_rd_ptr 0x%x, mac_wt_ptr 0x%x, fw_rd_ptr 0x%x, sdio_rd_ptr 0x%x \n",
                 CIRCLE_Subtract2(sdio_rd, mac_wt, DEFAULT_RXPAGENUM*PAGE_LEN/4),
                 CIRCLE_Subtract2(mac_wt, fw_rd, DEFAULT_RXPAGENUM*PAGE_LEN/4),
                 CIRCLE_Subtract2( fw_rd, sdio_rd,DEFAULT_RXPAGENUM*PAGE_LEN/4),
@@ -2032,7 +2043,7 @@ struct rx_statics_st hif_pt_rx_stop(void)
     //hif->sts_snr.snr_run = 0;
     //hif->sts_snr.snr_avr /=hif->sts_snr.snr_num;
 
-    AML_OUTPUT("rx_ucast=0x%x,rx_other=0x%x,rx_mcast=0x%x,rx_fcserr=0x%x,\n",
+    AML_PRINT_LOG_INFO("rx_ucast=0x%x,rx_other=0x%x,rx_mcast=0x%x,rx_fcserr=0x%x,\n",
                     (rx_data.rx_ucast<<3)>>3, (rx_data.rx_other<<2)>>2, (rx_data.rx_mcast<<2)>>2,rx_data.rx_fcserr);
 
     chg_data = hif->hif_ops.hi_read_word(RG_MAC_RX_DATA_LOCAL_CNT);

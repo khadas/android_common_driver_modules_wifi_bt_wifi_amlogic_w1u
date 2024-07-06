@@ -8,7 +8,7 @@
 
 #define WIFINET_VERIFY_ELEMENT(__elem, __maxlen) do {         \
                 if ((__elem) && (__elem)[1] > (__maxlen)) {                 \
-                        WIFINET_DPRINTF( AML_DEBUG_ELEMID,        \
+                        WIFINET_DPRINTF( AML_LOG_ID_ELEMID, AML_LOG_LEVEL_DEBUG,    \
                                           "bad " #__elem " len %d", (__elem)[1]);     \
                         wnet_vif->vif_sts.sts_rx_elem_too_long++;          \
                         return;                         \
@@ -17,7 +17,7 @@
 
 #define WIFINET_VERIFY_LENGTH(_len, _minlen) do {         \
                 if ((_len) < (_minlen)) {                   \
-                        WIFINET_DPRINTF( AML_DEBUG_WARNING,        \
+                        WIFINET_DPRINTF( AML_LOG_ID_ELEMID, AML_LOG_LEVEL_WARN,  \
                                           "%s", "ie too short");              \
                         wnet_vif->vif_sts.sts_rx_elem_too_short++;            \
                         return;                         \
@@ -89,5 +89,7 @@ void wifi_mac_parse_operate_mode_notification_mgmt(struct wlan_net_vif *wnet_vif
 void wifi_mac_check_mic(struct wifi_station *, struct sk_buff *);
 int wifi_mac_send_arp_req(struct wlan_net_vif *wnet_vif);
 int wifi_mac_set_arp_rsp(struct wlan_net_vif *wnet_vif) ;
+int wifi_mac_handle_csa(struct wlan_net_vif *wnet_vif, struct wifi_station *sta, int chan);
+int wifi_mac_csa_handle_timeout(void *arg);
 
 #endif

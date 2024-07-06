@@ -7,7 +7,7 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 
-
+#ifndef CONFIG_USB_CLOSE
 #define OS_LOCK spinlock_t
 
 #define USB_MAXSG_SIZE 32
@@ -24,7 +24,7 @@ typedef unsigned long SYS_TYPE_U;
         } while (0);
 #endif
 
-#define ERROR_DEBUG_OUT(format,...) do {    \
+#define AML_PRINT_LOG_ERR(format,...) do {    \
                  printk("FUNCTION: %s LINE: %d:"format"",__FUNCTION__, __LINE__, ##__VA_ARGS__); \
         } while (0)
 
@@ -199,4 +199,4 @@ struct auc_hif_ops {
 
 int aml_usb_insmod(void);
 void aml_usb_rmmod(void);
-
+#endif

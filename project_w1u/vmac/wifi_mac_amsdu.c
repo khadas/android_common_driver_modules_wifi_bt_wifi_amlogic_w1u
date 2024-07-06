@@ -145,7 +145,7 @@ void wifi_mac_txamsdu_free_all(struct wifi_mac *wifimac, unsigned char vid)
                 txinfo->b_amsdu = os_skb_is_amsdu(skbbuf);
                 need_free_node = wifi_mac_msdu_node_alloc(&(wifimac->msdu_node_list));
                 if(need_free_node == NULL) {
-                    ERROR_DEBUG_OUT("alloc msdu_node failed\n");
+                    AML_PRINT_LOG_ERR("alloc msdu_node failed\n");
                     break;
                 }
                 need_free_node->skbbuf = skbbuf;
@@ -177,7 +177,7 @@ void wifi_mac_txamsdu_free_all(struct wifi_mac *wifimac, unsigned char vid)
                     tid = os_skb_get_tid(skbbuf);
                     need_free_node = wifi_mac_msdu_node_alloc(&(wifimac->msdu_node_list));
                     if(need_free_node == NULL) {
-                        ERROR_DEBUG_OUT("alloc msdu_node failed\n");
+                        AML_PRINT_LOG_ERR("alloc msdu_node failed\n");
                         break;
                     }
                     need_free_node->skbbuf = skbbuf;
@@ -333,8 +333,8 @@ static void wifi_mac_amsdu_encap(struct sk_buff *amsdu_buf, struct sk_buff *skb,
     msdulen = payload - sizeof(struct ether_header);
     eh_inter->ether_type = __constant_htons(msdulen);
 
-    DPRINTF(AML_DEBUG_INFO,"%s(%d) pktlen %d msdulen %d payload %d\n",
-            __func__,__LINE__, os_skb_get_pktlen(skb), payload, msdulen);
+    AML_PRINT(AML_LOG_ID_TX_MSDU, AML_LOG_LEVEL_DEBUG," pktlen %d msdulen %d payload %d\n",
+            os_skb_get_pktlen(skb), payload, msdulen);
 
     llc = (struct llc *)((unsigned char *)eh_inter + sizeof(struct ether_header));
     llc->llc_dsap = llc->llc_ssap = LLC_SNAP_LSAP;
@@ -383,7 +383,7 @@ struct sk_buff *wifi_mac_amsdu_aggr(struct wifi_mac *wifimac, struct wifi_mac_am
             amsdutx->amsdu_tx_buf = wifi_mac_alloc_skb(wifimac, skblen);
             if (amsdutx->amsdu_tx_buf == NULL)
             {
-                ERROR_DEBUG_OUT("alloc skb fail\n");
+                AML_PRINT_LOG_ERR("alloc skb fail\n");
                 return NULL;
             }
 
@@ -405,7 +405,7 @@ struct sk_buff *wifi_mac_amsdu_aggr(struct wifi_mac *wifimac, struct wifi_mac_am
 
             if (M_FLAG_GET(amsdutx->msdu_tmp_buf[i], M_CHECKSUMHW))
             {
-                DPRINTF(AML_DEBUG_INFO, "%s %d inherit M_CHECKSUMHW\n", __func__,__LINE__);
+                AML_PRINT(AML_LOG_ID_TX_MSDU, AML_LOG_LEVEL_DEBUG, " inherit M_CHECKSUMHW\n");
                 M_FLAG_SET(amsdu_wbuf, M_CHECKSUMHW);
             }
         }
@@ -484,7 +484,7 @@ struct sk_buff *wifi_mac_amsdu_ex( struct sk_buff *skbbuf)
     /*if skbbuf is deny transmit bufferable skb previously and return current skbbuf */
     if ((framelen > AMSDU_MAX_SUBFRM_LEN) || amsdu_deny )
     {
-        DPRINTF(AML_DEBUG_INFO, "%s %d tx amsdu firstly\n", __func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_TX_MSDU, AML_LOG_LEVEL_DEBUG, "tx amsdu firstly\n");
         if (amsdutx->amsdunum > 0)
         {
             if (wifi_mac_amsdu_aggr(wifimac, amsdutx) != NULL)
@@ -508,7 +508,7 @@ struct sk_buff *wifi_mac_amsdu_ex( struct sk_buff *skbbuf)
         && (amsdutx->amsdunum + 1 <= tx_amsdu_sub_max)
         && (!time_after(now_time, amsdutx->in_time + (AMSDU_MAX_LIVE_TIME*HZ/1000))))
     {
-        DPRINTF(AML_DEBUG_INFO, "%s %d just add to amsdu\n", __func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_TX_MSDU, AML_LOG_LEVEL_DEBUG, "just add to amsdu\n");
         amsdutx->msdu_tmp_buf[amsdutx->amsdunum] = skbbuf;
         amsdutx->framelen += framelen;
         amsdutx->amsdunum++;
@@ -532,7 +532,7 @@ struct sk_buff *wifi_mac_amsdu_ex( struct sk_buff *skbbuf)
         /*process exception */
         if (amsdutx->amsdunum >= DEFAULT_TXAMSDU_SUB_MAX_BW80 * 2)
         {
-            ERROR_DEBUG_OUT("alloc skb fail, drop skb\n");
+            AML_PRINT_LOG_ERR("alloc skb fail, drop skb\n");
             while (--(amsdutx->amsdunum) >= 0)
             {
                 wifi_mac_complete_wbuf(amsdutx->msdu_tmp_buf[amsdutx->amsdunum], 0);
@@ -558,7 +558,7 @@ struct sk_buff *wifi_mac_amsdu_send( struct sk_buff * skbbuf)
 
     if (sta->sta_amsdu == NULL)
     {
-        ERROR_DEBUG_OUT("ERROR: not called\n");
+        AML_PRINT_LOG_ERR("ERROR: not called\n");
         return skbbuf;
     }
 
@@ -568,7 +568,7 @@ struct sk_buff *wifi_mac_amsdu_send( struct sk_buff * skbbuf)
           wnet_vif->vm_opmode == WIFINET_M_HOSTAP||
           wnet_vif->vm_opmode == WIFINET_M_P2P_GO))
     {
-        ERROR_DEBUG_OUT("not satisfy amsdu\n");
+        AML_PRINT_LOG_ERR("not satisfy amsdu\n");
         return skbbuf;
     }
 
@@ -578,7 +578,7 @@ struct sk_buff *wifi_mac_amsdu_send( struct sk_buff * skbbuf)
     if (msdu_node == NULL)
     {
         WIFINET_AMSDU_UNLOCK(wifimac);
-        ERROR_DEBUG_OUT("alloc failed\n");
+        AML_PRINT_LOG_ERR("alloc failed\n");
         return skbbuf;
     }
 
@@ -643,7 +643,7 @@ int wifi_mac_alloc_amsdu_node(struct wifi_mac *wifimac, unsigned char vid, struc
     sta->sta_amsdu = (struct wifi_mac_amsdu *)NET_MALLOC(sizeof(struct wifi_mac_amsdu), GFP_ATOMIC, "sta_amsdu alloc");
     if (sta->sta_amsdu == NULL)
     {
-        DPRINTF( AML_DEBUG_INFO,"<running> %s %d sta_amsdu= %p fail \n",__func__,__LINE__,sta->sta_amsdu);
+        AML_PRINT(AML_LOG_ID_TX_MSDU, AML_LOG_LEVEL_DEBUG,"<running> sta_amsdu= %p fail \n",sta->sta_amsdu);
         return ENOMEM;
     }
 
@@ -671,7 +671,7 @@ int wifi_mac_alloc_amsdu_node(struct wifi_mac *wifimac, unsigned char vid, struc
         sta->sta_amsdu->amsdu_max_length = MIN(sta->sta_amsdu->amsdu_max_length, AMSDU_SIZE_3839);
     }
 
-    AML_OUTPUT("<running> amsdu_max_length=%d\n", sta->sta_amsdu->amsdu_max_length );
+    AML_PRINT_LOG_INFO("<running> amsdu_max_length=%d\n", sta->sta_amsdu->amsdu_max_length );
 
     for (tid = 0; tid < WME_NUM_TID; tid++)
     {

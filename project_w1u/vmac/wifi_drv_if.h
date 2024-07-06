@@ -150,7 +150,7 @@ enum
 struct tx_power_plan {
     unsigned char cffc_num;
     unsigned char band_pwr_table[4];
-    unsigned char coefficient[57];
+    unsigned char coefficient[57];//all(2.4G+5G) 57 channels
 };
 
 /*
@@ -176,8 +176,8 @@ static inline int drv_hal_setpower(int hal_ps_mode,int wnet_vif_id )
 {
     struct hal_private* hal_priv = hal_get_priv();
     unsigned char tmpflag = hal_priv->powersave_init_flag;
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d hal_ps_mode=%d wnet_vif_id=%d\n",
-			__func__,__LINE__, hal_ps_mode, wnet_vif_id);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"hal_ps_mode=%d wnet_vif_id=%d\n",
+			hal_ps_mode, wnet_vif_id);
     if (wnet_vif_id == PHY_VMAC_ID)
         hal_priv->powersave_init_flag = 1;
     hal_priv->hal_ops.phy_pwr_save_mode(wnet_vif_id,hal_ps_mode);
@@ -189,7 +189,7 @@ static inline int drv_hal_setpower(int hal_ps_mode,int wnet_vif_id )
 static inline int drv_hal_keyclear(unsigned char wnet_vif_id, int staid)
 {
     struct hal_private* hal_priv = hal_get_priv();
-    DPRINTF(AML_DEBUG_HAL|AML_DEBUG_KEY,"<running> %s %d \n",__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG,"<running> \n");
     hal_priv->hal_ops.phy_clr_key( wnet_vif_id,staid&0xff);
     return 0;
 
@@ -201,7 +201,7 @@ static inline int drv_hal_keyreset( unsigned char wnet_vif_id,unsigned short _ix
     
     struct hal_private* hal_priv = hal_get_priv();
 
-    DPRINTF(AML_DEBUG_HAL|AML_DEBUG_KEY,"<running> %s %d \n",__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG,"<running> \n");
     hal_priv->hal_ops.phy_rst_all_key( wnet_vif_id);
     hal_priv->hal_ops.phy_rst_mcast_key( wnet_vif_id);
     hal_priv->hal_ops.phy_rst_ucast_key( wnet_vif_id);
@@ -258,7 +258,7 @@ static inline int drv_hal_reset(void)
 {
 
 
-    DPRINTF(AML_DEBUG_HAL| AML_DEBUG_ACL,"<running> %s %d \n",__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG,"<running>");
 
     return 1;
 }
@@ -289,9 +289,8 @@ static inline int
 drv_hal_beaconinit(unsigned char wnet_vif_id,unsigned int _bperiod)
 {
    struct hal_private* hal_priv = hal_get_priv();
-    DPRINTF(AML_DEBUG_HAL|AML_DEBUG_BEACON|AML_DEBUG_PWR_SAVE,
-        "%s %d: wnet_vif_id=%d _bperiod = %d\n",
-        __func__,__LINE__, wnet_vif_id, _bperiod);
+    AML_PRINT(AML_LOG_ID_BEACON, AML_LOG_LEVEL_DEBUG,
+        "wnet_vif_id=%d _bperiod = %d\n",wnet_vif_id, _bperiod);
     hal_priv->hal_ops.phy_set_bcn_intvl(wnet_vif_id,_bperiod&HAL_BEACON_PERIOD);
     return 0;
 }
@@ -312,7 +311,7 @@ static inline int drv_hal_setopmode(unsigned char wnet_vif_id, enum hal_op_mode 
 {
     struct hal_private* hal_priv = hal_get_priv();
 
-    DPRINTF(AML_DEBUG_HAL,"%s %d: opmode = %d\n",__func__,__LINE__,opmode);
+    AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG,"opmode = %d\n",opmode);
     hal_priv->hal_ops.phy_set_cam_mode( wnet_vif_id,opmode);
     return 0;
 
@@ -323,9 +322,9 @@ static inline int drv_hal_setdhcp(unsigned char wnet_vif_id, unsigned int ip)
     struct hal_private* hal_priv = hal_get_priv();
 
     if (hal_priv->dhcp_offload == 1) {
-        AML_OUTPUT("NOTICE: DHCP OFFLOAD function is enabled, caller must ensure upper layer's dhcp module is closed.\n");
-        AML_OUTPUT("Because under this situation, the FW will handle the dhcp pkts and never transmit to driver.\n");
-        DPRINTF(AML_DEBUG_HAL, "%s %d: ip %03d.%03d.%03d.%03d\n",__func__,__LINE__,
+        AML_PRINT_LOG_INFO("NOTICE: DHCP OFFLOAD function is enabled, caller must ensure upper layer's dhcp module is closed.\n");
+        AML_PRINT_LOG_INFO("Because under this situation, the FW will handle the dhcp pkts and never transmit to driver.\n");
+        AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG, "ip %03d.%03d.%03d.%03d\n",
             (ip >> 24) & 0xff, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff);
         hal_priv->hal_ops.phy_set_dhcp(wnet_vif_id, ip);
     }
@@ -353,7 +352,7 @@ static inline int drv_hal_set11nmac2040( enum wifi_mac_chanbw  chan_bw)
 {
      struct hal_private* hal_priv = hal_get_priv();
 
-    DPRINTF(AML_DEBUG_HAL|AML_DEBUG_BWC,"drv_hal_set11nmac2040 %d \n",chan_bw);
+    AML_PRINT(AML_LOG_ID_BWC, AML_LOG_LEVEL_DEBUG,"drv_hal_set11nmac2040 %d \n",chan_bw);
 
     hal_priv->hal_ops.phy_set_chan_phy_type(chan_bw);
     return 0;
@@ -372,7 +371,7 @@ drv_hal_put_bcn_buf(unsigned char wnet_vif_id,unsigned char *pBeacon,
     unsigned short len,unsigned char Rate,unsigned short Flag)
 {
     struct hal_private* hal_priv = hal_get_priv();
-    DPRINTF(AML_DEBUG_HAL|AML_DEBUG_BEACON,"<running> %s %d\n",__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_BEACON, AML_LOG_LEVEL_DEBUG,"<running> \n");
     hal_priv->hal_ops.phy_set_bcn_buf(wnet_vif_id, pBeacon, len, Rate, Flag);
 }
 
@@ -382,29 +381,26 @@ drv_hal_set_bcn_start(unsigned char wnet_vif_id,unsigned short intval,
     unsigned char dtim_count,unsigned short  bsstype)
 {
     struct hal_private* hal_priv = hal_get_priv();
-    DPRINTF(AML_DEBUG_HAL|AML_DEBUG_BEACON,"<running> %s %d intval=%d\n",__func__,__LINE__,intval);
+    AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG,"<running> intval=%d\n",intval);
     hal_priv->hal_ops.phy_enable_bcn(wnet_vif_id,intval,dtim_count,bsstype);
-    DPRINTF(AML_DEBUG_HAL|AML_DEBUG_BEACON,"<running> %s %d bsstype=%d\n",__func__,__LINE__,bsstype);
+    AML_PRINT(AML_LOG_ID_BEACON, AML_LOG_LEVEL_DEBUG,"<running> bsstype=%d\n",bsstype);
 }
 
 static inline void drv_hal_wnet_vifdisconnect(unsigned char wnet_vif_id)
 {
     struct hal_private* hal_priv = hal_get_priv();
-    DPRINTF(AML_DEBUG_HAL|AML_DEBUG_BEACON,"<running> %s %d wnet_vif_id=%d\n",
-            __func__,__LINE__,wnet_vif_id);
+    AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG,"<running> wnet_vif_id=%d\n",wnet_vif_id);
     hal_priv->hal_ops.phy_vmac_disconnect(wnet_vif_id);
 }
 
 static inline void drv_hal_wnet_vifStop(unsigned char wnet_vif_id)
 {
-    DPRINTF(AML_DEBUG_HAL|AML_DEBUG_BEACON,"<running> %s %d wnet_vif_id=%d\n",
-            __func__,__LINE__,wnet_vif_id);
+    AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG,"<running> wnet_vif_id=%d\n",wnet_vif_id);
 }
 
 static inline void drv_hal_wnet_vifStart(unsigned char wnet_vif_id)
 {
-    DPRINTF(AML_DEBUG_HAL|AML_DEBUG_BEACON,"<running> %s %d wnet_vif_id=%d\n",
-            __func__,__LINE__,wnet_vif_id);
+    AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG,"<running> wnet_vif_id=%d\n",wnet_vif_id);
 }
 
 static inline unsigned int drv_low_register_behind_task(void *func)
@@ -471,7 +467,7 @@ drv_hal_settxqueueprops(unsigned char wnet_vif_id,int ac,unsigned char aifsn,
     unsigned char cwminmax,unsigned short txop)
 {
     struct hal_private* hal_priv = hal_get_priv();
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d\n",__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "\n");
     hal_priv->hal_ops.phy_set_ac_param(wnet_vif_id,ac, aifsn, cwminmax, txop);
     return 0 ;
 }
@@ -492,10 +488,10 @@ static inline void drv_hal_setretrynum(unsigned short retrynum)
 
     temp = 0xff & retrynum;
 
-    DPRINTF(AML_DEBUG_HAL,"<running> %s %d longretry=%x\n",__func__,__LINE__,temp );
+    AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG,"<running> longretry=%x\n",temp );
     hal_priv->hal_ops.phy_set_lretry_limit(temp);
     temp = 0xff & (retrynum>>8);
-    DPRINTF(AML_DEBUG_HAL,"<running> %s %d shortretry=%x\n",__func__,__LINE__,temp );
+    AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG,"<running> shortretry=%x\n",temp );
     hal_priv->hal_ops.phy_set_sretry_limit(temp);
 
 }
@@ -503,14 +499,14 @@ static inline void drv_hal_setretrynum(unsigned short retrynum)
 static inline void drv_hal_txlivetime(unsigned int timems)
 {
     struct hal_private* hal_priv = hal_get_priv();
-    DPRINTF(AML_DEBUG_HAL,"<running> %s %d txlivetime =%x ms\n",__func__,__LINE__,timems);
+    AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG,"<running> txlivetime =%x ms\n",timems);
     hal_priv->hal_ops.phy_set_txlive_time(timems);
 }
 
 static inline void drv_hal_enable_coexist(unsigned int coexist_en)
 {
     struct hal_private* hal_priv = hal_get_priv();
-    DPRINTF(AML_DEBUG_HAL,"<running> %s %d coexist_en =%x ms\n",__func__,__LINE__,coexist_en);
+    AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG,"<running> coexist_en =%x ms\n",coexist_en);
     hal_priv->hal_ops.phy_set_coexist_en(coexist_en);
 }
 

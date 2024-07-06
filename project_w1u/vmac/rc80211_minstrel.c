@@ -233,7 +233,7 @@ unsigned int minstrel_legacy_rate_convert_to_ordinary(unsigned int rate)
                 ret = 54;
                 break;
             default:
-                ERROR_DEBUG_OUT("input rate error\n");
+                AML_PRINT_LOG_ERR("input rate error\n");
                 break;
         }
 
@@ -331,16 +331,16 @@ static void minstrel_update_stats(struct minstrel_priv *mp, struct minstrel_sta_
 
     minstrel_update_rates(mp, mi);
     for (i = 0; i < mi->n_rates; i++) {
-        DPRINTF(AML_DEBUG_RATE, "%s(%d):success/attempt=%d/%d, t_success/total_packet =%d/%d=%d, mi->r[%d].stats.tp_avg = %d, prob_ewma=%d,rix=%d,rate=%dM\n",
-            __func__, __LINE__,  mi->r[i].stats.last_success,mi->r[i].stats.last_attempts,   mi->r[i].stats.succ_hist,mi->r[i].stats.att_hist,  
+        AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG, "success/attempt=%d/%d, t_success/total_packet =%d/%d=%d, mi->r[%d].stats.tp_avg = %d, prob_ewma=%d,rix=%d,rate=%dM\n",
+            mi->r[i].stats.last_success,mi->r[i].stats.last_attempts,   mi->r[i].stats.succ_hist,mi->r[i].stats.att_hist,
             mi->r[i].stats.succ_hist*100/mi->r[i].stats.att_hist,i, mi->r[i].stats.tp_avg, mi->r[i].stats.prob_ewma,mi->r[i].rix, minstrel_legacy_rate_convert_to_ordinary(mi->r[i].rix) );
     }
 
     for (i = 0;i < MAX_THR_RATES; i++) {
-        DPRINTF(AML_DEBUG_RATE, "%s(%d):  max_tp_rate[%d] = %d\n", __func__, __LINE__, i, mi->max_tp_rate[i]);
+        AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG, "max_tp_rate[%d] = %d\n", i, mi->max_tp_rate[i]);
     }
 
-    DPRINTF(AML_DEBUG_RATE, "%s(%d):mi->max_prob_rate =%d\n", __func__, __LINE__, mi->max_prob_rate);
+    AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG, "mi->max_prob_rate =%d\n", mi->max_prob_rate);
 }
 
 static void minstrel_tx_status(void *priv, struct ieee80211_supported_band *sband, void *priv_sta, struct ieee80211_tx_info *info,void *p_sta)
@@ -360,7 +360,7 @@ static void minstrel_tx_status(void *priv, struct ieee80211_supported_band *sban
         ndx = rix_to_ndx(mi, ar[i].idx);
         if (ndx < 0)
             continue;
-        //DPRINTF(AML_DEBUG_RATE, "%s(%d):ar[%d].idx =%d, count=%d,success=%d, ndx=%d\n",  __func__, __LINE__,i, ar[i].idx, ar[i].count,success,ndx);
+        //AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG, "ar[%d].idx =%d, count=%d,success=%d, ndx=%d\n", i, ar[i].idx, ar[i].count,success,ndx);
 
         mi->r[ndx].stats.attempts += ar[i].count;
 
@@ -389,7 +389,7 @@ minstrel_get_retry_count(struct minstrel_rate *mr, struct ieee80211_tx_info *inf
     else if (info->control.use_cts_prot)
         retry = MAX( 2, MIN(mr->retry_count_cts, retry));
 
-    //AML_OUTPUT("retry_count_rtscts:%d, retry_count_cts:%d, retry:%d\n",
+    //AML_PRINT_LOG_INFO("retry_count_rtscts:%d, retry_count_cts:%d, retry:%d\n",
         //mr->stats.retry_count_rtscts, mr->retry_count_cts, retry);
     return retry;
 }
@@ -488,8 +488,8 @@ static void minstrel_get_rate(void *priv, struct ieee80211_sta_aml *sta, void *p
 
 	rate->idx = mi->r[ndx].rix;
 	rate->count = minstrel_get_retry_count(&mi->r[ndx], info);
-    AML_PRINT(AML_DBG_MODULES_RATE_CTR, "sample rate->idx =%d, rate->count:%d, msr->perfect_tx_time:%d, mr->perfect_tx_time:%d\n",
-        rate->idx, rate->count, msr->perfect_tx_time, mr->perfect_tx_time);
+	AML_PRINT(AML_LOH_ID_RATE_CTR,AML_LOG_LEVEL_DEBUG, "sample rate->idx =%d, rate->count:%d, msr->perfect_tx_time:%d, mr->perfect_tx_time:%d\n",
+		rate->idx, rate->count, msr->perfect_tx_time, mr->perfect_tx_time);
 }
 
 static inline int ieee80211_chandef_get_shift(struct cfg80211_chan_def *chandef)
@@ -538,14 +538,14 @@ init_sample_table(struct minstrel_sta_info *mi)
 		}
 	}
 #if 0
-	DPRINTF(AML_DEBUG_WARNING, "%s(%d):  print sample table start\n", __func__, __LINE__);
-      for (col = 0; col < SAMPLE_COLUMNS; col++) {
+	AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_DEBUG, " print sample table start\n");
+		for (col = 0; col < SAMPLE_COLUMNS; col++) {
 		for (i = 0; i < mi->n_rates; i++) {
-			DPRINTF(AML_DEBUG_WARNING, "0x%x  ", SAMPLE_TBL(mi, col, i));
+			AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_DEBUG, "0x%x  ", SAMPLE_TBL(mi, col, i));
 		}
-		DPRINTF(AML_DEBUG_WARNING,"\n");
+		AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_DEBUG,"\n");
 	}
-      DPRINTF(AML_DEBUG_WARNING, "%s(%d):  print sample table end\n", __func__, __LINE__);
+		AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_DEBUG, "print sample table end\n");
 #endif
 }
 
@@ -630,7 +630,7 @@ static void minstrel_rate_init(void *priv, struct ieee80211_supported_band *sban
 
 	init_sample_table(mi);
 	minstrel_update_rates(mp, mi);
-	AML_OUTPUT("n:%d\n", n);
+	AML_PRINT_LOG_INFO("n:%d\n", n);
 }
 
 static void *minstrel_alloc_sta(void *priv, struct ieee80211_sta_aml *sta, gfp_t gfp)

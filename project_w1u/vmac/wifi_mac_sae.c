@@ -5,7 +5,7 @@
 unsigned char wifi_mac_pmkid_vattach(struct wlan_net_vif *wnet_vif) {
     wnet_vif->pmk_list = (void *)NET_MALLOC(sizeof(struct aml_pmk_list), GFP_KERNEL, "pmk_list");
     if (unlikely(!wnet_vif->pmk_list)) {
-        ERROR_DEBUG_OUT("pmk list alloc failed\n");
+        AML_PRINT_LOG_ERR("pmk list alloc failed\n");
         return -1;
     }
 
@@ -25,23 +25,23 @@ int aml_cfg80211_set_pmksa(struct wiphy *wiphy, struct net_device *dev, struct c
     int pmkid_index;
 
     if ((pmksa->bssid != NULL) && memcmp((unsigned char *)pmksa->bssid, zero_mac, MAC_ADDR_LEN)) {
-        DPRINTF(AML_DEBUG_CFG80211, "%s BSSID:%02x:%02x:%02x:%02x:%02x:%02x\n", __func__, pmksa->bssid[0],
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "BSSID:%02x:%02x:%02x:%02x:%02x:%02x\n", pmksa->bssid[0],
             pmksa->bssid[1], pmksa->bssid[2], pmksa->bssid[3], pmksa->bssid[4], pmksa->bssid[5]);
 
     } else {
-        ERROR_DEBUG_OUT( "bssid wrong\n");
+        AML_PRINT_LOG_ERR( "bssid wrong\n");
         return -EINVAL;
     }
     pmkid_index = aml_pmkid_cache_index(wnet_vif, (unsigned char *)pmksa->bssid);
     if (pmkid_index != -1) {
-        DPRINTF(AML_DEBUG_CFG80211, "find the bssid in pmkid_cache index:%d, and renew the pmkid\n", pmkid_index);
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "find the bssid in pmkid_cache index:%d, and renew the pmkid\n", pmkid_index);
         memcpy(wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, pmksa->pmkid, WPA_PMKID_LEN);
         wnet_vif->pmk_list->pmkid_cache[pmkid_index].in_use = 1;
         find_entry = 1;
     }
 
     if (!find_entry) {
-        DPRINTF(AML_DEBUG_CFG80211, "use new entry index:%d,pmkid count:%d\n", wnet_vif->pmk_list->pmkid_index,wnet_vif->pmk_list->pmkid_cnt);
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "use new entry index:%d,pmkid count:%d\n", wnet_vif->pmk_list->pmkid_index,wnet_vif->pmk_list->pmkid_cnt);
 
         memcpy(wnet_vif->pmk_list->pmkid_cache[wnet_vif->pmk_list->pmkid_index].bssid, pmksa->bssid, MAC_ADDR_LEN);
         memcpy(wnet_vif->pmk_list->pmkid_cache[wnet_vif->pmk_list->pmkid_index].pmkid, pmksa->pmkid, WPA_PMKID_LEN);
@@ -77,32 +77,32 @@ int aml_pmkid_cache_index(struct wlan_net_vif *wnet_vif, const unsigned char *bs
         goto not_found;
     }
 
-    DPRINTF(AML_DEBUG_CFG80211, "%s BSSID:%02x:%02x:%02x:%02x:%02x:%02x\n", __func__, bssid[0],
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "BSSID:%02x:%02x:%02x:%02x:%02x:%02x\n", bssid[0],
         bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
 
     for (i = 0; i < WL_NUM_PMKIDS_MAX; i++) {
         if (!memcmp(bssid, &wnet_vif->pmk_list->pmkid_cache[i].bssid, MAC_ADDR_LEN)) {
             pmkid = wnet_vif->pmk_list->pmkid_cache[i].pmkid;
-            DPRINTF(AML_DEBUG_CFG80211, "%s pmkid:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
-                __func__, pmkid[0], pmkid[1], pmkid[2], pmkid[3], pmkid[4], pmkid[5], pmkid[6], pmkid[7], pmkid[8], pmkid[9], pmkid[10],
+            AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "pmkid:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
+                pmkid[0], pmkid[1], pmkid[2], pmkid[3], pmkid[4], pmkid[5], pmkid[6], pmkid[7], pmkid[8], pmkid[9], pmkid[10],
                 pmkid[11], pmkid[12], pmkid[13], pmkid[14], pmkid[15]);
             return i;
         }
     }
 
 not_found:
-    DPRINTF(AML_DEBUG_CFG80211, "pmkid not found\n");
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR, "pmkid not found\n");
     return -1;
 }
 
 void wifi_mac_move_pmk_list(int index,  struct aml_pmk_list *pmk_list)
 {
     if (pmk_list == NULL) {
-        ERROR_DEBUG_OUT("pmk_list NULL\n");
+        AML_PRINT_LOG_ERR("pmk_list NULL\n");
         return;
     }
     if ((index < 0) || (index >= pmk_list->pmkid_cnt)) {
-        ERROR_DEBUG_OUT("index wrong:%d\n",index);
+        AML_PRINT_LOG_ERR("index wrong:%d\n",index);
         return;
     }
     if (index != pmk_list->pmkid_cnt - 1) {
@@ -125,22 +125,22 @@ int aml_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *dev, struct c
     int npmkids = wnet_vif->pmk_list->pmkid_cnt;
 
     if (!pmksa) {
-        ERROR_DEBUG_OUT("pmksa is not initialized\n");
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR,"pmksa is not initialized\n");
         return -1;
     }
 
     if (!npmkids) {
         /* nmpkids = 0, nothing to delete */
-        ERROR_DEBUG_OUT("npmkids=0. skip del\n");
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR,"npmkids=0. skip del\n");
         return 0;
     }
 
     if ((pmksa->bssid != NULL) && memcmp((unsigned char *)pmksa->bssid, zero_mac, MAC_ADDR_LEN)) {
-        DPRINTF(AML_DEBUG_CFG80211, "%s BSSID:%02x:%02x:%02x:%02x:%02x:%02x\n", __func__, pmksa->bssid[0],
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "BSSID:%02x:%02x:%02x:%02x:%02x:%02x\n", pmksa->bssid[0],
             pmksa->bssid[1], pmksa->bssid[2], pmksa->bssid[3], pmksa->bssid[4], pmksa->bssid[5]);
 
     } else {
-        ERROR_DEBUG_OUT("bssid wrong\n");
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR,"bssid wrong\n");
         return -EINVAL;
     }
 
@@ -162,7 +162,7 @@ int aml_del_pmksa_by_index(struct wlan_net_vif *wnet_vif, const unsigned char *b
 
     } else {
         wifi_mac_move_pmk_list(pmkid_index,wnet_vif->pmk_list);
-        AML_OUTPUT("pmk_list:cnt=%d,index=%d\n",wnet_vif->pmk_list->pmkid_cnt,pmkid_index);
+        AML_PRINT_LOG_INFO("pmk_list:cnt=%d,index=%d\n",wnet_vif->pmk_list->pmkid_cnt,pmkid_index);
     }
 
     return 0;
@@ -171,7 +171,7 @@ int aml_del_pmksa_by_index(struct wlan_net_vif *wnet_vif, const unsigned char *b
 int aml_cfg80211_flush_pmksa(struct wiphy *wiphy, struct net_device *dev)
 {
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)(((struct vm_wdev_priv*)wiphy_priv(wiphy))->wnet_vif);
-    DPRINTF(AML_DEBUG_CFG80211, "%s\n", __func__);
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_DEBUG, "\n");
 
     memset(wnet_vif->pmk_list, 0, sizeof(*wnet_vif->pmk_list));
     return 0;
@@ -189,7 +189,7 @@ void wifi_mac_trigger_sae(struct wifi_station *sta)
 {
     struct cfg80211_external_auth_params params = {0};
 
-    AML_OUTPUT("\n");
+    AML_PRINT_LOG_INFO("\n");
     params.key_mgmt_suite = 0x00;
     params.key_mgmt_suite |= 0x0F << 8;
     params.key_mgmt_suite |= 0xAC << 16;

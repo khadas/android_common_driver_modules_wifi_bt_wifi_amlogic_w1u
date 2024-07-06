@@ -37,7 +37,7 @@ int drv_hal_detach(void)
 
     hal_priv->hal_ops.hal_exit();
     drv_hal_workitem_free();
-    AML_OUTPUT("<running>\n");
+    AML_PRINT_LOG_INFO("<running>\n");
     return 0;
 }
 
@@ -77,7 +77,7 @@ void drv_hal_setupratetable(struct drv_rate_table *rt)
         cix = rt->info[i].controlRate;
 
         rt->dot11rate_to_idx[code] = i;
-        DPRINTF(AML_DEBUG_RATE,"%s(%d) dot11rate_to_idx[0x%x]=%d\n", __func__, __LINE__, code, i);
+        AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG,"dot11rate_to_idx[0x%x]=%d\n", code, i);
         /*
          * note: for 11g the control rate to use for 5.5 and 11 Mb/s
          *     depends on whether they are marked as basic rates;
@@ -258,10 +258,10 @@ struct drv_rate_table *drv_hal_get_rate_tbl(int mode)
             rt = &amluno_11bgnac_table;
             break;
         default:
-            DPRINTF( AML_DEBUG_HAL|AML_DEBUG_ERROR, "%s: invalid mode 0x%x\n", __func__, mode);
+            AML_PRINT( AML_LOG_ID_HAL, AML_LOG_LEVEL_ERROR, "invalid mode 0x%x\n", mode);
             return NULL;
     }
-    DPRINTF(AML_DEBUG_RATE, "%s(%d): mode=0x%x\n", __func__, __LINE__, mode);
+    AML_PRINT(AML_LOG_ID_RATE, AML_LOG_LEVEL_DEBUG, "mode=0x%x\n", mode);
 
     return rt;
 }
@@ -392,7 +392,7 @@ int drv_hal_add_workitem(WorkHandler task, WorkHandler taskcallback, SYS_TYPE pa
     left_count = CO_SharedFifoNbEltCont(pWorkFifo, CO_WORK_GET);
     STATUS = CO_SharedFifoGet(pWorkFifo, CO_WORK_GET, 1, &EltPtr);
     if (STATUS != CO_STATUS_OK) {
-        ERROR_DEBUG_OUT("work fifo overflow\n");
+        AML_PRINT_LOG_ERR("work fifo overflow\n");
         CO_SharedFifo_Dump(pWorkFifo, CO_WORK_GET);
         CO_SharedFifo_Dump(pWorkFifo, CO_WORK_FREE);
     }
@@ -401,7 +401,7 @@ int drv_hal_add_workitem(WorkHandler task, WorkHandler taskcallback, SYS_TYPE pa
         task_repeat++;
 
         if ((task_repeat % 10) == 0) {
-            AML_OUTPUT("task is %p\n", task);
+            AML_PRINT_LOG_INFO("task is %p\n", task);
             task_repeat = 0;
         }
 
@@ -422,7 +422,7 @@ int drv_hal_add_workitem(WorkHandler task, WorkHandler taskcallback, SYS_TYPE pa
 
         STATUS = CO_SharedFifoPut(pWorkFifo, CO_WORK_GET, 1);
         if (STATUS != CO_STATUS_OK) {
-            ERROR_DEBUG_OUT("work fifo overflow\n");
+            AML_PRINT_LOG_ERR("work fifo overflow\n");
             CO_SharedFifo_Dump(pWorkFifo, CO_WORK_GET);
             CO_SharedFifo_Dump(pWorkFifo, CO_WORK_FREE);
         }
@@ -442,12 +442,12 @@ int drv_hal_workitem_inital(void)
     CO_SharedFifoInit(&hal_priv->WorkFifo, (SYS_TYPE)hal_priv->WorkFifoBuf, (void *)hal_priv->WorkFifoBuf,
         WORK_ITEM_NUM, sizeof(struct  hal_work_task), CO_SF_WORK_NBR);
 
-    AML_OUTPUT("hal_priv->WorkFifo:%p\n", &hal_priv->WorkFifo);
+    AML_PRINT_LOG_INFO("hal_priv->WorkFifo:%p\n", &hal_priv->WorkFifo);
     res = (SYS_TYPE)hal_priv->hal_ops.hal_reg_task(drv_hal_workitem_task);
 
     if (res < 0) {
         ASSERT(0);
-        AML_OUTPUT("WorkFifo_task_id error !\n");
+        AML_PRINT_LOG_INFO("WorkFifo_task_id error !\n");
     } else {
         hal_priv->WorkFifo_task_id = res;
     }

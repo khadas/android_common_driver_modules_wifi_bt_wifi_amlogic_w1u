@@ -38,7 +38,7 @@ void write_byte_8ba(unsigned char Bus, unsigned char SlaveAddr,
 
         cnt++;
         if (cnt == 1000) {
-            AML_OUTPUT("-------[ERR]-----> i2c[W] err\n");
+            AML_PRINT_LOG_INFO("-------[ERR]-----> i2c[W] err\n");
             break;
         }
     } while (tmp & (1 << 2));
@@ -82,7 +82,7 @@ unsigned char read_byte_8ba(unsigned char Bus, unsigned char SlaveAddr, unsigned
 
         cnt++;
         if (cnt == 1000) {
-            AML_OUTPUT("-------[ERR]-----> i2c[W] err\n");
+            AML_PRINT_LOG_INFO("-------[ERR]-----> i2c[W] err\n");
             break;
         }
     } while (tmp & (1 << 2));
@@ -99,7 +99,7 @@ void write_word_32ba(unsigned char Bus, unsigned char SlaveAddr,
     struct hw_interface* hif = hif_get_hw_interface();
     unsigned int tmp,cnt = 0;
 
-  // AML_OUTPUT("token 0x%x data 0x%x\n", StartToken,Data);
+  // AML_PRINT_LOG_INFO("token 0x%x data 0x%x\n", StartToken,Data);
 
     // Set the I2C bus to 100khz
     tmp = hif->hif_ops.hi_read_word(I2C_CONTROL_REG);
@@ -136,7 +136,7 @@ void write_word_32ba(unsigned char Bus, unsigned char SlaveAddr,
 
         cnt++;
         if (cnt == 100000) {
-            ERROR_DEBUG_OUT("-------[ERR]-----> i2c[W] err\n");
+            AML_PRINT_LOG_ERR("-------[ERR]-----> i2c[W] err\n");
             break;
         }
     } while (tmp & (1 << 2));
@@ -186,7 +186,7 @@ unsigned int read_word_32ba(unsigned int SlaveAddr, unsigned int RegAddr)
 
         cnt++;
         if (cnt == 100000) {
-            ERROR_DEBUG_OUT("-------[ERR]-----> i2c[R] err\n");
+            AML_PRINT_LOG_ERR("-------[ERR]-----> i2c[R] err\n");
             break;
         }
     } while( tmp & (1 << 2));
@@ -242,7 +242,7 @@ int new_set_reg(unsigned int address,unsigned int data)
     } else if (((address >> 24) & 0xf0) == 0xf0 ) {
 #ifdef USE_T902X_RF
         rf_i2c_write( address & 0xffffffff,data );//access t902x rf reg
-        AML_OUTPUT("0x%x\n", data);
+        AML_PRINT_LOG_INFO("0x%x\n", data);
 #endif
     } else {
         HalPriv->hif->hif_ops.hi_write_word(address, data);
@@ -262,7 +262,7 @@ int new_get_reg(unsigned int address,unsigned int *data)
     } else if (((address >> 24) & 0xf0) == 0xf0 ) {
 #ifdef USE_T902X_RF
         *data = rf_i2c_read(address & 0xffffffff); //access t902x rf reg
-         AML_OUTPUT("0x%x\n", address);
+         AML_PRINT_LOG_INFO("0x%x\n", address);
 #endif
     } else {
         *data = HalPriv->hif->hif_ops.hi_read_word(address);

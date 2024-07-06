@@ -43,6 +43,7 @@ static struct proc_dir_entry *g_proc;
 #define PROBE_NUM_EACH_SCAN 2
 #define PROBE_SSID_NUM_WACH_SCAN 2
 #define SCAN_DURATION_STR "scan_duration"
+#define DBG_INFO_BUF_LEN 2048
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
 #define aml_proc_ops proc_ops
@@ -84,13 +85,13 @@ extern struct wlan_net_vif *g_wnet_vif0;
 int32_t aml_proc_init(void)
 {
     if (init_net.proc_net == (struct proc_dir_entry *)NULL) {
-        ERROR_DEBUG_OUT("init proc fail: proc_net == NULL\n");
+        AML_PRINT_LOG_ERR("init proc fail: proc_net == NULL\n");
         return -ENOENT;
     }
 
     g_proc = proc_mkdir(AML_PARENT_NAME, init_net.proc_net);
     if (!g_proc) {
-        ERROR_DEBUG_OUT("g_proc == NULL\n");
+        AML_PRINT_LOG_ERR("g_proc == NULL\n");
     }
     return 0;
 }
@@ -155,7 +156,7 @@ unsigned char paramParseU32(char **buf, unsigned int *pvalue)
     unsigned char error = 0;
 
     error = getOneParam(*buf, &param, &param_len);
-    AML_OUTPUT("param =%s, param_len = %d\n",param, param_len);
+    AML_PRINT_LOG_INFO("param =%s, param_len = %d\n",param, param_len);
     if (error != 0) {
         return error;
     }
@@ -197,7 +198,7 @@ static ssize_t cfgRead(struct file *filp, char __user *buf, size_t count,
     ASSERT(len <= MAX_BUF_LENGTH);
 
     if (copy_to_user(buf, g_aucprocbuf, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     *f_pos += len;
@@ -226,7 +227,7 @@ static ssize_t cfgWrite(struct file *filp, char __user *buf, size_t count,
 
     if (copy_from_user(g_aucprocbuf , buf, len)) {
         printk("copy to user failed\n");
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     g_aucprocbuf[len - 1] = '\0';
@@ -244,7 +245,7 @@ static ssize_t cfgWrite(struct file *filp, char __user *buf, size_t count,
             bmfm_enable |= BIT(0);
         else
             bmfm_enable &= ~ BIT(0);
-        AML_OUTPUT("kernel change the %s to %c\n", CFG_BMFMINFO_2, g_aucprocbuf[len - 2]);
+        AML_PRINT_LOG_INFO("kernel change the %s to %c\n", CFG_BMFMINFO_2, g_aucprocbuf[len - 2]);
         aml_set_beamforming(wnet_vif, bmfm_enable, CFG_SPATIAL_NUM);
     }
     if (strncmp(g_aucprocbuf, CFG_BMFMINFO_3, strlen(CFG_BMFMINFO_3)) == 0) {
@@ -252,7 +253,7 @@ static ssize_t cfgWrite(struct file *filp, char __user *buf, size_t count,
             bmfm_enable |= BIT(1);
         else
             bmfm_enable &= ~ BIT(1);
-        AML_OUTPUT("kernel change the %s to %c\n", CFG_BMFMINFO_3, g_aucprocbuf[len - 2]);
+        AML_PRINT_LOG_INFO("kernel change the %s to %c\n", CFG_BMFMINFO_3, g_aucprocbuf[len - 2]);
         aml_set_beamforming(wnet_vif, bmfm_enable, CFG_SPATIAL_NUM);
     }
 #endif
@@ -266,7 +267,7 @@ static ssize_t cfgWrite(struct file *filp, char __user *buf, size_t count,
         else if (g_aucprocbuf[len - 2] == '2') {
             wnet_vif->vm_bandwidth = WIFINET_BWC_WIDTH80;
         }
-        AML_OUTPUT("kernel change the %s to %c\n", CFG_BWINFO, g_aucprocbuf[len - 2]);
+        AML_PRINT_LOG_INFO("kernel change the %s to %c\n", CFG_BWINFO, g_aucprocbuf[len - 2]);
         return count;
     }
     else if (strncmp(g_aucprocbuf, CFG_TXLIMIT, strlen(CFG_TXLIMIT)) == 0) {
@@ -275,7 +276,7 @@ static ssize_t cfgWrite(struct file *filp, char __user *buf, size_t count,
             retrynum = retrynum * 10 + (retrydata[i] - '0');
         }
         wifimac->drv_priv->drv_config.cfg_retrynum = retrynum;
-        AML_OUTPUT("kernel change the %s to %d\n", CFG_TXLIMIT, retrynum);
+        AML_PRINT_LOG_INFO("kernel change the %s to %d\n", CFG_TXLIMIT, retrynum);
     }
     return count;
 }
@@ -306,7 +307,7 @@ static ssize_t driverRead(struct file *filp, char __user *buf, size_t count,
     out += sprintf(out, "country:%s\n", wifimac->wm_country.iso);
     for (i = 0; i < wifimac->wm_nchans; i++) {
         if ((LEN_DRV_BUFF - strlen(tmp_buf)) < LEN_DRV_MAX_CHANINFO) {
-            AML_OUTPUT("Buffer tmp_buf[] is not enough! Channel info stop to print.\n");
+            AML_PRINT_LOG_INFO("Buffer tmp_buf[] is not enough! Channel info stop to print.\n");
             break;
         }
         channel = wifimac->wm_channels[i].chan_pri_num;
@@ -322,7 +323,7 @@ static ssize_t driverRead(struct file *filp, char __user *buf, size_t count,
                 }
                 else {
                     if ((LEN_DRV_DFSINFO_BUFF - strlen(dfs_channel)) < LEN_DRV_MAX_DFSINFO) {
-                        AML_OUTPUT("Buffer dfs_channel[] is not enough! DFS channel info stop to print.\n");
+                        AML_PRINT_LOG_INFO("Buffer dfs_channel[] is not enough! DFS channel info stop to print.\n");
                         break;
                     }
                     out_dfs += sprintf(out_dfs, ",%d", channel);
@@ -340,12 +341,12 @@ static ssize_t driverRead(struct file *filp, char __user *buf, size_t count,
         }
     }
     else {
-        AML_OUTPUT("Buffer tmp_buf[] is not enough! bypassdfs & DFS channel info stop to print.\n");
+        AML_PRINT_LOG_INFO("Buffer tmp_buf[] is not enough! bypassdfs & DFS channel info stop to print.\n");
     }
     len = strlen(tmp_buf);
 
     if (copy_to_user(buf, tmp_buf, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
 
@@ -364,7 +365,7 @@ static ssize_t driverWrite(struct file *file, const char __user *buffer,
 
     if (copy_from_user(g_aucprocbuf , buffer, len)) {
         printk("copy to user failed\n");
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     g_aucprocbuf[len - 1] = '\0';
@@ -378,30 +379,37 @@ static ssize_t driverWrite(struct file *file, const char __user *buffer,
             g_DFS_on = false;
         }
         else {
-            AML_OUTPUT("bypassdfs info input error!\n");
+            AML_PRINT_LOG_INFO("bypassdfs info input error!\n");
         }
     }
 
     return count;
 }
 
-extern unsigned long long g_dbg_modules;
 static ssize_t dbglevelRead(struct file *filp, char __user *buf, size_t count,
     loff_t *f_pos)
 {
-    unsigned int len;
+    unsigned int len, id;
+    unsigned char dbg_info[DBG_INFO_BUF_LEN];
+    const char * log_level_str[] = { "ERR", "WARN", "INFO", "DEBUG"};
 
     if (*f_pos > 0)
         return 0;
 
-    memset(g_aucprocbuf, 0, MAX_BUF_LENGTH);
-    snprintf(g_aucprocbuf, MAX_BUF_LENGTH, "deglevel %x\n", g_dbg_modules);
-    len = strlen(g_aucprocbuf);
+    memset(dbg_info, 0, DBG_INFO_BUF_LEN);
 
-    if (copy_to_user(buf, g_aucprocbuf, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+    for (id = 0; id < AML_LOG_ID_MAX;  id++) {
+        sprintf(dbg_info + strlen(dbg_info), "[%-4s]: %-s\n",
+                gAmlTraceInfo[id].moduleNameStr,log_level_str[gAmlTraceInfo[id].moduleTraceLevel]);
+    }
+
+    len = strlen(dbg_info);
+
+    if (copy_to_user(buf, dbg_info, len)) {
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
+
     *f_pos += len;
 
     return len;
@@ -417,7 +425,7 @@ static ssize_t dbglevelWrite(struct file *file, const char __user *buffer,
     len = (count < MAX_BUF_LENGTH) ? count : (MAX_BUF_LENGTH - 1);
 
     if (copy_from_user(g_aucprocbuf , buffer, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     g_aucprocbuf[len] = '\0';
@@ -431,6 +439,7 @@ static ssize_t countryRead(struct file *filp, char __user *buf, size_t count,
 {
     unsigned int len = 0;
     unsigned char country[3] = {0};
+
     struct drv_private *drv_priv = drv_get_drv_priv();
     if (*f_pos > 0)
         return 0;
@@ -441,14 +450,13 @@ static ssize_t countryRead(struct file *filp, char __user *buf, size_t count,
     len = strlen(g_aucprocbuf);
 
     if (copy_to_user(buf, g_aucprocbuf, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     *f_pos += len;
 
     return len;
 }
-
 
 extern void wifi_mac_set_country_code(char* arg);
 static ssize_t countryWrite(struct file *file, const char __user *buffer,
@@ -460,12 +468,16 @@ static ssize_t countryWrite(struct file *file, const char __user *buffer,
     len = (count < MAX_BUF_LENGTH) ? count : (MAX_BUF_LENGTH - 1);
 
     if (copy_from_user(g_aucprocbuf , buffer, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     g_aucprocbuf[len - 1] = '\0';
 
-    DPRINTF(AML_DEBUG_WARNING, "<%s> set country <%s> by file_node\n", __func__, g_aucprocbuf);
+    AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_INFO, "set country <%s> by file_node\n", g_aucprocbuf);
+
+    // kernel has bug this operatin will let "iw reg set xx" not work
+    // regulatory_hint(wnet_vif->vm_wdev->wiphy,g_aucprocbuf);
+
     wifi_mac_set_country_code(g_aucprocbuf);
 
     return count;
@@ -489,7 +501,7 @@ static ssize_t disconnectRead(struct file *filp, char __user *buf, size_t count,
     len = strlen(g_aucprocbuf);
 
     if (copy_to_user(buf, g_aucprocbuf, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     *f_pos += len;
@@ -523,7 +535,7 @@ static ssize_t drvstateRead(struct file *filp, char __user *buf, size_t count,
     len = strlen(g_aucprocbuf);
 
     if (copy_to_user(buf, g_aucprocbuf, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     *f_pos += len;
@@ -535,9 +547,9 @@ void get_rate_name(unsigned char rate, unsigned char *name) {
     unsigned char *out = name;
 
     if (IS_HT_RATE(rate))
-        out += sprintf(out, "11N_MSC%d", GET_HT_MCS(rate));
+        out += sprintf(out, "11N_MCS%d", GET_HT_MCS(rate));
     else if (IS_VHT_RATE((rate)))
-        out += sprintf(out, "11AC_MSC%d", GET_HT_MCS(rate));
+        out += sprintf(out, "11AC_MCS%d", GET_VHT_MCS(rate));
     else {
         switch (rate) {
             case WIFI_11B_1M:
@@ -614,7 +626,7 @@ static ssize_t rvrinfoRead(struct file *filp, char __user *buf, size_t count, lo
     ASSERT(len <= MAX_BUF_LENGTH);
 
     if (copy_to_user(buf, g_aucprocbuf, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     *f_pos += len;
@@ -649,7 +661,7 @@ static ssize_t scanparamRead(struct file *filp, char __user *buf, size_t count, 
     ASSERT(len <= MAX_BUF_LENGTH);
 
     if (copy_to_user(buf, g_aucprocbuf, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     *f_pos += len;
@@ -704,7 +716,7 @@ static ssize_t scanparamWrite(struct file *filp, char __user *buf, size_t count,
 
     if (copy_from_user(g_aucprocbuf , buf, len)) {
         printk("copy to user failed\n");
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     g_aucprocbuf[len - 1] = '\0';
@@ -730,7 +742,7 @@ static ssize_t scanparamWrite(struct file *filp, char __user *buf, size_t count,
         switch (idx) {
             case 0:
                 if (aml_parse_scan_duration(pbuf, &duration, &duration_mandatory) == 0) {
-                    AML_OUTPUT("duration = %d, duration_mandatory = %d\n", duration, duration_mandatory);
+                    AML_PRINT_LOG_INFO("duration = %d, duration_mandatory = %d\n", duration, duration_mandatory);
                     if (wifi_mac_set_scan_dwell_time(wifimac, duration, duration_mandatory) == 0) {
                         error = 0;
                         break;
@@ -744,7 +756,7 @@ static ssize_t scanparamWrite(struct file *filp, char __user *buf, size_t count,
     } while (0);
 
     if (error != 0) {
-        AML_OUTPUT("usage: %s @duration(u32) @duration_mandatory(u8), @duration shouldn't set to 0\n", SCAN_DURATION_STR);
+        AML_PRINT_LOG_INFO("usage: %s @duration(u32) @duration_mandatory(u8), @duration shouldn't set to 0\n", SCAN_DURATION_STR);
     }
 
     return count;
@@ -764,20 +776,20 @@ static ssize_t drvResetWrite(struct file *filp, char __user *buf, size_t count,
 
     if (copy_from_user(g_aucprocbuf , buf, len)) {
         printk("copy to user failed\n");
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     g_aucprocbuf[len - 1] = '\0';
 
     if (aml_bus_type != 0) {
-        AML_OUTPUT("no need write this node under usb mode\n");
+        AML_PRINT_LOG_INFO("no need write this node under usb mode\n");
         return count;
     }
 
     pbuf = g_aucprocbuf;
 
     if (paramParseU32(&pbuf, &reset) != 0 || reset != 1) {
-        AML_OUTPUT("reset should set to [1] before power down\n");
+        AML_PRINT_LOG_INFO("reset should set to [1] before power down\n");
         return count;
     }
 
@@ -998,7 +1010,7 @@ static ssize_t wowstateRead(struct file *filp, char __user *buf, size_t count,
     len = strlen(g_aucprocbuf);
 
     if (copy_to_user(buf, g_aucprocbuf, len)) {
-        ERROR_DEBUG_OUT("copy to user failed\n");
+        AML_PRINT_LOG_ERR("copy to user failed\n");
         return -EFAULT;
     }
     *f_pos += len;
@@ -1022,61 +1034,61 @@ int32_t CreateProcEntry(void)
 
     aml_proc = proc_create(AML_CFG_NAME, 0664, g_proc, &fwcfg_ops);
     if (aml_proc == NULL) {
-        ERROR_DEBUG_OUT("Unable to create /proc entry cfg\n\r");
+        AML_PRINT_LOG_ERR("Unable to create /proc entry cfg\n\r");
         return -1;
     }
 
     aml_proc = proc_create(AML_DRIVER_NAME, 0664, g_proc, &fwdriver_ops);
     if (aml_proc == NULL) {
-        ERROR_DEBUG_OUT("Unable to create /proc entry driver\n\r");
+        AML_PRINT_LOG_ERR("Unable to create /proc entry driver\n\r");
         return -1;
     }
 
     aml_proc = proc_create(AML_COUNTRY_NAME, 0664, g_proc, &fwcountry_ops);
     if (aml_proc == NULL) {
-        ERROR_DEBUG_OUT("Unable to create /proc entry country\n\r");
+        AML_PRINT_LOG_ERR("Unable to create /proc entry country\n\r");
         return -1;
     }
 
     aml_proc = proc_create(AML_DBGLEVEL_NAME, 0664, g_proc, &fwdbglevel_ops);
     if (aml_proc == NULL) {
-        ERROR_DEBUG_OUT("Unable to create /proc entry dbglevel\n\r");
+        AML_PRINT_LOG_ERR("Unable to create /proc entry dbglevel\n\r");
         return -1;
     }
 
     aml_proc = proc_create(AML_DISCONNECT_NAME, 0664, g_proc, &fwdisconnect_ops);
     if (aml_proc == NULL) {
-        ERROR_DEBUG_OUT("Unable to create /proc entry disconnect_info\n\r");
+        AML_PRINT_LOG_ERR("Unable to create /proc entry disconnect_info\n\r");
         return -1;
     }
 
     aml_proc = proc_create(AML_DRVSTATE_NAME, 0664, g_proc, &drvstate_ops);
     if (aml_proc == NULL) {
-        ERROR_DEBUG_OUT("Unable to create /proc entry drv_state\n\r");
+        AML_PRINT_LOG_ERR("Unable to create /proc entry drv_state\n\r");
         return -1;
     }
 
     aml_proc = proc_create(AML_RVRINFO_NAME, 0664, g_proc, &rvrinfo_ops);
     if (aml_proc == NULL) {
-        ERROR_DEBUG_OUT("Unable to create /proc entry rvr_info\n\r");
+        AML_PRINT_LOG_ERR("Unable to create /proc entry rvr_info\n\r");
         return -1;
     }
 
     aml_proc = proc_create(AML_SCANPARAM_NAME, 0664, g_proc, &scanparam_ops);
     if (aml_proc == NULL) {
-        ERROR_DEBUG_OUT("Unable to create /proc entry scan_param\n\r");
+        AML_PRINT_LOG_ERR("Unable to create /proc entry scan_param\n\r");
         return -1;
     }
 
     aml_proc = proc_create(AML_WOW_WAKE_REASON, 0664, g_proc, &wowstate_ops);
     if (aml_proc == NULL) {
-        ERROR_DEBUG_OUT("Unable to create /proc entry wow_wakeup_reason\n\r");
+        AML_PRINT_LOG_ERR("Unable to create /proc entry wow_wakeup_reason\n\r");
         return -1;
     }
 #ifdef CHIP_RESET_SUPPORT
     aml_proc = proc_create(AML_DRVRESET_NAME, 0664, g_proc, &drvreset_ops);
     if (aml_proc == NULL) {
-        ERROR_DEBUG_OUT("Unable to create /proc entry drv_reset\n\r");
+        AML_PRINT_LOG_ERR("Unable to create /proc entry drv_reset\n\r");
         return -1;
     }
 #endif

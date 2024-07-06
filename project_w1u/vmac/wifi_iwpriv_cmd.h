@@ -270,6 +270,10 @@ enum aml_iwpriv_subcmd
 extern void dump_spec_regs_val(struct wlan_net_vif *wnet_vif, int reg_domain);
 extern unsigned char aml_iwpriv_get_band(void);
 int aml_set_debug_modules(char *debug_str);
+void aml_iwpriv_set_recovery(unsigned int set);
 
 extern unsigned char g_iwpriv_get_spec_regs_flag;
+void aml_get_rate_bw(unsigned char bw, unsigned char *name);
+void aml_get_rate_idx(unsigned char rate, unsigned char *name);
+void aml_get_rate_gi(unsigned char gi, unsigned char *name);
 #endif

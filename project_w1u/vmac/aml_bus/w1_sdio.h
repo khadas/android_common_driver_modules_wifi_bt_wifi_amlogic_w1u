@@ -43,7 +43,7 @@ extern void set_usb_bt_power(int is_on);
         } while (0);
 #endif
 
-#define ERROR_DEBUG_OUT(format,...) do {    \
+#define AML_PRINT_LOG_ERR(format,...) do {    \
                                   printk("FUNCTION: %s LINE: %d:"format"",__FUNCTION__, __LINE__, ##__VA_ARGS__); \
                          } while (0)
 

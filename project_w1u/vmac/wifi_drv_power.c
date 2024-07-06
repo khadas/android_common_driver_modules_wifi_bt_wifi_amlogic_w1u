@@ -21,8 +21,8 @@ char drv_pwrsave_cmd_arbitration(struct drv_private *drv_priv,
 {
     unsigned char vid = 0;
 
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d vid:%d, newstate:%d, dot11VmacPsState[0]:%d, dot11VmacPsState[1]:%d, dot11ComPsState:%d\n",
-        __func__, __LINE__, wnet_vif_id, newstate, drv_priv->dot11VmacPsState[0], drv_priv->dot11VmacPsState[1], drv_priv->dot11ComPsState);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "vid:%d, newstate:%d, dot11VmacPsState[0]:%d, dot11VmacPsState[1]:%d, dot11ComPsState:%d\n",
+         wnet_vif_id, newstate, drv_priv->dot11VmacPsState[0], drv_priv->dot11VmacPsState[1], drv_priv->dot11ComPsState);
 
     if (wnet_vif_id == PHY_VMAC_ID) {
         drv_priv->drv_PhyPsState = newstate;

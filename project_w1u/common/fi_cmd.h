@@ -91,6 +91,10 @@
 #define ALL_UNIKEY_RST 0xeeee
 #define ALL_MULTIKEY_RST 0xdddd
 
+//efuse_cfg_param flag
+#define EFUSE_CFG_DISABLE 0
+#define EFUSE_CFG_ENABLE 1
+
 #pragma pack(1)
 
 struct tx_trb_info
@@ -424,6 +428,9 @@ typedef struct NDPAnncmntCmd
 ///AuthRole
 #define BA_INITIATOR  0
 #define BA_RESPONSER  1
+
+#define DPD_CHAN_SWITCH BIT(0)
+#define DPD_FW_EVENT_START BIT(1)
 
 typedef struct Add_BA_Struct
 {

@@ -404,4 +404,9 @@ void wifi_mac_connect_repair_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE para
 int aml_request_recovery(enum wifi_mac_recovery_source src);
 unsigned char wifi_mac_need_chip_reset(void);
 void wifi_mac_filter_special_data_frame(struct sk_buff *skb, SPECIAL_FRAME_STATUS_E frame_status);
+
+extern void cca_thrd_cfg_change_task(SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3, SYS_TYPE param4,SYS_TYPE param5);
+void wifi_mac_set_fwlog_ex(SYS_TYPE param1,SYS_TYPE param2,
+    SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5);
+
 #endif

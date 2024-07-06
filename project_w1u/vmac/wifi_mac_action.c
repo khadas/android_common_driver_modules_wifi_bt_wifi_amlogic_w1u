@@ -19,11 +19,11 @@ int wifi_mac_send_addba_req(char* buf, int tid)
             selected_wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_MAIN_VMAC];
         }
     } else {
-        AML_OUTPUT("no sta connected\n");
+        AML_PRINT_LOG_INFO("no sta connected\n");
         return -1;
     }
 
-    DPRINTF(AML_DEBUG_WARNING,"<running> %s %d tid_index = %d. \n", __func__,__LINE__, tid);
+    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_INFO,"<running> tid_index = %d. \n", tid);
 
     actionargs.category = AML_CATEGORY_BACK;
     actionargs.action = WIFINET_ACTION_BA_ADDBA_REQUEST;
@@ -36,17 +36,17 @@ int wifi_mac_send_addba_req(char* buf, int tid)
 
         for (i = 0 ; i < ETH_ALEN ; i++) {
             if (aml_char_is_hex_digit(buf[i * 3]) == false || aml_char_is_hex_digit(buf[i * 3 + 1]) == false) {
-                AML_OUTPUT("invalid 8-bit hex format for address offset:%u\n", i);
+                AML_PRINT_LOG_INFO("invalid 8-bit hex format for address offset:%u\n", i);
             }
 
             if (i < ETH_ALEN - 1 && buf[i * 3 + 2] != ':') {
-                AML_OUTPUT("invalid separator after address offset:%u\n", i);
+                AML_PRINT_LOG_INFO("invalid separator after address offset:%u\n", i);
             }
 
             temp[0] = buf[i * 3];
             temp[1] = buf[i * 3 + 1];
             if (sscanf(temp, "%hhx", &selected_wnet_vif->vm_mainsta->sta_macaddr[i]) != 1) {
-                AML_OUTPUT("sscanf fail for address offset:0x%03x\n", i);
+                AML_PRINT_LOG_INFO("sscanf fail for address offset:0x%03x\n", i);
             }
         }
     }
@@ -73,11 +73,11 @@ int wifi_mac_send_coexist_mgmt(const char* buf)
             selected_wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_MAIN_VMAC];
         }
     } else {
-        AML_OUTPUT("no sta connected\n");
+        AML_PRINT_LOG_INFO("no sta connected\n");
         return -1;
     }
 
-    DPRINTF(AML_DEBUG_WARNING,"<running> %s %d type = %s, value=%s. \n", __func__,__LINE__, type, value);
+    AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_INFO,"<running> type = %s, value=%s. \n", type, value);
 
     actionargs.category = AML_CATEGORY_PUBLIC;
     actionargs.action = WIFINET_ACT_PUBLIC_BSSCOEXIST;
@@ -103,7 +103,7 @@ int wifi_mac_send_wmm_ac_addts(char** buf)
             selected_wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_MAIN_VMAC];
         }
     } else {
-        AML_OUTPUT("no sta connected\n");
+        AML_PRINT_LOG_INFO("no sta connected\n");
         return -1;
     }
 
@@ -117,7 +117,7 @@ int wifi_mac_send_wmm_ac_addts(char** buf)
     selected_wnet_vif->vm_wmm_ac_params.dialog_token = simple_strtoul(*(buf + 7), NULL, 0);
 
 
-    DPRINTF(AML_DEBUG_WARNING,"<running> %s %d mean_data_rate=%d, direction=%d, tid=%d, up=%d, size=%d, phyrate=%d, sba=%d, dialog_token=%d. \n", __func__,__LINE__, selected_wnet_vif->vm_wmm_ac_params.mean_data_rate,
+    AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_INFO,"<running> mean_data_rate=%d, direction=%d, tid=%d, up=%d, size=%d, phyrate=%d, sba=%d, dialog_token=%d. \n", selected_wnet_vif->vm_wmm_ac_params.mean_data_rate,
                   selected_wnet_vif->vm_wmm_ac_params.direction, selected_wnet_vif->vm_wmm_ac_params.tid, selected_wnet_vif->vm_wmm_ac_params.up, selected_wnet_vif->vm_wmm_ac_params.size,
                   selected_wnet_vif->vm_wmm_ac_params.phyrate, selected_wnet_vif->vm_wmm_ac_params.sba, selected_wnet_vif->vm_wmm_ac_params.dialog_token);
 
@@ -146,11 +146,11 @@ int wifi_mac_send_wmm_ac_delts(const char* buf)
             selected_wnet_vif = drv_priv->drv_wnet_vif_table[NET80211_MAIN_VMAC];
         }
     } else {
-        AML_OUTPUT("no sta connected\n");
+        AML_PRINT_LOG_INFO("no sta connected\n");
         return -1;
     }
     sscanf(buf, "%d", &tid);
-    DPRINTF(AML_DEBUG_WARNING,"<running> %s %d tid=%d. \n", __func__,__LINE__, tid);
+    AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_INFO,"<running> tid=%d. \n", tid);
 
     actionargs.category = AML_CATEGORY_WMM;
     actionargs.action = WIFINET_ACTION_DELTS;

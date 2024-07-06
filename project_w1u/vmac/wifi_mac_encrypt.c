@@ -53,17 +53,17 @@ int wifi_mac_security_req(struct wlan_net_vif *wnet_vif, int cipher, int flags, 
 
     if (cipher >= WIFINET_CIPHER_MAX) {
         wnet_vif->vif_sts.sts_key_type_err++;
-        AML_OUTPUT("<running> cipher:%d\n", cipher);
+        AML_PRINT_LOG_INFO("<running> cipher:%d\n", cipher);
         return 0;
     }
 
     cip = security_type[cipher];
     if (cip == NULL) {
-        WIFINET_DPRINTF(AML_DEBUG_ANY, "Err:  security_type=%d  module is out of range \n", cipher);
+        WIFINET_DPRINTF(AML_LOG_ID_LOG, AML_LOG_LEVEL_ERROR, "Err:  security_type=%d  module is out of range \n", cipher);
         return 0;
     }
 
-    WIFINET_DPRINTF(AML_DEBUG_DEBUG, "kid:%d, cipher:%d, wk_flags:0x%x, flags:0x%x, new:%s, old:%s\n",
+    WIFINET_DPRINTF(AML_LOG_ID_LOG, AML_LOG_LEVEL_DEBUG,, "kid:%d, cipher:%d, wk_flags:0x%x, flags:0x%x, new:%s, old:%s\n",
                     key->wk_keyix, cipher, key->wk_flags, flags, cip->wm_name, key->wk_cipher->wm_name);
 
     oflags = key->wk_flags;
@@ -78,7 +78,7 @@ int wifi_mac_security_req(struct wlan_net_vif *wnet_vif, int cipher, int flags, 
         keyctx = cip->wm_attach(wnet_vif, key);
         if (keyctx == NULL) {
             key->wk_flags = oflags;
-            WIFINET_DPRINTF(AML_DEBUG_DEBUG,"  cip->wm_attach FAIL , %s key drop \n",key->wk_cipher->wm_name);
+            WIFINET_DPRINTF(AML_LOG_ID_LOG, AML_LOG_LEVEL_DEBUG,"  cip->wm_attach FAIL , %s key drop \n",key->wk_cipher->wm_name);
             return 0;
         }
         key->wk_cipher->wm_detach(key);
@@ -94,7 +94,7 @@ static int wifi_mac_security_delkey(struct wlan_net_vif *wnet_vif, struct wifi_m
     unsigned short key_index;
 
     KASSERT(key->wk_cipher != NULL, ("No cipher!"));
-    DPRINTF(AML_DEBUG_KEY, "%s: delete key sta %p\n", __func__,sta);
+    AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, "delete key sta %p\n",sta);
 
     key_index = key->wk_keyix;
     if (key_index != WIFINET_KEYIX_NONE) {
@@ -139,13 +139,13 @@ int wifi_mac_security_setkey(struct wlan_net_vif *wnet_vif, struct wifi_mac_key 
 
     if (!cip->wm_setkey(key)) {
         wnet_vif->vif_sts.sts_key_drop++;
-        AML_OUTPUT("<running> \n");
+        AML_PRINT_LOG_INFO("<running> \n");
         return 0;
     }
 
     if (key->wk_keyix == WIFINET_KEYIX_NONE) {
         wnet_vif->vif_sts.sts_key_id_err++;
-        AML_OUTPUT("<running> \n");
+        AML_PRINT_LOG_INFO("<running> \n");
         return 0;
     }
 
@@ -173,8 +173,8 @@ struct wifi_mac_key *wifi_mac_security_encap(struct wifi_station *sta, struct sk
     {
         if (wnet_vif->vm_def_txkey == WIFINET_KEYIX_NONE)
         {
-            WIFINET_DPRINTF_MACADDR( AML_DEBUG_KEY,
-                wh->i_addr1, "no default transmit key (%s) deftxkey %u", __func__, wnet_vif->vm_def_txkey);
+            WIFINET_DPRINTF_MACADDR( AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, wh->i_addr1,
+                                    "no default transmit key (%s) deftxkey %u", wnet_vif->vm_def_txkey);
             wnet_vif->vif_sts.sts_tx_key_err++;
             return NULL;
         }
@@ -189,8 +189,8 @@ struct wifi_mac_key *wifi_mac_security_encap(struct wifi_station *sta, struct sk
     cip = k->wk_cipher;
     if (os_skb_hdrspace(skb) < cip->wm_header)
     {
-        WIFINET_DPRINTF_MACADDR( AML_DEBUG_KEY, wh->i_addr1,
-            "%s: malformed packet for cipher %s; headroom %u", __func__, cip->wm_name, os_skb_hdrspace(skb));
+        WIFINET_DPRINTF_MACADDR( AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, wh->i_addr1,
+                                "malformed packet for cipher %s; headroom %u", cip->wm_name, os_skb_hdrspace(skb));
         wnet_vif->vif_sts.sts_headroom_err++;
         return NULL;
     }
@@ -210,9 +210,9 @@ wifi_mac_security_decap(struct wifi_station *sta, struct sk_buff *skb, int hdrle
 
     if (os_skb_get_pktlen(skb) < sizeof(struct wifi_frame) )
     {
-        WIFINET_DPRINTF_STA( AML_DEBUG_ANY, sta,
-                             "%s: WEP data frame too short, len %u",
-                             __func__, os_skb_get_pktlen(skb));
+        WIFINET_DPRINTF_STA( AML_LOG_ID_LOG, AML_LOG_LEVEL_ERROR, sta,
+                             "WEP data frame too short, len %u",
+                              os_skb_get_pktlen(skb));
         wnet_vif->vif_sts.sts_rx_too_short++;
         return NULL;
     }
@@ -243,9 +243,9 @@ wifi_mac_security_decap(struct wifi_station *sta, struct sk_buff *skb, int hdrle
 
         if (os_skb_get_pktlen(skb) < (sizeof(struct wifi_frame)+  k->wk_cipher->wm_miclen) )
         {
-            WIFINET_DPRINTF_STA( AML_DEBUG_ANY, sta,
-                                 "%s: WEP data frame too short, len %u",
-                                 __func__, os_skb_get_pktlen(skb));
+            WIFINET_DPRINTF_STA( AML_LOG_ID_LOG, AML_LOG_LEVEL_ERROR, sta,
+                                 "WEP data frame too short, len %u",
+                                 os_skb_get_pktlen(skb));
             wnet_vif->vif_sts.sts_rx_too_short++;
             return NULL;
         }
@@ -509,11 +509,11 @@ tkip_enmic(struct wifi_mac_key *k, struct sk_buff *skb0, int force)
         if (skb_tailroom(skb) < k->wk_cipher->wm_miclen)
         {
 
-            WIFINET_DPRINTF_MACADDR( AML_DEBUG_KEY,
+            WIFINET_DPRINTF_MACADDR( AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG,
                                      wh->i_addr1,
                                      "No room for Michael MIC, tailroom %u",
                                      skb_tailroom(skb));
-            ERROR_DEBUG_OUT("No room for Michael MIC, tailroom \n");
+            AML_PRINT_LOG_ERR("No room for Michael MIC, tailroom \n");
 
             return 0;
         }
@@ -566,7 +566,7 @@ tkip_demic(struct wifi_mac_key *k, struct sk_buff *skb0, int hdrlen, int force)
         wh = (struct wifi_frame *) skb0->data;
 
         wnet_vif->vif_sts.sts_rx_tkip_sw_mic_err++;
-        // AML_OUTPUT("<running> \n");
+        // AML_PRINT_LOG_INFO("<running> \n");
         //dump_memory_internel(k->wk_key, WIFINET_KEYBUF_SIZE+WIFINET_MICBUF_SIZE);
         michael_mic(k->wk_rxmic,
                     skb0, hdrlen, pktlen - (hdrlen + k->wk_cipher->wm_miclen),
@@ -576,7 +576,7 @@ tkip_demic(struct wifi_mac_key *k, struct sk_buff *skb0, int hdrlen, int force)
         if (memcmp(mic, mic0, k->wk_cipher->wm_miclen))
         {
             wifi_mac_notify_mic_fail(wnet_vif, wh, k->wk_keyix);
-            WIFINET_DPRINTF( AML_DEBUG_KEY,"%s  mic fail drop\n",ether_sprintf(wh->i_addr2));
+            WIFINET_DPRINTF( AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG,"%s  mic fail drop\n",ether_sprintf(wh->i_addr2));
             return 0;
         }
         os_skb_trim(skb, os_skb_get_pktlen(skb) - k->wk_cipher->wm_miclen);
@@ -869,7 +869,7 @@ int wifi_mac_key_delete(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key
 {
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
     int staid = 0;
-    DPRINTF(AML_DEBUG_WARNING, "%s, vid:%d, aid:0x%x, kid:%d\n", __func__, wnet_vif->wnet_vif_id, stanfo->sta_associd, k->wk_keyix);
+    AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_INFO, "vid:%d, aid:0x%x, kid:%d\n", wnet_vif->wnet_vif_id, stanfo->sta_associd, k->wk_keyix);
 
     staid = stanfo->sta_associd & 0xff;
     wifimac->drv_priv->drv_ops.key_delete(wifimac->drv_priv,wnet_vif->wnet_vif_id, k->wk_keyix, staid, k->wk_flags & WIFINET_KEY_GROUP);
@@ -895,7 +895,7 @@ int wifi_mac_key_set(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key *k
     struct hal_key_val hk;
     int opmode, status = 1;
 
-    DPRINTF(AML_DEBUG_KEY, "<%s> %s %d \n",wnet_vif->vm_ndev->name, __func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, "<%s> \n",wnet_vif->vm_ndev->name);
     ASSERT(cip != NULL);
     if (cip == NULL)
         return 0;
@@ -914,7 +914,7 @@ int wifi_mac_key_set(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key *k
 
     wnet_vif->current_keytype = cip->wm_cipher;
     if (k->wk_flags & WIFINET_KEY_GROUP) {
-        DPRINTF(AML_DEBUG_KEY, "<%s> %s %d set group key \n", wnet_vif->vm_ndev->name,__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, "<%s> set group key \n", wnet_vif->vm_ndev->name);
 
         switch (opmode) {
             case WIFINET_M_STA:
@@ -924,18 +924,18 @@ int wifi_mac_key_set(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key *k
                 break;
 
             case WIFINET_M_IBSS:
-                DPRINTF(AML_DEBUG_KEY, "<%s> %s %d \n",wnet_vif->vm_ndev->name, __func__,__LINE__);
+                AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, "<%s> \n",wnet_vif->vm_ndev->name);
 
                 if (k->wk_flags & WIFINET_KEY_RECV) {
                     if (k->wk_flags & WIFINET_KEY_PERSTA) {
                         ASSERT(k->wk_keyix >= WIFINET_WEP_NKID);
-                        DPRINTF(AML_DEBUG_KEY, "<running> %s %d \n",__func__,__LINE__);
+                        AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, "<running> \n");
                         WIFINET_ADDR_COPY(gmac, peermac);
                         gmac[0] |= 0x01;
                         mac = gmac;
 
                     } else {
-                        DPRINTF( AML_DEBUG_KEY, "<running> %s %d \n",__func__,__LINE__);
+                        AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, "<running> \n");
                         WIFINET_ADDR_COPY(gmac, peermac);
                         gmac[0] |= 0x01;
                         mac = gmac;
@@ -964,8 +964,7 @@ int wifi_mac_key_set(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key *k
                 break;
         }
     } else {
-        DPRINTF(AML_DEBUG_KEY, "<running> %s %d k->wk_keyix = %d\n",
-                __func__,__LINE__,k->wk_keyix);
+        AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, "<running> k->wk_keyix = %d\n", k->wk_keyix);
         //ASSERT(k->wk_keyix <= WIFINET_WEP_NKID);
         if ((hk.kv_type == HAL_KEY_TYPE_WEP)||(opmode == WIFINET_M_IBSS)) {
             WIFINET_ADDR_COPY(gmac, peermac);
@@ -981,10 +980,10 @@ int wifi_mac_key_set(struct wlan_net_vif *wnet_vif, const struct wifi_mac_key *k
         status = wifi_mac_keyset_tkip(wifimac,wnet_vif->wnet_vif_id, k, &hk, mac);
 
     } else {
-        DPRINTF( AML_DEBUG_KEY, "<%s> %s %d \n",wnet_vif->vm_ndev->name,__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, "<%s> \n",wnet_vif->vm_ndev->name);
         status = (wifimac->drv_priv->drv_ops.key_set(wifimac->drv_priv,wnet_vif->wnet_vif_id,
                     k->wk_keyix, &hk, mac) != 0);
-        DPRINTF(AML_DEBUG_KEY, "<running> %s %d %d\n",__func__,__LINE__,status);
+        AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, "<running> %d\n",status);
     }
 
     wnet_vif->vm_key_bitmap |= (k->wk_flags & WIFINET_KEY_GROUP) ? BIT(k->wk_keyix) : BIT(k->wk_keyix + WIFINET_UKEY_BITMAP_OFT);
@@ -1009,7 +1008,7 @@ int wifi_mac_keyset_tkip(struct wifi_mac *wifimac, unsigned char wnet_vif_id,
 {
     memcpy(hk->kv_mic, k->wk_rxmic, sizeof(hk->kv_mic));
     memcpy(hk->kv_txmic, k->wk_txmic, sizeof(hk->kv_txmic));
-    DPRINTF( AML_DEBUG_KEY, "<running> %s %d \n",__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, "<running> \n");
     return (wifimac->drv_priv->drv_ops.key_set(wifimac->drv_priv,
                 wnet_vif_id,k->wk_keyix, hk, mac));
 }

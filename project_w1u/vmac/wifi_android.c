@@ -72,7 +72,7 @@ static int aml_android_get_rssi(struct wlan_net_vif *wnet_vif, char *command, in
             bytes_written += snprintf(&command[bytes_written], total_len, "%s rssi %d\n",
                 wnet_vif->vm_mainsta->sta_essid, rssi);
 
-            AML_OUTPUT("sta_avg_rssi:%d, sta_avg_bcn_rssi:%d\n",
+            AML_PRINT_LOG_INFO("sta_avg_rssi:%d, sta_avg_bcn_rssi:%d\n",
                 (wnet_vif->vm_mainsta->sta_avg_rssi - 255), wnet_vif->vm_mainsta->sta_avg_bcn_rssi);
         }
     }
@@ -134,8 +134,13 @@ static int aml_android_set_country(struct wlan_net_vif *wnet_vif, char *command,
 {
     char *country_code = command + strlen(android_wifi_cmd_str[ANDROID_WIFI_CMD_COUNTRY]) + 1;
 
-    DPRINTF(AML_DEBUG_WARNING, "%s set country <%s> by ioctl\n", __func__, country_code);
-    wifi_mac_set_country_code(country_code);
+    AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_INFO, "set country <%s> by ioctl\n", country_code);
+
+    /* wpa_cli -i wlan0 DRIVER COUNTRY will let
+    *  the upper layer call aml_reg_notifier through by user
+    *  regulatory_hint only notify kernel and not call aml_reg_notifier through by driver
+    */
+    regulatory_hint(wnet_vif->vm_wdev->wiphy,country_code);
 
     return 0;
 }
@@ -144,10 +149,10 @@ static int wl_android_wifi_on(struct net_device *dev)
 {
     int ret = 0;
 
-    AML_OUTPUT("in\n");
+    AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_INFO,"in \n");
     if (!dev)
     {
-        ERROR_DEBUG_OUT("dev is null\n");
+        AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_ERROR,"dev is null\n");
         return -EINVAL;
     }
 
@@ -159,10 +164,10 @@ static int wl_android_wifi_off(struct net_device *dev)
 {
     int ret = 0;
 
-    AML_OUTPUT("in\n");
+    AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_INFO,"in \n");
     if (!dev)
     {
-        ERROR_DEBUG_OUT("dev is null\n");
+        AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_ERROR,"dev is null\n");
         return -EINVAL;
     }
 
@@ -197,13 +202,13 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
 
     if (!IS_RUNNING(wnet_vif->vm_ndev))
     {
-        DPRINTF(AML_DEBUG_ANDROID,"%s %d flags %x cmd abort\n", __func__, __LINE__, wnet_vif->vm_ndev->flags);
+        AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_WARN,"flags %x cmd abort\n", wnet_vif->vm_ndev->flags);
         ret = -EFAULT;
         goto exit;
     }
 
     if (!data) {
-        DPRINTF(AML_DEBUG_ANDROID,"%s %d data=NULL\n", __func__, __LINE__);
+        AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_WARN,"data=NULL\n");
         ret = -EINVAL;
         goto exit;
     }
@@ -228,36 +233,36 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
 #endif /* CONFIG_COMPAT */
     {
         if (copy_from_user(&priv_cmd, data, sizeof(struct android_wifi_priv_cmd))) {
-            DPRINTF(AML_DEBUG_ANDROID,"%s %d copy_from_user data fail\n", __func__, __LINE__);
+            AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_ERROR,"copy_from_user data fail\n");
             ret = -EFAULT;
             goto exit;
         }
     }
 
-    DPRINTF(AML_DEBUG_WARNING, "%s cmd_len %d %zd\n", __func__, priv_cmd.total_len, sizeof(struct android_wifi_priv_cmd));
+    AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_INFO, "cmd_len %d %zd\n", priv_cmd.total_len, sizeof(struct android_wifi_priv_cmd));
     if ((priv_cmd.total_len > PRIVATE_COMMAND_MAX_LEN) || (priv_cmd.total_len < 0)) {
-        DPRINTF(AML_DEBUG_ANDROID,"%s cmd length error:%d\n", __func__, priv_cmd.total_len);
+        AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_WARN,"cmd length error:%d\n", priv_cmd.total_len);
         ret = -EINVAL;
         goto exit;
     }
 
     command = ZMALLOC(priv_cmd.total_len, "command", GFP_ATOMIC);
     if (!command) {
-        DPRINTF(AML_DEBUG_ANDROID,"%s: failed to allocate memory\n", __FUNCTION__);
+        AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_ERROR,"failed to allocate memory\n");
         ret = -ENOMEM;
         goto exit;
     }
 
     if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
-        DPRINTF(AML_DEBUG_ANDROID,"%s %d copy_from_user priv_cmd.buf fail\n", __func__, __LINE__);
+        AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_ERROR,"copy_from_user priv_cmd.buf fail\n");
         ret = -EFAULT;
         goto exit;
     }
 
-    //DPRINTF(AML_DEBUG_WARNING,"%s: Android private cmd \"%s\" on %s\n", __func__, command, ifr->ifr_name);
+    //AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_INFO, " Android private cmd \"%s\" on %s\n", command, ifr->ifr_name);
 
     cmd_num = aml_android_cmdstr_to_num(command);
-    DPRINTF(AML_DEBUG_ANDROID,"%s %d cmd_num=%d\n", __func__, __LINE__, cmd_num);
+    AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_DEBUG,"cmd_num=%d\n", cmd_num);
     if (cmd_num == ANDROID_WIFI_CMD_MAX) {
         while (cmd_to_func[i].name[0] != '\0') {
             if (strnicmp(command , cmd_to_func[i].name, strlen(cmd_to_func[i].name)) == 0) {
@@ -369,7 +374,7 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
             skip = strlen(android_wifi_cmd_str[ANDROID_WIFI_CMD_SET_AP_WPS_P2P_IE]) + 3;
             bytes_written = vm_p2p_set_wpsp2pie(wnet_vif->vm_ndev, command + skip,
                 priv_cmd.total_len - skip, *(command + skip - 2) - '0');
-            DPRINTF(AML_DEBUG_ANDROID,"%s %d bytes_written=%d\n", __func__, __LINE__, bytes_written);
+            AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_DEBUG,"bytes_written=%d\n", bytes_written);
             break;
 #endif //CONFIG_P2P
 #ifdef CONFIG_WFD
@@ -438,7 +443,7 @@ static int aml_android_cmdstr_to_num(char *cmdstr)
         }
 
         default:
-            DPRINTF(AML_DEBUG_ANDROID,"Unknown PRIVATE command %s - ignored\n", command);
+            AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_WARN,"Unknown PRIVATE command %s - ignored\n", command);
             snprintf(command, 3, "OK");
             bytes_written = strlen("OK");
     }
@@ -451,7 +456,7 @@ response:
 
         if (bytes_written >= priv_cmd.total_len)
         {
-            DPRINTF(AML_DEBUG_ANDROID,"%s: bytes_written = %d\n", __func__, bytes_written);
+            AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_DEBUG,"bytes_written = %d\n", bytes_written);
             bytes_written = priv_cmd.total_len;
         }
         else
@@ -461,7 +466,7 @@ response:
         priv_cmd.used_len = bytes_written;
         if (copy_to_user(priv_cmd.buf, command, bytes_written))
         {
-            DPRINTF(AML_DEBUG_ANDROID,"%s: failed to copy data to user buffer\n", __func__);
+            AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_ERROR,"failed to copy data to user buffer\n");
             ret = -EFAULT;
         }
     }
@@ -476,7 +481,7 @@ exit:
         FREE(command,"command");
     }
 
-    DPRINTF(AML_DEBUG_ANDROID,"%s -- ret=%d\n", __func__,  ret);
+    AML_PRINT(AML_LOG_ID_ANDROID, AML_LOG_LEVEL_DEBUG,"ret=%d\n",  ret);
     return ret;
 }
 

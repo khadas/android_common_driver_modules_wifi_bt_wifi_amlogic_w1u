@@ -51,7 +51,7 @@ static void drv_txdesc_list_drain(struct drv_private *drv_priv, struct list_head
         return;
     }
 
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d qcnt=%d\n",__func__,__LINE__, *qcnt);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, " qcnt=%d\n",*qcnt);
 
     INIT_LIST_HEAD(&txdesc_list_head_not_free);
 
@@ -89,7 +89,7 @@ static void drv_txdesc_list_queue (struct drv_private *drv_priv, struct list_hea
 
     if (list_empty(txdesc_list_head))
     {
-        DPRINTF(AML_DEBUG_ERROR, "<ERROR>%s %d buffer head qcnt=%d !\n",__func__,__LINE__, (*qcnt));
+        AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_ERROR, "<ERROR>  buffer head qcnt=%d !\n", (*qcnt));
         return;
     }
     ptxdesc = list_first_entry(txdesc_list_head, struct drv_txdesc, txdesc_queue);
@@ -110,7 +110,7 @@ static void drv_txdesc_list_queue (struct drv_private *drv_priv, struct list_hea
     (*qcnt) ++;
     DRV_TX_QUEUE_UNLOCK(drv_priv);
 
-    //DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d buffer head qcnt=%d\n",__func__,__LINE__, (*qcnt));
+    //AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, " buffer head qcnt=%d\n", (*qcnt));
 }
 
 #ifdef CONFIG_P2P
@@ -152,7 +152,7 @@ static int drv_if_noa_started (struct drv_txdesc *ptxdesc)
             {
                 if (P2P_NoA_START_FLAG(wnet_vif->vm_p2p->HiP2pNoaCountNow))
                 {
-                    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d canceled by noa start\n",__func__,__LINE__);
+                    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "canceled by noa start\n");
                     ret = 1;
                 }
             }
@@ -182,7 +182,7 @@ static void drv_txdesc_list_send (struct drv_private *drv_priv, struct list_head
         DRV_TX_QUEUE_LOCK(drv_priv);
         if (list_empty(txdesc_list))
         {
-            DPRINTF(AML_DEBUG_ERROR|AML_DEBUG_PWR_SAVE, "%s %d\n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_ERROR, "\n");
             DRV_TX_QUEUE_UNLOCK(drv_priv);
             break;
         }
@@ -257,7 +257,7 @@ unsigned int drv_tx_uapsd_nsta_qcnt(void * nsta)
 
 void drv_tx_queue_uapsd_nsta(struct drv_private *drv_priv, struct list_head *txdesc_list_head, struct aml_driver_nsta *drv_sta)
 {
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d drv_sta->sta_uapsd_queuecnt=%d\n", __func__,__LINE__, drv_sta->sta_uapsd_queuecnt);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "drv_sta->sta_uapsd_queuecnt=%d\n", drv_sta->sta_uapsd_queuecnt);
     drv_txdesc_list_queue(drv_priv, txdesc_list_head, &(drv_sta->sta_uapsd_queue), &(drv_sta->sta_uapsd_queuecnt));
 }
 
@@ -303,12 +303,12 @@ int drv_process_uapsd_nsta_trigger( struct drv_private *drv_priv, void * nsta, u
             txn_real = maxsp;
     }
 
-    AML_OUTPUT("before tx uapsd\n");
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d flush=%d uapsd_qqcnt=%d\n", __func__,__LINE__, flush, uapsd_qqcnt);
+    AML_PRINT_LOG_INFO("before tx uapsd\n");
+    AML_PRINT(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG,"flush=%d uapsd_qqcnt=%d\n", flush, uapsd_qqcnt);
     for (count = txn_real; ((count > 0) && (eosp_flag==0)); count--)
     {
 
-        AML_OUTPUT("tx=%d\n", count);
+        AML_PRINT_LOG_INFO("tx=%d\n", count);
 
 #ifdef DRV_SUPPORT_TX_WITHDRAW
         if (drv_sta->sta_txwd_uapsd_qqcnt)
@@ -329,7 +329,7 @@ int drv_process_uapsd_nsta_trigger( struct drv_private *drv_priv, void * nsta, u
         DRV_TX_QUEUE_LOCK(drv_priv);
         if (list_empty(list_head))
         {
-            DPRINTF(AML_DEBUG_ERROR|AML_DEBUG_PWR_SAVE, "%s %d\n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_ERROR, "\n");
             DRV_TX_QUEUE_UNLOCK(drv_priv);
             break;
         }
@@ -356,7 +356,7 @@ int drv_process_uapsd_nsta_trigger( struct drv_private *drv_priv, void * nsta, u
         {
             DRV_TXQ_UNLOCK(txlist);
             DRV_TX_QUEUE_UNLOCK(drv_priv);
-            DPRINTF(AML_DEBUG_ERROR|AML_DEBUG_PWR_SAVE, "%s %d\n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_ERROR, "\n");
             break;
         }
 
@@ -400,8 +400,8 @@ int drv_process_uapsd_nsta_trigger( struct drv_private *drv_priv, void * nsta, u
 
     if (flush && (drv_tx_uapsd_nsta_qcnt(nsta) > 0))
     {
-        DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d sta_uapsd_queuecnt=%d, need to flush another time\n",
-                __func__,__LINE__, drv_tx_uapsd_nsta_qcnt(nsta));
+         AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "sta_uapsd_queuecnt=%d, need to flush another time\n",
+                drv_tx_uapsd_nsta_qcnt(nsta));
     }
     return drv_tx_uapsd_nsta_qcnt(nsta);
 }
@@ -430,7 +430,7 @@ void drv_tx_mcastq_cleanup (struct drv_private *drv_priv, int wnet_vif_id)
 void drv_tx_mcastq_addbuf(struct drv_private *drv_priv, struct list_head *head)
 {
     struct drv_txlist *txlist = &drv_priv->drv_txlist_table[HAL_WME_MCAST];
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d txlist->txlist_backup_qcnt=%d\n", __func__,__LINE__, txlist->txlist_backup_qcnt);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG," txlist->txlist_backup_qcnt=%d\n", txlist->txlist_backup_qcnt);
     drv_txdesc_list_queue(drv_priv, head, &txlist->txlist_backup, &txlist->txlist_backup_qcnt);
 }
 

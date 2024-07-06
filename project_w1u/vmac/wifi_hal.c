@@ -222,7 +222,7 @@ void hal_soft_rx_cs(struct hal_private *hal_priv, struct sk_buff *skb)
 
     if (wnet_vif_id >= WIFI_MAX_VID)
     {
-        PRINT("hal_soft_rx_cs wnet_vif_id %d \n", wnet_vif_id);
+        AML_PRINT(AML_LOG_ID_RECV, AML_LOG_LEVEL_DEBUG, "hal_soft_rx_cs wnet_vif_id %d \n", wnet_vif_id);
         //dump_memory_internel(RxPrivHdr_bit->data, 32);
         os_skb_free(skb);
         return;
@@ -232,7 +232,7 @@ void hal_soft_rx_cs(struct hal_private *hal_priv, struct sk_buff *skb)
         || (hal_priv->hal_call_back->intr_rx_handle == NULL))
     {
         if (!(print_count++ % 100)) {
-            AML_OUTPUT("vid:%d, mic_err:%d, keymiss_err:%d, icv_err:%d\n", wnet_vif_id,
+            AML_PRINT_LOG_INFO("vid:%d, mic_err:%d, keymiss_err:%d, icv_err:%d\n", wnet_vif_id,
                        RxPrivHdr_bit->mic_err, RxPrivHdr_bit->keymiss_err, RxPrivHdr_bit->icv_err);
         }
 
@@ -468,7 +468,7 @@ unsigned char hal_wake_fw_req(void)
     if (atomic_read(&halpriv->drv_suspend_cnt) != 0)
     {
         POWER_END_LOCK();
-        AML_OUTPUT("suspending, does not  wake, fw st %d\n",
+        AML_PRINT_LOG_INFO("suspending, does not  wake, fw st %d\n",
             halpriv->hal_fw_ps_status);
         return 0;
     }
@@ -497,7 +497,7 @@ unsigned char hal_wake_fw_req(void)
             host_req_status = hif->hif_ops.hi_bottom_read8(SDIO_FUNC1, RG_SDIO_PMU_HOST_REQ);
             host_sleep_req = ((host_req_status & HOST_SLEEP_REQ) != 0) ? 1 : 0;
 
-            //AML_OUTPUT("fw ps st 0x%x, fw_sleep 0x%x, host_sleep_req 0x%x\n", fw_ps_st, fw_sleep, host_sleep_req);
+            //AML_PRINT_LOG_INFO("fw ps st 0x%x, fw_sleep 0x%x, host_sleep_req 0x%x\n", fw_ps_st, fw_sleep, host_sleep_req);
             // fw/pmu st
             fw_ps_st = fw_ps_st & 0xF;
             if (fw_ps_st != PMU_ACT_MODE)
@@ -545,7 +545,7 @@ unsigned char hal_wake_fw_req(void)
             {
                 POWER_END_LOCK();
                 host_wake_w1_fail_cnt++;
-                AML_OUTPUT("fw ps st 0x%x, fw_sleep 0x%x, host_sleep_req 0x%x\n", fw_ps_st, fw_sleep, host_sleep_req);
+                AML_PRINT_LOG_INFO("fw ps st 0x%x, fw_sleep 0x%x, host_sleep_req 0x%x\n", fw_ps_st, fw_sleep, host_sleep_req);
                 return 0;
             }
         }
@@ -596,7 +596,7 @@ unsigned char hal_check_fw_wake(void)
 #endif
             )
         {
-            //AML_OUTPUT("fw is not active mode, st = 0x%x\n", fw_ps_st);
+            //AML_PRINT_LOG_INFO("fw is not active mode, st = 0x%x\n", fw_ps_st);
         }
         else
         {
@@ -1007,7 +1007,7 @@ unsigned char hal_alloc_txcmp_buf( struct hal_private *hal_priv)
     hal_priv->txcompletestatus = (struct tx_complete_status  *)ZMALLOC(sizeof(struct tx_complete_status), "hal_priv->txcompletestatus", GFP_KERNEL);
     if (hal_priv->txcompletestatus == NULL)
     {
-        ERROR_DEBUG_OUT("alloc_err\n");
+        AML_PRINT_LOG_ERR("alloc_err\n");
         return false;
     }
     return true;
@@ -1015,7 +1015,7 @@ unsigned char hal_alloc_txcmp_buf( struct hal_private *hal_priv)
     hal_priv->txcompletestatus = (struct tx_complete_status *)MALLOC(sizeof(struct tx_complete_status));
     if (hal_priv->txcompletestatus == NULL)
     {
-        ERROR_DEBUG_OUT("alloc_err\n");
+        AML_PRINT_LOG_ERR("alloc_err\n");
         return false;
     }
     return true;
@@ -1039,7 +1039,7 @@ unsigned char hal_alloc_fw_event_buf( struct hal_private *hal_priv)
     hal_priv->fw_event = (struct fw_event_to_driver *)ZMALLOC(sizeof(struct fw_event_to_driver), "hal_priv->fw_event", GFP_KERNEL);
     if (hal_priv->fw_event == NULL)
     {
-        ERROR_DEBUG_OUT("alloc_err\n");
+        AML_PRINT_LOG_ERR("alloc_err\n");
         return false;
     }
     return true;
@@ -1047,7 +1047,7 @@ unsigned char hal_alloc_fw_event_buf( struct hal_private *hal_priv)
     hal_priv->fw_event = (struct fw_event_to_driver *)MALLOC(sizeof(struct fw_event_to_driver));
     if (hal_priv->fw_event == NULL)
     {
-        ERROR_DEBUG_OUT("alloc_err\n");
+        AML_PRINT_LOG_ERR("alloc_err\n");
         return false;
     }
     return true;
@@ -1135,17 +1135,17 @@ int hal_free_tx_id(struct hal_private * hal_priv, struct txdonestatus *txstatus,
 
         if (hal_priv->bhaltxdrop) {
             if (hal_is_empty_tx_id(hal_priv) == 0) {
-                PRINT("%s id:%d, set bhaltxdrop = 0!\n", __func__, id);
+                PRINT("id:%d, set bhaltxdrop = 0!\n", id);
                 hal_priv->bhaltxdrop = 0;
 
             } else {
-                PRINT("%s keep bhaltxdrop = 1, id:%d, %lx, %lx\n", __func__, id, hal_priv->tx_frames_map[0], hal_priv->tx_frames_map[1]);
+                PRINT("keep bhaltxdrop = 1, id:%d, %lx, %lx\n", id, hal_priv->tx_frames_map[0], hal_priv->tx_frames_map[1]);
             }
         }
     }
     else
     {
-        AML_OUTPUT("free id:%d, %lx, %lx\n", id, hal_priv->tx_frames_map[0], hal_priv->tx_frames_map[1]);
+        AML_PRINT_LOG_INFO("free id:%d, %lx, %lx\n", id, hal_priv->tx_frames_map[0], hal_priv->tx_frames_map[1]);
         ret = -1;
     }
     COMMON_UNLOCK();
@@ -1178,7 +1178,7 @@ __alloc_fail:
     COMMON_UNLOCK();
 
     //if (id == TXID_INVALID)
-        //AML_OUTPUT("alloc fail\n");
+        //AML_PRINT_LOG_INFO("alloc fail\n");
     return id;
 }
 
@@ -1306,7 +1306,7 @@ void  hal_tx_frame(void)
 
     if (hal_priv->bhaltxdrop || hal_priv->bhalPowerSave) {
         if (print_cnt++ == 200) {
-            AML_OUTPUT("bhaltxdrop:%d, bhalPowerSave:%d\n", hal_priv->bhaltxdrop, hal_priv->bhalPowerSave);
+            AML_PRINT_LOG_INFO("bhaltxdrop:%d, bhalPowerSave:%d\n", hal_priv->bhaltxdrop, hal_priv->bhalPowerSave);
         }
         return;
     }
@@ -1322,7 +1322,7 @@ void  hal_tx_frame(void)
         POWER_END_LOCK();
         AML_TXLOCK_LOCK();
         if (print_cnt++ == 200) {
-            AML_OUTPUT("hal_drv_ps_status:%02x\n", hal_priv->hal_drv_ps_status);
+            AML_PRINT_LOG_INFO("hal_drv_ps_status:%02x\n", hal_priv->hal_drv_ps_status);
         }
         return;
     }
@@ -1333,7 +1333,7 @@ void  hal_tx_frame(void)
         hal_priv->hal_drv_ps_status &= ~HAL_DRV_IN_ACTIVE;
         POWER_END_LOCK();
         if (print_cnt++ == 200) {
-            AML_OUTPUT("hal_fw_ps_status:%02x\n", hal_priv->hal_fw_ps_status);
+            AML_PRINT_LOG_INFO("hal_fw_ps_status:%02x\n", hal_priv->hal_fw_ps_status);
         }
 
         if (!hal_tx_empty()) {
@@ -1390,7 +1390,7 @@ void  hal_tx_frame(void)
             {
                 STATUS = CO_SharedFifoGet(pTxShareFifo, CO_TX_BUFFER_SET, 1, &EltPtr);
                 STATUS = CO_SharedFifoPut(pTxShareFifo, CO_TX_BUFFER_SET, 1);
-                AML_OUTPUT("!!!error, q_fifo_set_cnt:%d, aggrnum:%d, aggr_page_num:%d, sn:0x%04x, skb:%p, tid:%d, fc:0x%04x\n",
+                AML_PRINT_LOG_INFO("!!!error, q_fifo_set_cnt:%d, aggrnum:%d, aggr_page_num:%d, sn:0x%04x, skb:%p, tid:%d, fc:0x%04x\n",
                             q_fifo_set_cnt, pTxDPape->TxPriv.AggrNum, pTxDPape->TxPriv.aggr_page_num,
                             pTxDPape->TxPriv.SN, pTxDescFiFo->ampduskb, pTxDPape->TxPriv.TID,
                             pTxDPape->TxVector.tv_FrameControl);
@@ -1414,7 +1414,7 @@ void  hal_tx_frame(void)
 #endif
                 aggr_page_num += pTxDPape->TxPriv.aggr_page_num;
 #if defined (HAL_FPGA_VER)
-                AML_PRINT(AML_DBG_MODULES_TX, "vif_id(%d), queue(%d), TxPriv.aggr_page_num:%d <= txPageFreeNum:%d, TxPriv.AggrNum:%d <= q_fifo_set_cnt:%d, "\
+                AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG, "vif_id(%d), queue(%d), TxPriv.aggr_page_num:%d <= txPageFreeNum:%d, TxPriv.AggrNum:%d <= q_fifo_set_cnt:%d, "\
                     "AggrNum:%d + mpdu_num:%d, aggr_page_num:%d, len:%d, sn:%d(0x%04x)\n",
                     pTxDPape->TxPriv.vid, txqueueid,
                     pTxDPape->TxPriv.aggr_page_num, hal_priv->txPageFreeNum, pTxDPape->TxPriv.AggrNum, q_fifo_set_cnt,
@@ -1429,7 +1429,7 @@ void  hal_tx_frame(void)
                     STATUS = CO_SharedFifoGet(pTxShareFifo, CO_TX_BUFFER_SET, 1, &EltPtr);
                     if (STATUS != CO_STATUS_OK)
                     {
-                        AML_OUTPUT("!!!error, TxPriv.aggr_page_num:%d, txPageFreeNum:%d, TxPriv.AggrNum:%d, q_fifo_set_cnt:%d, "\
+                        AML_PRINT_LOG_INFO("!!!error, TxPriv.aggr_page_num:%d, txPageFreeNum:%d, TxPriv.AggrNum:%d, q_fifo_set_cnt:%d, "\
                         "AggrNum:%d, mpdu_num:%d, aggr_page_num:%d, aggrlen:%d, sn:0x%04x, queueid:%d,skb:%p, tid:%d, fc:0x%04x\n",
                         pTxDPape->TxPriv.aggr_page_num, hal_priv->txPageFreeNum, pTxDPape->TxPriv.AggrNum, q_fifo_set_cnt,
                         AggrNum, mpdu_num, aggr_page_num, pTxDPape->TxPriv.AggrLen, pTxDPape->TxPriv.SN, txqueueid,
@@ -1494,7 +1494,7 @@ void  hal_tx_frame(void)
             else
             {
 #if defined (HAL_FPGA_VER)
-                AML_PRINT(AML_DBG_MODULES_TX, "not TxPriv.aggr_page_num:%d <= txPageFreeNum:%d, TxPriv.AggrNum:%d <= q_fifo_set_cnt:%d, "\
+                AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG, "not TxPriv.aggr_page_num:%d <= txPageFreeNum:%d, TxPriv.AggrNum:%d <= q_fifo_set_cnt:%d, "\
                     "AggrNum:%d + mpdu_num:%d, aggr_page_num:%d\n",
                     pTxDPape->TxPriv.aggr_page_num, hal_priv->txPageFreeNum,
                     pTxDPape->TxPriv.AggrNum, q_fifo_set_cnt, AggrNum, mpdu_num, aggr_page_num);
@@ -1542,7 +1542,7 @@ int  hal_txframe_pause(int pause)
         if (hal_priv->bhalPowerSave)
         {
             hal_priv->bhalPowerSave = 0;
-            DPRINTF(AML_DEBUG_HAL, "%s %d continue\n", __func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_HAL, AML_LOG_LEVEL_DEBUG, "continue\n");
         }
     }
     AML_TXLOCK_UNLOCK();
@@ -1595,7 +1595,7 @@ struct sk_buff *hal_fill_agg_start(struct hi_agg_tx_desc *HI_AGG,struct hi_tx_pr
 #endif
     if (skb == NULL)
     {
-        ERROR_DEBUG_OUT("alloc skb fail\n");
+        AML_PRINT_LOG_ERR("alloc skb fail\n");
         return NULL;
     }
 
@@ -1649,9 +1649,9 @@ struct sk_buff *hal_fill_agg_start(struct hi_agg_tx_desc *HI_AGG,struct hi_tx_pr
     hal_tx_desc_build(HI_AGG,HI_TxPriv,pTxDPape);
 #if defined (HAL_FPGA_VER)
     frame_control = *(unsigned short *)(&pTxDPape->txdata[0]);//(frame_control & 0xff) == 0x88
-    if (g_dbg_modules & AML_DBG_MODULES_HAL_TX)
+    if (gAmlTraceInfo[AML_LOG_ID_HAL_TX].moduleTraceLevel == AML_LOG_LEVEL_DEBUG)
     {
-        //AML_OUTPUT("pTxDescFiFo->SN:%04x, frame_control:%04x\n", pTxDescFiFo->SN, frame_control);
+        //AML_PRINT_LOG_INFO("pTxDescFiFo->SN:%04x, frame_control:%04x\n", pTxDescFiFo->SN, frame_control);
         hal_show_txframe(pTxDPape);
     }
 #endif
@@ -1692,7 +1692,7 @@ struct sk_buff *hal_fill_priv(struct hi_tx_priv_hdr* HI_TxPriv,unsigned char que
 #endif
     if (!skb)
     {
-        ERROR_DEBUG_OUT("alloc skb fail\n");
+        AML_PRINT_LOG_ERR("alloc skb fail\n");
         return NULL;
     }
 
@@ -1727,7 +1727,7 @@ struct sk_buff *hal_fill_priv(struct hi_tx_priv_hdr* HI_TxPriv,unsigned char que
     pTxDPape->TxOption.pkt_position = AML_PKT_IN_HAL;
     pTxDPape->TxPriv.SN = HI_TxPriv->Seqnum;
 #if defined (HAL_FPGA_VER)
-    if (g_dbg_modules & AML_DBG_MODULES_HAL_TX)
+    if (gAmlTraceInfo[AML_LOG_ID_HAL_TX].moduleTraceLevel == AML_LOG_LEVEL_DEBUG)
     {
         hal_show_txframe(pTxDPape);
     }
@@ -1788,7 +1788,7 @@ int hal_get_agg_pend_cnt(void)
 
     COMMON_LOCK();
     if (hal_is_empty_tx_id(hal_priv) < 0) {
-        AML_OUTPUT("set bhaltxdrop to 1, tx_frames_map:%lx, %lx, page:%d\n",
+        AML_PRINT_LOG_INFO("set bhaltxdrop to 1, tx_frames_map:%lx, %lx, page:%d\n",
             hal_priv->tx_frames_map[0], hal_priv->tx_frames_map[1], hal_priv->txPageFreeNum);
         hal_priv->bhaltxdrop = 1;
     }
@@ -1804,7 +1804,7 @@ int hal_get_agg_pend_cnt(void)
             if (!((pTxDescFiFo->pTxDPape->TxPriv.vid == vid) || (vid == 3))) {
                 id = hal_alloc_tx_id(hal_priv,pTxDescFiFo);
                 if (id == TXID_INVALID) {
-                    AML_OUTPUT("warning, please handle this situation!!!\n");
+                    AML_PRINT_LOG_INFO("warning, please handle this situation!!!\n");
                     break;//how to handle this situation
                 }
                 pTxDescFiFo->pTxDPape->TxPriv.hostcallbackid= (unsigned char)id;
@@ -1845,7 +1845,7 @@ int hal_get_agg_pend_cnt(void)
 
     if (hal_priv->bhaltxdrop == 1) {
         hal_priv->bhaltxdrop = 0;
-        AML_OUTPUT("recover bhaltxdrop to 0, tx_frames_map:%lx, %lx, page:%d, vid:%d\n",
+        AML_PRINT_LOG_INFO("recover bhaltxdrop to 0, tx_frames_map:%lx, %lx, page:%d, vid:%d\n",
             hal_priv->tx_frames_map[0], hal_priv->tx_frames_map[1], hal_priv->txPageFreeNum, vid);
     }
     return 0;
@@ -1874,7 +1874,7 @@ int hal_open(void *drv_priv)
     hal_priv->rx_host_offset = ((ptr >> 16) & 0xffff) * 4;
 
     hal_priv->bhalOpen =1;
-    PRINT("%s(%d) bhalOpen 0x%x\n",__func__,__LINE__, hal_priv->bhalOpen);
+    PRINT("bhalOpen 0x%x\n", hal_priv->bhalOpen);
 
 #ifdef CONFIG_GXL
 #ifdef HAL_FPGA_VER
@@ -1923,21 +1923,21 @@ void hal_get_sts(unsigned int op_code, unsigned int ctrl_code)
     struct hw_interface* hif = hif_get_hw_interface();
     struct _CO_SHARED_FIFO * tx_share_fifo = NULL;
 
-    AML_OUTPUT("\n--------hal statistic--------\n");
+    AML_PRINT_LOG_INFO("\n--------hal statistic--------\n");
 
     if((ctrl_code & STS_MOD_HAL) == STS_MOD_HAL)
     {
         if ((ctrl_code & STS_TYP_TX) == STS_TYP_TX)
         {
-            AML_OUTPUT("en_beacon[0]=%d\nen_beacon[1]=%d\n", hal_priv->sts_en_bcn[0], hal_priv->sts_en_bcn[1]);
-            AML_OUTPUT("dis_beacon[0]=%d\ndis_beacon[1]=%d\n", hal_priv->sts_dis_bcn[0], hal_priv->sts_dis_bcn[1]);
+            AML_PRINT_LOG_INFO("en_beacon[0]=%d\nen_beacon[1]=%d\n", hal_priv->sts_en_bcn[0], hal_priv->sts_en_bcn[1]);
+            AML_PRINT_LOG_INFO("dis_beacon[0]=%d\ndis_beacon[1]=%d\n", hal_priv->sts_dis_bcn[0], hal_priv->sts_dis_bcn[1]);
             printk("hal:fw recovery cnt %d last stamp %lu\n", hal_priv->fwRecoveryCnt, hal_priv->fwRecoveryStamp);
 
-            AML_OUTPUT("hal:tx_free_page %d \n", hal_priv->txPageFreeNum);
-            AML_OUTPUT("hal:tx_ok_num:%d, tx_fail_num:%d\n", hif->HiStatus.tx_ok_num, hif->HiStatus.tx_fail_num);
-            AML_OUTPUT("hal:send_frm:%d, done_frm:%d, free_frm:%d\n",  hif->HiStatus.Tx_Send_num, hif->HiStatus.Tx_Done_num, hif->HiStatus.Tx_Free_num);
-            AML_OUTPUT("hal:gpio irq cnt %d \n",  hal_priv->gpio_irq_cnt);
-            AML_OUTPUT("tx_cmp: tx_done_frm %d, tx_mng_frm %d, tx_page %d\n",
+            AML_PRINT_LOG_INFO("hal:tx_free_page %d \n", hal_priv->txPageFreeNum);
+            AML_PRINT_LOG_INFO("hal:tx_ok_num:%d, tx_fail_num:%d\n", hif->HiStatus.tx_ok_num, hif->HiStatus.tx_fail_num);
+            AML_PRINT_LOG_INFO("hal:send_frm:%d, done_frm:%d, free_frm:%d\n",  hif->HiStatus.Tx_Send_num, hif->HiStatus.Tx_Done_num, hif->HiStatus.Tx_Free_num);
+            AML_PRINT_LOG_INFO("hal:gpio irq cnt %d \n",  hal_priv->gpio_irq_cnt);
+            AML_PRINT_LOG_INFO("tx_cmp: tx_done_frm %d, tx_mng_frm %d, tx_page %d\n",
                 hal_priv->txcompletestatus->txdoneframecounter,
                 hal_priv->txcompletestatus->txmanageframecounter,
                 hal_priv->txcompletestatus->txpagecounter);
@@ -1945,7 +1945,7 @@ void hal_get_sts(unsigned int op_code, unsigned int ctrl_code)
             for(i = 0; i < HAL_NUM_TX_QUEUES; i++)
             {
                 tx_share_fifo = &hal_priv->txds_trista_fifo[i];
-                AML_OUTPUT("txds_trista_fifo[%d]: make %d, set %d, get %d\n",
+                AML_PRINT_LOG_INFO("txds_trista_fifo[%d]: make %d, set %d, get %d\n",
                     i,
                     CO_SharedFifoNbElt(tx_share_fifo, CO_TX_BUFFER_MAKE),
                     CO_SharedFifoNbElt(tx_share_fifo, CO_TX_BUFFER_SET),
@@ -1954,7 +1954,7 @@ void hal_get_sts(unsigned int op_code, unsigned int ctrl_code)
 
             for(i = 0; i < hirq_max_idx; i++)
             {
-                AML_OUTPUT("%s, %d\n", hirq_prt_info[i], hal_priv->sts_hirq[i]);
+                AML_PRINT_LOG_INFO("%s, %d\n", hirq_prt_info[i], hal_priv->sts_hirq[i]);
             }
         }
     }
@@ -1971,7 +1971,7 @@ int hal_close(void *drv_priv)
 
     to_sdio = 0x00000000;
     hi_clear_irq_status(to_sdio);
-    AML_OUTPUT("hal_priv->bhalOpen 0x%x\n", hal_priv->bhalOpen);
+    AML_PRINT_LOG_INFO("hal_priv->bhalOpen 0x%x\n", hal_priv->bhalOpen);
     return 1;
 }
 
@@ -2010,10 +2010,12 @@ int hal_download_fw(void)
 {
     int err = 0;
 
-    AML_OUTPUT("-----start download firmware\n");
+    AML_PRINT_LOG_INFO("-----start download firmware\n");
 
     if (aml_bus_type == 1) {
+#ifndef CONFIG_USB_CLOSE
         err = hal_download_usb_fw_img();
+#endif
     }
 #ifdef SDIO_MODE_ON
     else if (aml_bus_type == 0) {
@@ -2021,7 +2023,7 @@ int hal_download_fw(void)
     }
 #endif
     if (err) {
-        AML_OUTPUT("-----download firmware error\n");
+        AML_PRINT_LOG_INFO("-----download firmware error\n");
     }
     return err;
 }
@@ -2067,7 +2069,7 @@ int hal_probe(void)
 #if defined (HAL_FPGA_VER)
     while(hal_priv->hst_if_init_ok == 0)
     {
-        ERROR_DEBUG_OUT("------------->host interface init failed! \n");
+        AML_PRINT_LOG_ERR("------------->host interface init failed! \n");
         goto __exit_err;
     }
 #endif
@@ -2087,7 +2089,7 @@ int hal_probe(void)
     hal_priv->bhalProbelok = 1;
     hal_priv->beaconaddr[0]=0;
     hal_priv->beaconaddr[1]=0;
-    AML_OUTPUT("hal_priv->bhalOpen 0x%x\n", hal_priv->bhalOpen);
+    AML_PRINT_LOG_INFO("hal_priv->bhalOpen 0x%x\n", hal_priv->bhalOpen);
     return true;
 
 __exit_err:
@@ -2126,10 +2128,10 @@ static int hal_get_did(struct hw_interface* hif)
             }
 #endif
 
-            AML_OUTPUT("Wifi_DeviceID = %x  already delayed=%dms\n",Wifi_DeviceID, delay_ms);
+            AML_PRINT_LOG_INFO("Wifi_DeviceID = %x  already delayed=%dms\n",Wifi_DeviceID, delay_ms);
         }
     } while ((Wifi_DeviceID != PRODUCT_AMLOGIC) && (delay_ms < HI_FI_SYNC_DELAY_MS));
-    AML_OUTPUT("Wifi_DeviceID = %x\n",Wifi_DeviceID);
+    AML_PRINT_LOG_INFO("Wifi_DeviceID = %x\n",Wifi_DeviceID);
     if (Wifi_DeviceID == PRODUCT_AMLOGIC) {
         ret = true;
     }
@@ -2167,10 +2169,10 @@ static int hal_get_vid(struct hw_interface* hif)
             }
 #endif
 
-            AML_OUTPUT("Wifi_VendorID = %x  already delayed=%dms\n",Wifi_VendorID, delay_ms);
+            AML_PRINT_LOG_INFO("Wifi_VendorID = %x  already delayed=%dms\n",Wifi_VendorID, delay_ms);
         }
     } while ((Wifi_VendorID!=VENDOR_AMLOGIC) && (delay_ms < HI_FI_SYNC_DELAY_MS) );
-    AML_OUTPUT("Wifi_VendorID = %x  already delayed=%dms\n",Wifi_VendorID, delay_ms);
+    AML_PRINT_LOG_INFO("Wifi_VendorID = %x  already delayed=%dms\n",Wifi_VendorID, delay_ms);
     if (Wifi_VendorID == VENDOR_AMLOGIC) {
         ret = true;
     }
@@ -2188,13 +2190,13 @@ static int hal_get_chip_id(void)
     unsigned char chip_id_buf[23];
 
     chip_id_l = hif->hif_ops.hi_read_efuse(CHIP_ID_EFUASE_L);
-    AML_OUTPUT("efuse addr:%08x, chip id is:%08x\n", CHIP_ID_EFUASE_L, chip_id_l);
+    AML_PRINT_LOG_INFO("efuse addr:%08x, chip id is:%08x\n", CHIP_ID_EFUASE_L, chip_id_l);
     chip_id_h = hif->hif_ops.hi_read_efuse(CHIP_ID_EFUASE_H);
-    AML_OUTPUT("efuse addr:%08x, chip id is:%08x\n", CHIP_ID_EFUASE_H, chip_id_h);
+    AML_PRINT_LOG_INFO("efuse addr:%08x, chip id is:%08x\n", CHIP_ID_EFUASE_H, chip_id_h);
 
     sprintf(chip_id_buf, CHIP_ID_F, chip_id_h & 0xffff, chip_id_l);
     if (aml_store_to_file(WIFIMAC_PATH, chip_id_buf, strlen(chip_id_buf)) > 0) {
-        AML_OUTPUT("write the chip_id to wifimac.txt \n");
+        AML_PRINT_LOG_INFO("write the chip_id to wifimac.txt \n");
         ret = true;
     }
 #endif
@@ -2416,20 +2418,22 @@ int hal_init_priv(void)
     hif->CommStaticParam.bus_type = aml_wifi_get_bus_type();
 
     if (aml_bus_type == 1) {
-        AML_OUTPUT("usb ops init!\n");
+#ifndef CONFIG_USB_CLOSE
+        AML_PRINT_LOG_INFO("usb ops init!\n");
         hif->CommStaticParam.tx_page_len = PAGE_LEN_USB;
         hif_init_usb_ops();
+#endif
     }
 
 #ifdef SDIO_MODE_ON
     else if(aml_bus_type == 0) {
-        AML_OUTPUT(" sdio ops init\n");
+        AML_PRINT_LOG_INFO(" sdio ops init\n");
         hif->CommStaticParam.tx_page_len = PAGE_LEN;
         hif_init_ops();
     }
 #endif
     else {
-        AML_OUTPUT("hal init error!!\n");
+        AML_PRINT_LOG_INFO("hal init error!!\n");
         return -1;
     }
 
@@ -2513,10 +2517,10 @@ void hal_exit_priv(void)
 
     if (!hal_priv)
     {
-        PRINT("%s %d\n", __func__, __LINE__);
+        PRINT("\n");
         return;
     }
-    AML_OUTPUT("in\n");
+    AML_PRINT_LOG_INFO("in\n");
 #ifdef SDIO_MODE_ON
     if ((aml_bus_type == 0 && wifi_sdio_access == 1) || (aml_bus_type == 1 && wifi_usb_access == 1))
 #else
@@ -2590,7 +2594,9 @@ void hal_exit_priv(void)
 #endif
 
     if (aml_bus_type) {
+#ifndef CONFIG_USB_CLOSE
         aml_usb_exit();
+#endif
     }
 #ifdef SDIO_MODE_ON
     else {
@@ -2693,7 +2699,7 @@ int hal_work_thread(void *param)
     struct sched_param sch_param;
     int  i = 0;
 
-    PRINT("%s(%d)  =====creat thread hal_world_thread<=====\n",__func__,__LINE__);
+    PRINT(" =====creat thread hal_world_thread<=====\n");
 
     sch_param.sched_priority = 91;
     sched_setscheduler(current, SCHED_RR, &sch_param);
@@ -2806,7 +2812,7 @@ int hal_txok_thread(void *param)
                 /* free skb allocated by hal*/
                 if (hal_free_tx_id(hal_priv, txstatus, &callback, &queue_id) < 0)
                 {
-                    AML_OUTPUT("free tx_id error \n");
+                    AML_PRINT_LOG_INFO("free tx_id error \n");
                     tx_status_node_free(txok_status_node,txok_status_list);
                     txok_status_node = NULL;
                     continue;
@@ -2826,7 +2832,7 @@ int hal_txok_thread(void *param)
         }
     }
 
-    AML_OUTPUT(" =====> exit TXOK Thread <=====\n");
+    AML_PRINT_LOG_INFO(" =====> exit TXOK Thread <=====\n");
     WAKE_LOCK_DESTROY(hal_priv, WAKE_LOCK_TXOK);
     complete_and_exit(&hal_priv->txok_thread_completion, 0);
 
@@ -2853,8 +2859,11 @@ int hal_rx_thread(void *param)
 
     sch_param.sched_priority = 91;
     sched_setscheduler(current, SCHED_FIFO, &sch_param);
-
-    AML_OUTPUT(" =====creat thread hal_rx_thread<=====\n");
+    AML_PRINT_LOG_INFO(" =====creat thread hal_rx_thread<=====\n");
+    if (aml_bus_type == AML_BUS_TYPE_USB)
+    {
+        set_cpus_allowed_ptr(current, cpumask_of(1));
+    }
 
     WAKE_LOCK_INIT(hal_priv,WAKE_LOCK_RX,"rx_proc amlwifi");
     while (!hal_priv->rx_thread_quit)
@@ -2901,7 +2910,7 @@ int hal_rx_thread(void *param)
             {
                 /*if RxLength error, discard all data in host rx fifo*/
                 rx_fifo_fdh = rx_fifo_fdt;
-                AML_OUTPUT("(RxLength:%d,rx_fifo_total_len%d)\n",
+                AML_PRINT_LOG_INFO("(RxLength:%d,rx_fifo_total_len%d)\n",
                 pVRxDesc->RxLength,rx_fifo_total_len);
                 continue;
             }
@@ -2917,7 +2926,7 @@ int hal_rx_thread(void *param)
             skb = os_skb_alloc(pVRxDesc->RxLength + RX_PRIV_HDR_LEN);
             if (skb == NULL)
             {
-                AML_OUTPUT("Couldn't allocate RX frame");
+                AML_PRINT_LOG_INFO("Couldn't allocate RX frame");
                 break;
             }
 
@@ -2945,7 +2954,7 @@ int hal_rx_thread(void *param)
             sn =  (sn << 4) | ((*(pVRxDesc->data + 22) & 0xf0) >> 4);
 
             if (frame_control != 0x80) {
-                AML_PRINT(AML_DBG_MODULES_TX, "frame type:0x%x, seq:%d, %04x:%04x\n", frame_control, sn,
+                AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG, "frame type:0x%x, seq:%d, %04x:%04x\n", frame_control, sn,
                     *((unsigned short *)(pVRxDesc->data) + 15), *((unsigned short *)(pVRxDesc->data) + 16));
             } else {
                 //__D(BIT(17), "%s:%d, beacon:0x%x, seq:%d\n", __func__, __LINE__, frame_control, sn);
@@ -2958,7 +2967,7 @@ int hal_rx_thread(void *param)
         WAKE_UNLOCK(hal_priv, WAKE_LOCK_RX);
     }
 
-    AML_OUTPUT("=====> exit RX Thread <=====\n");
+    AML_PRINT_LOG_INFO("=====> exit RX Thread <=====\n");
     WAKE_LOCK_DESTROY(hal_priv, WAKE_LOCK_RX);
     complete_and_exit(&hal_priv->rx_thread_completion, 0);
     return 0;
@@ -2972,6 +2981,10 @@ int hi_irq_thread(void *param)
     sch_param.sched_priority = 93;
     sched_setscheduler(current, SCHED_FIFO, &sch_param);
     hal_priv->hi_task_stop = 0;
+    if (aml_bus_type == AML_BUS_TYPE_USB)
+    {
+        set_cpus_allowed_ptr(current, cpumask_of(0));
+    }
     WAKE_LOCK_INIT(hal_priv,WAKE_LOCK_HI_IRQ_THREAD,"hi_irq_thread");
     while (!hal_priv->hi_irq_thread_quit)
     {
@@ -3076,7 +3089,7 @@ int hal_create_thread(void)
 
     if (IS_ERR(hal_priv->work_thread))
     {
-        ERROR_DEBUG_OUT("aml wifi to create work_thread thread error!!!!\n");
+        AML_PRINT_LOG_ERR("aml wifi to create work_thread thread error!!!!\n");
         hal_priv->work_thread = NULL;
         goto create_thread_error;
     }
@@ -3087,7 +3100,7 @@ int hal_create_thread(void)
 
     if (IS_ERR(hal_priv->rx_thread))
     {
-        ERROR_DEBUG_OUT("aml wifi to create rx_thread thread error!!!!\n");
+        AML_PRINT_LOG_ERR("aml wifi to create rx_thread thread error!!!!\n");
         hal_priv->rx_thread = NULL;
         goto create_thread_error;
     }
@@ -3097,7 +3110,7 @@ int hal_create_thread(void)
     hal_priv->txok_thread = kthread_run(hal_txok_thread, hal_priv, "txok amlwifi");
     if (IS_ERR(hal_priv->txok_thread))
     {
-        ERROR_DEBUG_OUT("aml wifi to create txok_thread thread error!!!!\n");
+        AML_PRINT_LOG_ERR("aml wifi to create txok_thread thread error!!!!\n");
         hal_priv->txok_thread = NULL;
         goto create_thread_error;
     }
@@ -3107,7 +3120,7 @@ int hal_create_thread(void)
     hal_priv->hi_irq_thread = kthread_run(hi_irq_thread, hal_priv, "hi_irq amlwifi");
     if(IS_ERR(hal_priv->hi_irq_thread))
     {
-        ERROR_DEBUG_OUT("aml wifi to create irq_thread thread error!!!!\n");
+        AML_PRINT_LOG_ERR("aml wifi to create irq_thread thread error!!!!\n");
         hal_priv->hi_irq_thread = NULL;
         goto create_thread_error;
     }
@@ -3683,6 +3696,11 @@ void hal_dpd_calibration(void)
     hif->hif_ops.hi_write_word(0x00a0b1a4, 0x0003F000);
     hif->hif_ops.hi_write_word(0x00a0b1a0, 0xa013fffc);
 #else
+    if ((hal_priv->g_get_fw_log == true) && (hal_priv->dpd_process_flag & DPD_FW_EVENT_START)) {
+        AML_PRINT_LOG_INFO("dpd disable fwlog get\n");
+        hal_priv->hal_ops.hal_set_fwlog_cmd(0);
+    }
+
     hal_dpd_memory_download();
     hal_dpd_memory_download_cmd();
 #endif

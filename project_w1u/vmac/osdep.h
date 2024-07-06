@@ -113,9 +113,9 @@ static __inline void  *ZMALLOC(int a, char *name, unsigned gfp)
         m_pn_buf[i].count++;
     }
 
-    AML_OUTPUT("Zmalloc %p:%s\n", tmp, name);
+    AML_PRINT_LOG_INFO("Zmalloc %p:%s\n", tmp, name);
     if (kmalloc_count >= 64) {
-        AML_OUTPUT("amlogic WIFI:<ERROR>Array Overflow, please make sure array "
+        AML_PRINT_LOG_INFO("amlogic WIFI:<ERROR>Array Overflow, please make sure array "
             "length big enough in debug malloc process\n");
     }
     return tmp;
@@ -135,9 +135,9 @@ static __inline void FREE(void *a, char *name)
         f_pn_buf[i].count++;
     }
 
-    AML_OUTPUT("kfree %p:%s\n", a, name);
+    AML_PRINT_LOG_INFO("kfree %p:%s\n", a, name);
     if (kfree_count >= 64) {
-        ERROR_DEBUG_OUT("amlogic WIFI:<ERROR>Array Overflow, please make sure array "
+        AML_PRINT_LOG_ERR("amlogic WIFI:<ERROR>Array Overflow, please make sure array "
             "length big enough in debug malloc process\n");
     }
 }
@@ -160,7 +160,7 @@ static __inline void FREE(void *a, char *name)
 #endif
 
 #define NET_MALLOC(_size, _gfp, _str) ZMALLOC(ALIGN(_size + 1, 128), _str, _gfp)
-#define NET_FREE(_p, name) do { if ((_p) != NULL) FREE(_p, name); /* AML_OUTPUT("<running> kfree %p \n",_p); */(_p) = NULL;} while(0)
+#define NET_FREE(_p, name) do { if ((_p) != NULL) FREE(_p, name); /* AML_PRINT_LOG_INFO("<running> kfree %p \n",_p); */(_p) = NULL;} while(0)
 
 #define CIRCLE_Add_One(_data,_total) do {\
                 if((_data)== (_total)-1)        \

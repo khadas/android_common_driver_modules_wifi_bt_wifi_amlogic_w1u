@@ -38,5 +38,7 @@ int update_tx_power_band(int tx_power_plan, unsigned short pwr_value[]);
 int wifi_mac_find_80M_channel_center_chan(int chan);
 unsigned char wifi_mac_set_p2p_home_chan(struct wifi_mac *wifimac, unsigned short channel);
 unsigned char wifi_mac_p2p_home_channel_enabled(struct wlan_net_vif *wnet_vif);
+void wifi_mac_get_chandef(struct wifi_channel *vmac_chan, struct cfg80211_chan_def *chandef);
+u8 wifi_mac_get_operation_class(struct cfg80211_chan_def chandef);
 
 #endif//__NET80211_CHAN_H__

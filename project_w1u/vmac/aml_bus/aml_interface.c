@@ -146,10 +146,12 @@ int aml_bus_intf_insmod(void)
     int ret;
     if (strncmp(bus_type,"usb",3) == 0) {
         aml_bus_type = 1;
+#ifndef CONFIG_USB_CLOSE
         ret = aml_usb_insmod();
         if (ret) {
             printk("aml usb bus init fail\n");
         }
+#endif
     }
 #ifdef SDIO_MODE_ON
     else if (strncmp(bus_type,"sdio",4) == 0) {
@@ -166,7 +168,9 @@ int aml_bus_intf_insmod(void)
 void aml_bus_intf_rmmod(void)
 {
     if (strncmp(bus_type,"usb",3) == 0) {
+#ifndef CONFIG_USB_CLOSE
         aml_usb_rmmod();
+#endif
     }
 #ifdef SDIO_MODE_ON
     else if (strncmp(bus_type,"sdio",4) == 0) {

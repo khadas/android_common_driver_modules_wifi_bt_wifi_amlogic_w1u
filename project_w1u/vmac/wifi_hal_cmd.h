@@ -69,6 +69,8 @@ unsigned int phy_set_pattern(unsigned char vid, unsigned char offset, unsigned c
             unsigned char id, unsigned char *mask, unsigned char *pattern);
 int phy_set_suspend(unsigned char vid, unsigned char enable, unsigned char mode, unsigned int filters);
 unsigned int phy_get_rw_ptr(unsigned char vid);
+unsigned char get_fwlog_mode();
+
 
 unsigned int phy_send_ndp_announcement(struct NDPAnncmntCmd ndp_anncmnt);
 void phy_set_bmfm_info(int wnet_vif_id, unsigned char *group_id,

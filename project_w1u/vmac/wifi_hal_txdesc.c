@@ -532,7 +532,7 @@ unsigned short Hal_TxDescriptor_VHT_GetTxTime(unsigned char mcs ,unsigned short 
     nsymbits = vht_bits_per_symbol[mcs][bandwidth];
 
     if (nsymbits == 0) {
-        AML_OUTPUT("Hal_TxDescriptor_VHT_GetTxTime warming nsymbits=%d, bw=%d, mcs=%d\n ", nsymbits, bandwidth, mcs);
+        AML_PRINT_LOG_INFO("Hal_TxDescriptor_VHT_GetTxTime warming nsymbits=%d, bw=%d, mcs=%d\n ", nsymbits, bandwidth, mcs);
         nsymbols = 1;
 
     } else {
@@ -773,7 +773,7 @@ void assign_tx_desc_pn(unsigned char is_bc, unsigned char vid,
     } else {
         PN = (unsigned long long *)hal_priv->uRepCnt[vid][sta_id].txPN[TX_UNICAST_REPCNT_ID];
     }
-    //AML_OUTPUT("zy:pn=0x%x\n",*PN);
+    //AML_PRINT_LOG_INFO("zy:pn=0x%x\n",*PN);
     switch (encrypt_type) {
         case WIFI_TKIP:
             memcpy(&tx_page->TxOption.PN[0],(unsigned char *)PN, 8);
@@ -810,7 +810,7 @@ void hal_tx_desc_build(struct hi_agg_tx_desc* HiTxDesc,
     struct wifi_qos_frame *wh = NULL;
     unsigned char is_bc;
 
-    //AML_OUTPUT("bw 0x%x\n", bw);
+    //AML_PRINT_LOG_INFO("bw 0x%x\n", bw);
 
     tmp_dot11_preamble_type = (DESC_RATE==WIFI_11B_1M) ? PREAMBLE_LONG:wifi_conf_mib.dot11PreambleType;
 
@@ -1057,12 +1057,12 @@ unsigned int max_send_packet_len(unsigned char rate,unsigned char bw, unsigned c
     }
     else
     {
-        ERROR_DEBUG_OUT("rate error, rate=0x%x\n", rate);
+        AML_PRINT_LOG_ERR("rate error, rate=0x%x\n", rate);
         return 0;
     }
 
      max_data_field_tx_time = 4095 -  preamble_time;
-    // AML_OUTPUT("preamble_time =%d\n", preamble_time);
+    // AML_PRINT_LOG_INFO("preamble_time =%d\n", preamble_time);
      if( !short_gi )
      {
         max_symbol_number = max_data_field_tx_time>>2;   /*long gi every symbol time is 4 us*/
@@ -1072,11 +1072,11 @@ unsigned int max_send_packet_len(unsigned char rate,unsigned char bw, unsigned c
         max_symbol_number = max_data_field_tx_time*10/36; /*short gi  every ofdm symbol time is 3.6us*/
      }
 
-    //AML_OUTPUT("max_symbol_number =%d\n", max_symbol_number);
+    //AML_PRINT_LOG_INFO("max_symbol_number =%d\n", max_symbol_number);
     mcs = GET_MCS(rate);
     if ((mcs > 9) || (bw > 2))
     {
-        ERROR_DEBUG_OUT("mcs or bw error, rate=0x%x, bw=%d\n", rate, bw);
+        AML_PRINT_LOG_ERR("mcs or bw error, rate=0x%x, bw=%d\n", rate, bw);
         return 0;
     }
 
@@ -1096,12 +1096,12 @@ unsigned int max_send_packet_len(unsigned char rate,unsigned char bw, unsigned c
             mcs = 7;
         }
 
-        //AML_OUTPUT("mcs =%d, bw=%d, NDBPS=%d\n", mcs, bw,ht_bits_per_symbol[mcs][bw]);
+        //AML_PRINT_LOG_INFO("mcs =%d, bw=%d, NDBPS=%d\n", mcs, bw,ht_bits_per_symbol[mcs][bw]);
         return ht_bits_per_symbol[mcs][bw]*max_symbol_number >> 3;
     }
     else
     {
-        //AML_OUTPUT("mcs =%d, bw=%d, NDBPS=%d\n", mcs, bw,vht_bits_per_symbol[mcs][bw]);
+        //AML_PRINT_LOG_INFO("mcs =%d, bw=%d, NDBPS=%d\n", mcs, bw,vht_bits_per_symbol[mcs][bw]);
         return vht_bits_per_symbol[mcs][bw]*max_symbol_number>>3;
     }
 }

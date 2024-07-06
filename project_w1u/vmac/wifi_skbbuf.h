@@ -22,18 +22,18 @@
 extern int skb_alloc_time;
 extern int skb_free_time;
 
-#define os_skb_count_alloc(skb) AML_OUTPUT("%s skb:%p, skb_alloc_time:%d\n", __func__, skb, skb_alloc_time++);
-#define os_skb_count_free(skb) AML_OUTPUT("%s skb:%p, skb_free_time:%d\n", __func__, skb, skb_free_time++);
+#define os_skb_count_alloc(skb) AML_PRINT_LOG_INFO("skb:%p, skb_alloc_time:%d\n", skb, skb_alloc_time++);
+#define os_skb_count_free(skb) AML_PRINT_LOG_INFO(" skb:%p, skb_free_time:%d\n", skb, skb_free_time++);
 
 #define os_skb_alloc(len) dev_alloc_skb(ALIGN(len, 4)); \
-    AML_OUTPUT("%s skb:%p, skb_alloc_time:%d\n", __func__, skb, skb_alloc_time++);
+    AML_PRINT_LOG_INFO("skb:%p, skb_alloc_time:%d\n", skb, skb_alloc_time++);
 #define os_skb_copy(ori_skb, priority, skb) skb_copy(ori_skb, priority);\
-    AML_OUTPUT("%s skb:%p, skb_alloc_time:%d\n", __func__, skb, skb_alloc_time++);
+    AML_PRINT_LOG_INFO("skb:%p, skb_alloc_time:%d\n", skb, skb_alloc_time++);
 #define os_skb_copy_expand(ori_skb, header_len, tail_len, priority, skb) skb_copy_expand(ori_skb, header_len, tail_len, priority);\
-    AML_OUTPUT("%s skb:%p, skb_alloc_time:%d\n", __func__, skb, skb_alloc_time++);
+    AML_PRINT_LOG_INFO("skb:%p, skb_alloc_time:%d\n", skb, skb_alloc_time++);
 
 #define os_skb_free(skb) consume_skb(skb);\
-    AML_OUTPUT("%s skb:%p, skb_free_time:%d\n", __func__, skb, skb_free_time++);
+    AML_PRINT_LOG_INFO("skb:%p, skb_free_time:%d\n", skb, skb_free_time++);
 
 #else
 

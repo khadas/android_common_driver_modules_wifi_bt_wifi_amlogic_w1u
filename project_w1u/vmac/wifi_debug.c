@@ -1,6 +1,94 @@
 
 #include "wifi_debug.h"
 
+const char * dbg_level_str[] = { "E", "W", "I", "D"};
+
+moduleTraceInfo gAmlTraceInfo[ AML_LOG_ID_MAX ] =
+{
+    [AML_LOG_ID_LOG]           = { AML_LOG_LEVEL_DEFAULT, "LOG"  },
+    [AML_LOG_ID_ACL]           = { AML_LOG_LEVEL_DEFAULT, "ACL"  },
+    [AML_LOG_ID_XMIT]          = { AML_LOG_LEVEL_DEFAULT, "TX"   },
+    [AML_LOG_ID_KEY]           = { AML_LOG_LEVEL_DEFAULT, "KEY"  },
+    [AML_LOG_ID_STATE]         = { AML_LOG_LEVEL_DEFAULT, "SM"   },
+    [AML_LOG_ID_RATE]          = { AML_LOG_LEVEL_DEFAULT, "RATE" },
+    [AML_LOG_ID_RECV]          = { AML_LOG_LEVEL_DEFAULT, "RX"   },
+    [AML_LOG_ID_P2P]           = { AML_LOG_LEVEL_DEFAULT, "P2P"  },
+    [AML_LOG_ID_CFG80211]      = { AML_LOG_LEVEL_DEFAULT, "CFG"  },
+    [AML_LOG_ID_SCAN]          = { AML_LOG_LEVEL_DEFAULT, "SCN"  },
+    [AML_LOG_ID_LOCK]          = { AML_LOG_LEVEL_DEFAULT, "LOCK" },
+    [AML_LOG_ID_INIT]          = { AML_LOG_LEVEL_DEFAULT, "INIT" },
+    [AML_LOG_ID_ROAM]          = { AML_LOG_LEVEL_DEFAULT, "ROAM" },
+    [AML_LOG_ID_NODE]          = { AML_LOG_LEVEL_DEFAULT, "NODE" },
+    [AML_LOG_ID_ANDROID]       = { AML_LOG_LEVEL_DEFAULT, "DRID" },
+    [AML_LOG_ID_ACTION]        = { AML_LOG_LEVEL_DEFAULT, "ACT"  },
+    [AML_LOG_ID_IOCTL]         = { AML_LOG_LEVEL_DEFAULT, "IOCL" },
+    [AML_LOG_ID_CONNECT]       = { AML_LOG_LEVEL_DEFAULT, "CNT"  },
+    [AML_LOG_ID_TIMER]         = { AML_LOG_LEVEL_DEFAULT, "TMER" },
+    [AML_LOG_ID_ADDBA]         = { AML_LOG_LEVEL_DEFAULT, "ADDR" },
+    [AML_LOG_ID_NETDEV]        = { AML_LOG_LEVEL_DEFAULT, "NDEV" },
+    [AML_LOG_ID_HAL]           = { AML_LOG_LEVEL_DEFAULT, "HAL"  },
+    [AML_LOG_ID_BEACON]        = { AML_LOG_LEVEL_DEFAULT, "BCN"  },
+    [AML_LOG_ID_UAPSD]         = { AML_LOG_LEVEL_DEFAULT, "APSD" },
+    [AML_LOG_ID_BWC]           = { AML_LOG_LEVEL_DEFAULT, "BWC"  },
+    [AML_LOG_ID_ELEMID]        = { AML_LOG_LEVEL_DEFAULT, "EID"  },
+    [AML_LOG_ID_PWR_SAVE]      = { AML_LOG_LEVEL_DEFAULT, "PS"   },
+    [AML_LOG_ID_WME]           = { AML_LOG_LEVEL_DEFAULT, "WME"  },
+    [AML_LOG_ID_DOTH]          = { AML_LOG_LEVEL_DEFAULT, "11H"  },
+    [AML_LOH_ID_RATE_CTR]      = { AML_LOG_LEVEL_DEFAULT, "RCTR" },
+    [AML_LOG_ID_TX_MSDU]       = { AML_LOG_LEVEL_DEFAULT, "MSDU" },
+    [AML_LOG_ID_HAL_TX]        = { AML_LOG_LEVEL_DEFAULT, "HTX"  },
+    [AML_LOG_ID_FILTER]        = { AML_LOG_LEVEL_DEFAULT, "FIL"  },
+
+};
+
+
+void aml_set_debug_level(MODULE_ID module_id, DEBUG_LEVEL level)
+{
+    if (module_id >= AML_LOG_ID_MAX) {
+        AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_ERROR,"module_id[%d] is out of range!\n",module_id);
+        return;
+    }
+
+    if ((level >= AML_LOG_LEVEL_MAX) || (level < AML_LOG_LEVEL_ERROR)) {
+        AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_ERROR,"level[%d] is out of range!\n",level);
+        return;
+    }
+
+    if (gAmlTraceInfo[module_id].moduleTraceLevel == level) {
+        AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_DEBUG,"module:%s skip \n",gAmlTraceInfo[module_id].moduleNameStr);
+        return;
+    }
+
+    gAmlTraceInfo[module_id].moduleTraceLevel = level;
+
+    AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_INFO,"module:%s level:%s \n",
+                        gAmlTraceInfo[module_id].moduleNameStr, dbg_level_str[level]);
+    return;
+}
+
+void aml_set_all_debug_level(DEBUG_LEVEL level)
+{
+    unsigned int id = 0;
+
+    if ((level >= AML_LOG_LEVEL_MAX) || (level < AML_LOG_LEVEL_ERROR)) {
+        AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_ERROR,"level[%d] is out of range!\n",level);
+        return;
+    }
+
+    AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_INFO,"level:%s \n", dbg_level_str[level]);
+
+    for (id = 0; id < AML_LOG_ID_MAX; id++) {
+
+        if (gAmlTraceInfo[id].moduleTraceLevel != level) {
+            gAmlTraceInfo[id].moduleTraceLevel = level;
+        } else {
+            AML_PRINT(AML_LOG_ID_LOG,AML_LOG_LEVEL_DEBUG,"module:%s skip \n",gAmlTraceInfo[id].moduleNameStr);
+        }
+
+    }
+
+    return;
+}
 
 void address_print( unsigned char* address )
 {
@@ -181,10 +269,10 @@ void ie_dbg(unsigned char *ie )
 {
     int i = 0;
    
-    DPRINTF(AML_DEBUG_DEBUG, "ie: %s %d\n", __func__, __LINE__);
+    AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_DEBUG, "ie \n");
     for(i = 0; i < ie[1] + 2; i++)
     {
-        DPRINTF(AML_DEBUG_DEBUG, "%s %d ie 0x%x\n", __func__, __LINE__, ie[i]);
+        AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_DEBUG, "ie 0x%x\n", ie[i]);
     }
 }
 

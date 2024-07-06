@@ -18,13 +18,13 @@
 static int vm_cfg80211_monitor_if_open(struct net_device *ndev)
 {
     int ret = 0;
-    DPRINTF(AML_DEBUG_CFG80211,"%s <%s>\n", __func__, DEV_NAME(ndev));
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_DEBUG,"<%s>\n", DEV_NAME(ndev));
     return ret;
 }
 static int vm_cfg80211_monitor_if_close(struct net_device *ndev)
 {
     int ret = 0;
-    DPRINTF(AML_DEBUG_CFG80211,"%s <%s>\n", __func__, DEV_NAME(ndev));
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_DEBUG,"<%s>\n", DEV_NAME(ndev));
     return ret;
 }
 
@@ -42,7 +42,7 @@ static int vm_cfg80211_monitor_if_xmit_entry(struct sk_buff *skb, struct net_dev
     struct wlan_net_vif *wnet_vif = vm_netdev_priv(ndev);
     struct ieee80211_radiotap_header *rtap_hdr;
 
-    DPRINTF(AML_DEBUG_CFG80211,"<%s>:%s ++\n", wnet_vif->vm_ndev->name,__func__);
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO,"<%s>  ++\n", wnet_vif->vm_ndev->name);
 #if 1
     if (unlikely(os_skb_get_pktlen(skb) < sizeof(struct ieee80211_radiotap_header)))
         goto fail;
@@ -55,7 +55,7 @@ static int vm_cfg80211_monitor_if_xmit_entry(struct sk_buff *skb, struct net_dev
         goto fail;
     if (rtap_len != 14)
     {
-        DPRINTF(AML_DEBUG_CFG80211,"radiotap len (should be 14): %d\n", rtap_len);
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR,"radiotap len (should be 14): %d\n", rtap_len);
         goto fail;
     }
     os_skb_pull(skb, rtap_len);
@@ -63,7 +63,7 @@ static int vm_cfg80211_monitor_if_xmit_entry(struct sk_buff *skb, struct net_dev
 
     if (WIFINET_IS_ACTION(wh))
     {
-        DPRINTF(AML_DEBUG_CFG80211, "%s, do: scan_abort\n", __func__);
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_DEBUG, "do: scan_abort\n");
 
         preempt_scan(wnet_vif->vm_ndev, 100, 100);
     }
@@ -80,8 +80,8 @@ static int vm_cfg80211_monitor_if_xmit_entry(struct sk_buff *skb, struct net_dev
         pdata = (unsigned char*)os_skb_data(skb);
         memcpy(pdata, dst_mac_addr, sizeof(dst_mac_addr));
         memcpy(pdata + sizeof(dst_mac_addr), src_mac_addr, sizeof(src_mac_addr));
-        // DPRINTF(AML_DEBUG_CFG80211,"should be eapol packet\n");
-        DPRINTF(AML_DEBUG_CFG80211, "<running> %s %d should be eapol packet\n",__func__,__LINE__);
+
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "<running> should be eapol packet\n");
 
         ret =  wifi_mac_hardstart(skb, wnet_vif->vm_ndev);
         return ret;
@@ -91,19 +91,19 @@ static int vm_cfg80211_monitor_if_xmit_entry(struct sk_buff *skb, struct net_dev
 #ifdef CONFIG_P2P
         if (vm_p2p_parse_negotiation_frames(wnet_vif->vm_p2p, os_skb_data(skb), &os_skb_get_pktlen(skb), true)== false)
         {
-            DPRINTF(AML_DEBUG_CFG80211|AML_DEBUG_ERROR, "%s %d print frame err\n", __func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR, "print frame err\n");
             goto fail;
         }
 #endif
         if ( vm_cfg80211_send_mgmt(wnet_vif,os_skb_data(skb),  os_skb_get_pktlen(skb)) != 0)
         {
-            DPRINTF(AML_DEBUG_CFG80211|AML_DEBUG_ERROR, "%s %d send frame err\n", __func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR, "send frame err\n");
             goto fail;
         }
     }
     else
     {
-        DPRINTF(AML_DEBUG_CFG80211,"frame_ctl=0x%x\n", frame_ctl & (IEEE80211_FCTL_FTYPE|IEEE80211_FCTL_STYPE));
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO,"frame_ctl=0x%x\n", frame_ctl & (IEEE80211_FCTL_FTYPE|IEEE80211_FCTL_STYPE));
     }
 #endif
 fail:
@@ -114,7 +114,7 @@ static void vm_cfg80211_monitor_if_destructor(struct net_device *ndev)
 {
     struct wlan_net_vif *wnet_vif = vm_netdev_priv(ndev);
 
-    DPRINTF(AML_DEBUG_ANY,"<%s>:<%s>:%s\n", wnet_vif->vm_ndev->name,ndev->name,__func__);
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO,"<%s>:<%s>\n", wnet_vif->vm_ndev->name,ndev->name);
 
     if (ndev->ieee80211_ptr)
         FREE((unsigned char *)ndev->ieee80211_ptr,"mwdev");
@@ -125,7 +125,7 @@ static int vm_cfg80211_go_if_xmit_entry(struct sk_buff *skb, struct net_device *
 {
     struct wlan_net_vif *wnet_vif = vm_netdev_priv(ndev);
 
-    DPRINTF(AML_DEBUG_ANY,"<%s>:<%s>:%s\n", wnet_vif->vm_ndev->name,ndev->name,__func__);
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO,"<%s>:<%s>\n", wnet_vif->vm_ndev->name,ndev->name);
 
     dump_memory_internel(skb->data,32);
     return wifi_mac_hardstart(skb, wnet_vif->vm_ndev);
@@ -134,7 +134,7 @@ static int vm_cfg80211_go_if_xmit_entry(struct sk_buff *skb, struct net_device *
 static int vm_cfg80211_monitor_set_mac_addr(struct net_device *ndev, void *addr)
 {
     int ret = 0;
-    DPRINTF(AML_DEBUG_CFG80211,"%s,<%s>:mac<%s> \n", __func__,ndev->name,ether_sprintf(ndev->dev_addr));
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO,"<%s>:mac<%s> \n",ndev->name,ether_sprintf(ndev->dev_addr));
     return ret;
 }
 static const struct net_device_ops vm_cfg80211_monitor_if_ops =
@@ -153,7 +153,7 @@ const char *name)
     struct vm_wdev_priv *pwdev_priv = wdev_to_priv(wnet_vif->vm_wdev);
     struct vm_netdev_priv_indicator *pnpi;
     struct wireless_dev* wdev = NULL;
-    DPRINTF(AML_DEBUG_CFG80211,"%s <%s>\n", __func__, name);
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_DEBUG,"<%s>\n", name);
     if (!name )
     {
         ret = -EINVAL;
@@ -163,7 +163,7 @@ const char *name)
         && pwdev_priv->pmon_ndev)
     {
         ndev = pwdev_priv->pmon_ndev;
-        DPRINTF(AML_DEBUG_CFG80211,"%s, monitor interface(%s) has existed\n", __func__, name);
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR,"monitor interface(%s) has existed\n", name);
         goto out;
     }
     ndev = alloc_etherdev(sizeof(struct vm_netdev_priv_indicator));
@@ -197,7 +197,7 @@ const char *name)
     wdev = (struct wireless_dev *)ZMALLOC(sizeof(struct wireless_dev),"mwdev", GFP_KERNEL);
     if (!wdev)
     {
-        ERROR_DEBUG_OUT("MALLOC wireless_dev fail\n");
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR,"MALLOC wireless_dev fail\n");
         ret = -ENOMEM;
         goto out;
     }
@@ -221,7 +221,7 @@ out:
         free_netdev(ndev);
         ndev = NULL;
     }
-    ERROR_DEBUG_OUT("ndev=%p, pmon_ndev=%p, ret=%d\n", ndev, pwdev_priv->pmon_ndev, ret);
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR,"ndev=%p, pmon_ndev=%p, ret=%d\n", ndev, pwdev_priv->pmon_ndev, ret);
     return ndev;
 }
 
@@ -229,7 +229,7 @@ static int __vm_cfg80211_ioctl(struct net_device *ndev, void __user *data, int c
 {
     struct wlan_net_vif *wnet_vif = vm_netdev_priv(ndev);
 
-    DPRINTF(AML_DEBUG_IOCTL, "%s %d cmd 0x%x\n", __func__, __LINE__, cmd);
+    AML_PRINT(AML_LOG_ID_IOCTL, AML_LOG_LEVEL_DEBUG, "cmd 0x%x\n", cmd);
     switch (cmd)
     {
         case SIOCANDROID_PRIV:
@@ -279,7 +279,7 @@ const char *name, enum nl80211_iftype type)
     struct wireless_dev *vwdev;
     enum wifi_mac_opmode networkType, oldnetworkType;
 
-    DPRINTF(AML_DEBUG_CFG80211, "%s %s,type %d\n", __func__,name,type);
+    AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "%s,type %d\n",name,type);
     if (!name )
     {
         ret = -EINVAL;
@@ -294,7 +294,7 @@ const char *name, enum nl80211_iftype type)
     vwdev = (struct wireless_dev *)ZMALLOC(sizeof(struct wireless_dev),"vwdev", GFP_KERNEL);
     if (!vwdev)
     {
-        AML_OUTPUT("ERROR ENOMEM\n");
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR,"ERROR ENOMEM\n");
         ret = -ENOMEM;
         return NULL;
     }
@@ -303,12 +303,12 @@ const char *name, enum nl80211_iftype type)
     vwdev->wiphy = wiphy_new(&vm_cfg80211_ops, sizeof(struct vm_wdev_priv));
     if (!vwdev->wiphy)
     {
-        AML_OUTPUT("ERROR ENOMEM\n");
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR,"ERROR ENOMEM\n");
         ret = -ENOMEM;
         return NULL;
 
     }
-    AML_PRINT(AML_DBG_MODULES_P2P, "%s,type %d\n", name,type);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "%s,type %d\n", name,type);
 
     set_wiphy_dev(vwdev->wiphy, ndev );
     vwdev->wiphy->interface_modes = BIT(NL80211_IFTYPE_P2P_GO)|BIT(NL80211_IFTYPE_P2P_CLIENT);
@@ -336,21 +336,21 @@ const char *name, enum nl80211_iftype type)
     pwdev_priv->scan_request = NULL;
     spin_lock_init(&pwdev_priv->scan_req_lock);
     pwdev_priv->connect_request = NULL;
-    AML_PRINT(AML_DBG_MODULES_P2P, "%s,type %d\n", name,type);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG, "%s,type %d\n", name,type);
 
     spin_lock_init(&pwdev_priv->connect_req_lock);
     os_timer_ex_initialize(&pwdev_priv->connect_timeout, CFG80211_CONNECT_TIMER_OUT,
                            vm_cfg80211_connect_timeout_timer, wnet_vif);
 
-    AML_OUTPUT("<running>\n");
+    AML_PRINT_LOG_INFO("<running>\n");
     ret = wiphy_register(vwdev->wiphy);
     if (ret < 0)
     {
-        AML_OUTPUT("ERROR register wiphy\n");
+        AML_PRINT_LOG_INFO("ERROR register wiphy\n");
         ret = -ENOMEM;
         return NULL;
     }
-    AML_PRINT(AML_DBG_MODULES_P2P,"%s,type %d\n", name,type);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"%s,type %d\n", name,type);
 #else
     vwdev->wiphy =    wnet_vif->vm_wdev->wiphy;
     pwdev_priv = wdev_to_priv(vwdev);
@@ -358,7 +358,7 @@ const char *name, enum nl80211_iftype type)
     vwdev->iftype = type;
     ndev->ieee80211_ptr = vwdev;
     vwdev->netdev = ndev;
-    AML_PRINT(AML_DBG_MODULES_P2P,"%s,type %d\n",name,type);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"%s,type %d\n",name,type);
     //ndev->type = ARPHRD_ETHER;
     strncpy(ndev->name, name, IFNAMSIZ);
     ndev->name[IFNAMSIZ - 1] = 0;
@@ -369,7 +369,7 @@ const char *name, enum nl80211_iftype type)
     pnpi->sizeof_priv = sizeof(wnet_vif);
     WIFINET_ADDR_COPY(ndev->dev_addr, wnet_vif->vm_myaddr);
 
-    AML_PRINT(AML_DBG_MODULES_P2P,"%s,type %d\n",name,type);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"%s,type %d\n",name,type);
 
     ret = register_netdevice(ndev);
     if (ret)
@@ -380,7 +380,7 @@ const char *name, enum nl80211_iftype type)
     pwdev_priv->pGo_wdev = vwdev;
     memcpy(pwdev_priv->ifname_go, name, IFNAMSIZ+1);
 
-    AML_PRINT(AML_DBG_MODULES_P2P,"%s,type %d\n",name,type);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"%s,type %d\n",name,type);
 
     networkType = nl80211_iftype_2_drv_opmode(type);
     if (networkType < 0)
@@ -392,7 +392,7 @@ const char *name, enum nl80211_iftype type)
     if (oldnetworkType != networkType)
     {
         struct wifi_mac *wifimac = wnet_vif->vm_wmac;
-        DPRINTF(AML_DEBUG_CFG80211, "%s %d\n", __func__, __LINE__);
+        AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_DEBUG, "\n");
         preempt_scan(wnet_vif->vm_ndev, 100, 100);
         wnet_vif->wnet_vif_replaycounter++;
         //wifi_mac_stop(vmac->vm_dev);
@@ -400,7 +400,7 @@ const char *name, enum nl80211_iftype type)
         wifi_mac_scan_vdetach(wnet_vif);
         if (wifimac->drv_priv->drv_ops.change_interface(wifimac->drv_priv, wnet_vif->wnet_vif_id, wnet_vif, networkType, wnet_vif->vm_myaddr, 0))
         {
-            ERROR_DEBUG_OUT("Unable to add an interface for driver.\n");
+            AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_ERROR,"Unable to add an interface for driver.\n");
             wifi_mac_free_vmac(wnet_vif);
             return NULL;
         }
@@ -419,15 +419,15 @@ const char *name, enum nl80211_iftype type)
         if (wnet_vif->vm_p2p_support)
         {
             vm_p2p_set_role(wnet_vif->vm_p2p, NL80211_IFTYPE_2_p2p_role(type));
-            DPRINTF(AML_DEBUG_CFG80211, "%s %d new p2p_role=%d\n", __func__, __LINE__, vm_p2p_role(wnet_vif->vm_p2p));
+            AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "new p2p_role=%d\n", vm_p2p_role(wnet_vif->vm_p2p));
         }
 #endif
 
         if (WIFINET_M_HOSTAP == networkType)
         {
-            DPRINTF(AML_DEBUG_CFG80211, "%s %d mode change over\n", __func__, __LINE__);
+            AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "mode change over\n");
             wait_for_ap_run(wnet_vif, 5000, 100);
-            DPRINTF(AML_DEBUG_CFG80211, "%s %d wait_for_ap_run over\n", __func__, __LINE__);
+            AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "wait_for_ap_run over\n");
         }
         wnet_vif->vm_ndev->ieee80211_ptr->iftype = type;
     }
@@ -438,7 +438,7 @@ out:
         ndev = NULL;
     }
 
-    AML_PRINT(AML_DBG_MODULES_P2P,"%s,type %d, ndev=%p, ret=%d\n",name,type, ndev, ret);
+    AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"%s,type %d, ndev=%p, ret=%d\n",name,type, ndev, ret);
     return ndev;
 }
 

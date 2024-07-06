@@ -191,7 +191,7 @@ void aml_minstrel_detach(void)
 {
     struct minstrel_rate_control_ops *p_rate_control_ops = NULL;
 
-    AML_OUTPUT("\n");
+    AML_PRINT_LOG_INFO("\n");
     g_aml_rate_adaptation_dev.ht_cap_info = 0;
     p_rate_control_ops = get_rate_control_ops();
     p_rate_control_ops->free(g_minstel_pri);
@@ -253,7 +253,7 @@ unsigned int support_legacy_rate_init( struct wifi_station *sta ,  struct ieee80
                 bit_val |= 0x800;
                 break;
             default :
-                ERROR_DEBUG_OUT("input rate error\n");
+                AML_PRINT_LOG_ERR("input rate error\n");
                break;
         }
     }
@@ -265,10 +265,10 @@ unsigned int support_legacy_rate_init( struct wifi_station *sta ,  struct ieee80
         p_ieee_sta->supp_rates[IEEE80211_BAND_5GHZ] = (bit_val >> 4);
 
     } else {
-        ERROR_DEBUG_OUT("input channel_band error\n");
+        AML_PRINT_LOG_ERR("input channel_band error\n");
     }
 
-    AML_OUTPUT("channel_band=%d, bit_val=0x%04x\n", channel_band, bit_val);
+    AML_PRINT_LOG_INFO("channel_band=%d, bit_val=0x%04x\n", channel_band, bit_val);
     return 0;
 }
 
@@ -299,12 +299,12 @@ void aml_rate_adaptation_dev_init(struct wifi_station *sta, int rate_mode, unsig
         int i = 0;
         g_aml_rate_adaptation_dev.sband = &aml_band_24ghz;
 
-        AML_OUTPUT("support rate start\n");
+        AML_PRINT_LOG_INFO("support rate start\n");
         for (i = 0; i < sta->sta_rates.dot11_rate_num; i++)
         {
-            AML_OUTPUT("%02x  \n",sta->sta_rates.dot11_rate[i]);
+            AML_PRINT_LOG_INFO("%02x  \n",sta->sta_rates.dot11_rate[i]);
         }
-        AML_OUTPUT("\n");
+        AML_PRINT_LOG_INFO("\n");
     } else {
         g_aml_rate_adaptation_dev.sband = &aml_band_5ghz;
         g_aml_rate_adaptation_dev.sband->vht_cap = aml_create_vht_cap(&g_aml_rate_adaptation_dev, rate_mode);
@@ -456,9 +456,9 @@ void aml_minstrel_init(
     p_ieee_sta->smps_mode = IEEE80211_SMPS_OFF;
     p_ieee_sta->rates = &(sta->sta_ieee_rates);
     p_ieee_sta->bandwidth = sta->sta_chbw;
-    AML_OUTPUT("bw=%d, sta:%p,p_ieee_sta=%p\n", p_ieee_sta->bandwidth, sta,p_ieee_sta);
+    AML_PRINT_LOG_INFO("bw=%d, sta:%p,p_ieee_sta=%p\n", p_ieee_sta->bandwidth, sta,p_ieee_sta);
     if (sta->sta_wnet_vif->vm_curchan == NULL) {
-        ERROR_DEBUG_OUT("vm_curchan is NULL, just return\n");
+        AML_PRINT_LOG_ERR("vm_curchan is NULL, just return\n");
         return;
     }
 
@@ -483,20 +483,20 @@ void aml_minstrel_init(
         mcs_rate_support = false;
     }
 
-    AML_OUTPUT("channel_band=%d, rate_mode=%d\n", channel_band, rate_mode);
+    AML_PRINT_LOG_INFO("channel_band=%d, rate_mode=%d\n", channel_band, rate_mode);
     support_legacy_rate_init(sta, p_ieee_sta, channel_band);
 
     aml_rate_adaptation_dev_init(sta, rate_mode, channel_band, p_ieee_sta);
 
     if (channel_band == IEEE80211_BAND_5GHZ) {
         p_ieee_sta->vht_cap = g_aml_rate_adaptation_dev.sband->vht_cap;
-        AML_OUTPUT("vht_supported = %d\n", p_ieee_sta->vht_cap.vht_supported);
+        AML_PRINT_LOG_INFO("vht_supported = %d\n", p_ieee_sta->vht_cap.vht_supported);
     }
 
     aml_get_ht_cap(&g_aml_rate_adaptation_dev, &(g_aml_rate_adaptation_dev.sband->ht_cap));
     p_ieee_sta->ht_cap = g_aml_rate_adaptation_dev.sband->ht_cap;
 
-    AML_OUTPUT("ht_supported:%d, minstel_pri=%p, p_ieee_sta=%p\n", p_ieee_sta->ht_cap.ht_supported, g_minstel_pri, p_ieee_sta);
+    AML_PRINT_LOG_INFO("ht_supported:%d, minstel_pri=%p, p_ieee_sta=%p\n", p_ieee_sta->ht_cap.ht_supported, g_minstel_pri, p_ieee_sta);
     p_rate_control_ops = get_rate_control_ops();
     p_rate_control_ops_ht = get_rate_control_ops_ht();
     if (mcs_rate_support) {
@@ -519,9 +519,9 @@ void aml_minstrel_init(
     sta->minstrel_init_flag = 1;
 
     if (mcs_rate_support) {
-        AML_OUTPUT("sta:%p, sta_minstrel_ht_priv:%p\n", sta, sta->sta_minstrel_ht_priv);
+        AML_PRINT_LOG_INFO("sta:%p, sta_minstrel_ht_priv:%p\n", sta, sta->sta_minstrel_ht_priv);
     } else {
-        AML_OUTPUT("sta:%p, sta_minstrel_info:%p\n", sta, sta->sta_minstrel_info);
+        AML_PRINT_LOG_INFO("sta:%p, sta_minstrel_info:%p\n", sta, sta->sta_minstrel_info);
     }
 #endif
 }
@@ -531,17 +531,17 @@ void aml_minstrel_deinit(void *p_sta)
     struct wifi_station *sta = (struct wifi_station *)p_sta;
     struct minstrel_rate_control_ops* p_rate_control_ops = NULL;
     struct minstrel_rate_control_ops *p_rate_control_ops_ht = NULL;
-    AML_OUTPUT("%04x \n", sta->sta_flags);
+    AML_PRINT_LOG_INFO("%04x \n", sta->sta_flags);
 
     if ((sta->sta_flags & WIFINET_NODE_VHT) || (sta->sta_flags & WIFINET_NODE_HT)) {
         p_rate_control_ops_ht = get_rate_control_ops_ht();
-        AML_OUTPUT("ht free:%p\n", sta->sta_minstrel_ht_priv);
+        AML_PRINT_LOG_INFO("ht free:%p\n", sta->sta_minstrel_ht_priv);
         p_rate_control_ops_ht->free_sta(sta->sta_minstrel_ht_priv);
         sta->sta_minstrel_ht_priv = NULL;
 
     } else {
         p_rate_control_ops = get_rate_control_ops();
-        AML_OUTPUT("free:%p\n", sta->sta_minstrel_info);
+        AML_PRINT_LOG_INFO("free:%p\n", sta->sta_minstrel_info);
         p_rate_control_ops->free_sta(sta->sta_minstrel_info);
         sta->sta_minstrel_info = NULL;
     }
@@ -616,7 +616,7 @@ int check_is_rate_fitable(struct wifi_station *sta, struct ieee80211_tx_info *in
     }
 
     if ((!mi->sample_all_bw) && (bw < fitable_bw)) {
-        AML_PRINT(AML_DBG_MODULES_RATE_CTR, "bandwidth too low, no need to sample. bw:%d, fitable_bw:%d\n", bw, fitable_bw);
+        AML_PRINT(AML_LOH_ID_RATE_CTR,AML_LOG_LEVEL_DEBUG, "bandwidth too low, no need to sample. bw:%d, fitable_bw:%d\n", bw, fitable_bw);
         return -1;
     }
 
@@ -630,7 +630,7 @@ int check_is_rate_fitable(struct wifi_station *sta, struct ieee80211_tx_info *in
         && sta->sta_chbw == WIFINET_BWC_WIDTH20 && WIFINET_IS_CHAN_2GHZ(wnet_vif->vm_curchan)
         && (power < LEGACY_RATE_SET_TH_RSSI)) {
         sta->sta_wnet_vif->vm_fixed_rate.need_set_legacy = true;
-        AML_OUTPUT("need set legacy rate \n");
+        AML_PRINT_LOG_INFO("need set legacy rate \n");
     }
 
     if (max_rate < rate_index || mi->need_clear_rate_index) {
@@ -639,7 +639,7 @@ int check_is_rate_fitable(struct wifi_station *sta, struct ieee80211_tx_info *in
         mi->need_clear_rate_index = 0;
         if (sta->sta_wnet_vif->txtp_stat.vm_tx_speed > 0) {
             minstrel_clear_unfitable_rate_stats(mi, max_rate);
-            AML_PRINT(AML_DBG_MODULES_RATE_CTR, "snr or rssi not fit, rssi:%d, snr:%d, max_rate:%d, rate_index:%d\n",
+            AML_PRINT(AML_LOH_ID_RATE_CTR,AML_LOG_LEVEL_DEBUG, "snr or rssi not fit, rssi:%d, snr:%d, max_rate:%d, rate_index:%d\n",
                 sta->sta_avg_bcn_rssi, sta->sta_avg_snr, max_rate, rate_index);
             return -1;
         }
@@ -667,7 +667,7 @@ int minstrel_rate_index_to_vendor_rate_code(int minstrel_rate_idx, struct ieee80
         }
     }
 
-    AML_OUTPUT("rate convert error\n");
+    AML_PRINT_LOG_INFO("rate convert error\n");
     return 0;
 }
 
@@ -677,7 +677,7 @@ unsigned int protocol_rate_to_vendor_rate(unsigned int protocol_rate)
     //For 11b: (0x82 -0x80) * 500K =  1M
     //For 11g:  0xc * 500k = 6M
     unsigned int ret = 0;
-    //DPRINTF(AML_DEBUG_RATE,"rate 0x%x %s(%d)\n", protocol_rate, __func__, __LINE__);
+    //AML_PRINT(AML_LOG_ID_RATE,AML_LOG_LEVEL_DEBUG,"rate 0x%x \n", protocol_rate);
     switch(protocol_rate)
     {
         case  0x02:// 1M
@@ -717,7 +717,7 @@ unsigned int protocol_rate_to_vendor_rate(unsigned int protocol_rate)
              ret = WIFI_11G_54M ;
             break;
         default:
-            ERROR_DEBUG_OUT("protocol rate to vendor rate convert errore protocol_rate = 0x%x \n", protocol_rate);
+            AML_PRINT_LOG_ERR("protocol rate to vendor rate convert errore protocol_rate = 0x%x \n", protocol_rate);
             ret =  0;
             break;
 
@@ -758,7 +758,7 @@ unsigned char minstrel_find_rate(
     p_minstrel_sta_info = sta->sta_minstrel_info;
 
     if (!sta->minstrel_init_flag) {
-        ERROR_DEBUG_OUT("minstrel not init, sta:%p\n", sta);
+        AML_PRINT_LOG_ERR("minstrel not init, sta:%p\n", sta);
         return 0;
     }
 
@@ -815,7 +815,7 @@ unsigned char minstrel_find_rate(
     }
 
     if (priv_sta == NULL) {
-        AML_OUTPUT("sta->sta_flags=%08x, sta:%p\n", sta->sta_flags, sta);
+        AML_PRINT_LOG_INFO("sta->sta_flags=%08x, sta:%p\n", sta->sta_flags, sta);
     }
     p_rate_control_ops->get_rate(g_minstel_pri, p_ieee_sta, priv_sta, info);
     if (mcs_rate && check_is_rate_fitable(sta, info, priv_sta)) {
@@ -842,7 +842,7 @@ unsigned char minstrel_find_rate(
         if (info->control.rates[i].idx < 0) {
             continue;
         }
-        //AML_OUTPUT("ratectrl[%d].rate_index =%d, vendor_rate_code =0x%x, maxampdulen=%d, flags=%x\n", i,
+        //AML_PRINT_LOG_INFO("ratectrl[%d].rate_index =%d, vendor_rate_code =0x%x, maxampdulen=%d, flags=%x\n", i,
         //    ratectrl[i].rate_index,ratectrl[i].vendor_rate_code, ratectrl[i].maxampdulen, info->control.rates[i].flags);
     }
 
@@ -886,7 +886,7 @@ void minstrel_tx_complete(
     p_minstrel_sta_info = sta->sta_minstrel_info;
 
     if (!sta->minstrel_init_flag) {
-        ERROR_DEBUG_OUT("minstrel not init, sta:%p\n", sta);
+        AML_PRINT_LOG_ERR("minstrel not init, sta:%p\n", sta);
         return;
     }
 

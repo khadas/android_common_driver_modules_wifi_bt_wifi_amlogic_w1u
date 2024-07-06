@@ -48,6 +48,7 @@ extern struct mutex usb_mutex;
 #define COMMON_LOCK() do { OS_SPIN_LOCK_IRQ(&(g_hal_priv).com_spinlock, g_hal_priv.com_spinlock_flag); } while (0)
 #define COMMON_UNLOCK() do { OS_SPIN_UNLOCK_IRQ(&(g_hal_priv).com_spinlock, g_hal_priv.com_spinlock_flag); } while (0)
 
+#ifndef CONFIG_USB_CLOSE
 #ifndef USB_BUILD_IN
 #define USB_LOCK_INIT()  mutex_init(&usb_mutex)
 #define USB_BEGIN_LOCK()  OS_MUTEX_LOCK(&usb_mutex);
@@ -59,6 +60,7 @@ extern struct mutex auc_usb_mutex;
 #define USB_BEGIN_LOCK()  OS_MUTEX_LOCK(&auc_usb_mutex);
 #define USB_END_LOCK()  OS_MUTEX_UNLOCK(&auc_usb_mutex);
 #define USB_LOCK_DESTROY() mutex_destroy(&auc_usb_mutex);
+#endif
 #endif
 
 #define AML_TXLOCK_INIT() spin_lock_init(&(g_hal_priv).tx_spinlock)

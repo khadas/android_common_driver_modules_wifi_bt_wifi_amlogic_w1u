@@ -18,6 +18,12 @@
 #define PARSE_DIGIT_BASE 30
 
 #define CIRCLE_SUBTRACT(a, b, l)  (((a) >= (b)) ? ((a) - (b)):((l) + (a) - (b)))
+enum
+{
+    FWLOG_DISABLE,
+    FWLOG_BY_FILE,
+    FWLOG_BY_UART,
+};
 
 #ifdef CONFIG_AML_USE_STATIC_BUF
 void *wifi_mem_prealloc(int section, unsigned long size);

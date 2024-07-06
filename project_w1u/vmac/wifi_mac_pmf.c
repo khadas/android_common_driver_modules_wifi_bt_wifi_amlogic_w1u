@@ -10,7 +10,7 @@ extern void fi_ahb_write(unsigned int addr,unsigned int data);
 void wifi_mac_disable_hw_mgmt_decrypt(void) {
     unsigned int reg_val;
 
-    AML_OUTPUT("\n");
+    AML_PRINT_LOG_INFO("\n");
     reg_val = fi_ahb_read(0x00a00308);
     fi_ahb_write(0x00a00308, reg_val | BIT(28));
 
@@ -41,17 +41,17 @@ unsigned char _bip_ccmp_protect(const unsigned char *key, size_t key_len,
     if (key_len == 16) {
         if (omac1_aes_128(key, data, data_len, mic)) {
             res = 0;
-            AML_OUTPUT("omac1_aes_128 fail!\n");
+            AML_PRINT_LOG_INFO("omac1_aes_128 fail!\n");
         }
 
     } else if (key_len == 32) {
         if (omac1_aes_256(key, data, data_len, mic)) {
             res = 0;
-            AML_OUTPUT("omac1_aes_256 fail!\n");
+            AML_PRINT_LOG_INFO("omac1_aes_256 fail!\n");
         }
 
     } else {
-        AML_OUTPUT("key_len not match!\n");
+        AML_PRINT_LOG_INFO("key_len not match!\n");
         res = 0;
     }
 
@@ -66,12 +66,12 @@ unsigned char aml_calculate_bip_mic(unsigned char gmcs, unsigned char *whdr_pos,
     if (gmcs == WIFINET_CIPHER_AES_CMAC) {
         if (_bip_ccmp_protect(key, 16, data, data_len, mic) == 0) {
             res = 0;
-            AML_OUTPUT("_bip_ccmp_protect(128) fail! \n");
+            AML_PRINT_LOG_INFO("_bip_ccmp_protect(128) fail! \n");
         }
 
     } else {
         res = 0;
-        AML_OUTPUT("unsupport dot11wCipher !\n");
+        AML_PRINT_LOG_INFO("unsupport dot11wCipher !\n");
     }
 
     return res;
@@ -82,24 +82,24 @@ void wifi_mac_dump_pkt(void *pkt, unsigned short pkt_len) {
     int len = pkt_len;
     unsigned char *frm = (unsigned char *)pkt;
 
-    AML_OUTPUT("pktlen = %d\n", pkt_len);
+    AML_PRINT_LOG_INFO("pktlen = %d\n", pkt_len);
     for (pp = 0; pp < pkt_len; pp++) {
         if ((len > 6) && (pp < 4)) {
-            AML_OUTPUT("%02x:%02x:%02x:%02x\n", frm[pp], frm[pp + 1], frm[pp + 2], frm[pp + 3]);
+            AML_PRINT_LOG_INFO("%02x:%02x:%02x:%02x\n", frm[pp], frm[pp + 1], frm[pp + 2], frm[pp + 3]);
             len -= 4;
             pp += 3;
 
         } else if (len > 6) {
-            AML_OUTPUT("%02x:%02x:%02x:%02x:%02x:%02x\n",
+            AML_PRINT_LOG_INFO("%02x:%02x:%02x:%02x:%02x:%02x\n",
                 frm[pp], frm[pp + 1], frm[pp + 2], frm[pp + 3], frm[pp + 4], frm[pp + 5]);
             len -= 6;
             pp += 5;
 
         } else {
-            AML_OUTPUT("%02x \n", frm[pp]);
+            AML_PRINT_LOG_INFO("%02x \n", frm[pp]);
         }
     }
-    AML_OUTPUT("\n");
+    AML_PRINT_LOG_INFO("\n");
 }
 
 int wifi_mac_parse_mmie(struct wifi_station *sta, struct sk_buff *skb, unsigned char subtype)
@@ -132,13 +132,13 @@ int wifi_mac_parse_mmie(struct wifi_station *sta, struct sk_buff *skb, unsigned 
 
     #ifdef PMF_PKT_PRINT
         /* dump the packet content before decrypt */
-        AML_OUTPUT("before parse:%d\n", skb->len);
+        AML_PRINT_LOG_INFO("before parse:%d\n", skb->len);
         wifi_mac_dump_pkt(frm, skb->len);
     #endif
 
 
     if ((pkt_len < hdr_len) || (pkt_len - hdr_len < mic_len)) {
-        ERROR_DEBUG_OUT("pkt_len too small\n");
+        AML_PRINT_LOG_ERR("pkt_len too small\n");
         return -1;
     }
 
@@ -146,7 +146,7 @@ int wifi_mac_parse_mmie(struct wifi_station *sta, struct sk_buff *skb, unsigned 
     mme = frm + pkt_len - mme_offset;
 
     if (*mme != MME_IE_ID) {
-        ERROR_DEBUG_OUT("not mmie:%d\n", *mme);
+        AML_PRINT_LOG_ERR("not mmie:%d\n", *mme);
         return -1;
     }
 
@@ -154,7 +154,7 @@ int wifi_mac_parse_mmie(struct wifi_station *sta, struct sk_buff *skb, unsigned 
     memcpy(&pkt_keyid, mme + 2, 2);
     pkt_keyid = le16_to_cpu(pkt_keyid);
     if (pkt_keyid != sta->pmf_key.wk_keyix) {
-        ERROR_DEBUG_OUT("BIP key index error!\n");
+        AML_PRINT_LOG_ERR("BIP key index error!\n");
         return -1;
     }
 
@@ -164,14 +164,14 @@ int wifi_mac_parse_mmie(struct wifi_station *sta, struct sk_buff *skb, unsigned 
     local_ipn = (unsigned long *)(sta->pmf_key.wk_keyrsc);
     /* BIP packet number should bigger than previous BIP packet */
     if (pkt_ipn <= *local_ipn) { /* wrap around? */
-        ERROR_DEBUG_OUT("replay BIP packet, pkt_ipn%08x, local_ipn:%08x\n", pkt_ipn, *local_ipn);
+        AML_PRINT_LOG_ERR("replay BIP packet, pkt_ipn%08x, local_ipn:%08x\n", pkt_ipn, *local_ipn);
         return -1;
     }
 
     ori_len = pkt_len - hdr_len + BIP_AAD_SIZE;
     bip_aad = ZMALLOC(ori_len, "bip_add", GFP_ATOMIC);
     if (bip_aad == NULL) {
-        ERROR_DEBUG_OUT("BIP AAD allocate fail\n");
+        AML_PRINT_LOG_ERR("BIP AAD allocate fail\n");
         return -1;
     }
 
@@ -188,11 +188,11 @@ int wifi_mac_parse_mmie(struct wifi_station *sta, struct sk_buff *skb, unsigned 
     memcpy(bip_aad + 8, wh->i_addr2, 6);
     memcpy(bip_aad + 14, wh->i_addr3, 6);
 
-    AML_OUTPUT("bip_add before\n");
+    AML_PRINT_LOG_INFO("bip_add before\n");
     for (i = 0; i < ori_len; ++i) {
-        AML_OUTPUT("%02x", bip_aad[i]);
+        AML_PRINT_LOG_INFO("%02x", bip_aad[i]);
     }
-    AML_OUTPUT("\n");
+    AML_PRINT_LOG_INFO("\n");
 
     if (aml_calculate_bip_mic(sta->pmf_key.wk_key_type, frm,
         pkt_len, sta->pmf_key.wk_key, bip_aad, ori_len, mic) == 0)
@@ -203,12 +203,12 @@ int wifi_mac_parse_mmie(struct wifi_station *sta, struct sk_buff *skb, unsigned 
         *local_ipn = pkt_ipn;
         res = 1;
     } else {
-        ERROR_DEBUG_OUT("BIP MIC error!\n");
+        AML_PRINT_LOG_ERR("BIP MIC error!\n");
     }
 
     #ifdef PMF_PKT_PRINT
         /* dump the packet content before decrypt */
-        AML_OUTPUT("after parse:%d\n", skb->len);
+        AML_PRINT_LOG_INFO("after parse:%d\n", skb->len);
         wifi_mac_dump_pkt(frm, skb->len);
     #endif
 
@@ -244,7 +244,7 @@ int aml_aes_decrypt(struct wifi_station *sta, struct sk_buff *skb, unsigned char
     }
 
     if (plain == NULL) {
-        ERROR_DEBUG_OUT("fail\n");
+        AML_PRINT_LOG_ERR("fail\n");
         return 1;
     }
 
@@ -286,19 +286,20 @@ unsigned char is_robust_management_frame(struct wifi_frame *wh)
     if (type != WIFINET_FC0_TYPE_MGT) {
         return 0;
     }
-    if (subtype == WIFINET_FC0_SUBTYPE_ACTION) {
-        category = *((unsigned char *)wh + sizeof(struct wifi_frame));
-    }
+
 
     if ((subtype != WIFINET_FC0_SUBTYPE_DISASSOC) && (subtype != WIFINET_FC0_SUBTYPE_DEAUTH)
         && (subtype != WIFINET_FC0_SUBTYPE_ACTION)) {
         return 0;
     }
 
-    if (subtype == WIFINET_FC0_SUBTYPE_ACTION) {
-        if (CATEGORY_IS_NON_ROBUST(category))
+    if ((subtype == WIFINET_FC0_SUBTYPE_ACTION) && (wh->i_fc[1] & WIFINET_FC1_WEP) == 0) {
+        category = *((unsigned char *)wh + sizeof(struct wifi_frame));
+        if (CATEGORY_IS_NON_ROBUST(category)) {
             return 0;
+        }
     }
+
 
     return 1;
 }
@@ -317,7 +318,7 @@ int wifi_mac_unprotected_mgmt_pkt_handle(struct wifi_station *sta, struct sk_buf
     frm = (unsigned char *)&wh[1];
     is_bmc = (WIFINET_IS_MULTICAST(wh->i_addr1));
 
-    //AML_OUTPUT("recv :%d\n", subtype);
+    //AML_PRINT_LOG_INFO("recv :%d\n", subtype);
     switch (wnet_vif->vm_opmode) {
         case WIFINET_M_STA:
             if ((is_bmc) && (subtype != WIFINET_FC0_SUBTYPE_BEACON)) {
@@ -327,7 +328,7 @@ int wifi_mac_unprotected_mgmt_pkt_handle(struct wifi_station *sta, struct sk_buf
             if ((subtype == WIFINET_FC0_SUBTYPE_DEAUTH) || (subtype == WIFINET_FC0_SUBTYPE_DISASSOC)) {
                 if (!(sta->sta_flags_ext & WIFINET_NODE_MFP_CONFIRM_DEAUTH)) {
                     reason = le16toh(*(unsigned short *)frm);
-                    AML_OUTPUT("recv deauthenticate (reason %d)\n", reason);
+                    AML_PRINT_LOG_INFO("recv deauthenticate (reason %d)\n", reason);
 
                     wifi_mac_send_sa_query(sta, WIFINET_ACTION_SA_QUERY_REQ, sta->sa_query_seq++);
                     os_timer_ex_start_period(&wnet_vif->vm_actsend, 100);
@@ -412,19 +413,19 @@ int wifi_mac_mgmt_validate(struct wifi_station *sta, struct sk_buff *skb, unsign
     data_len = skb->len - hdr_len - iv_len - icv_len;
     mgmt_data = ZMALLOC(data_len, "mgmt_data", GFP_ATOMIC);
     if (mgmt_data == NULL) {
-        ERROR_DEBUG_OUT("mgmt_data alloc fail, request data size = %dByte\n", data_len);
+        AML_PRINT_LOG_ERR("mgmt_data alloc fail, request data size = %dByte\n", data_len);
         goto fail;
     }
 
     #ifdef PMF_PKT_PRINT
         /* dump the packet content before decrypt */
-        AML_OUTPUT("rsn_ucastcipher:%d\n", sta->sta_rsn.rsn_ucastcipher);
+        AML_PRINT_LOG_INFO("rsn_ucastcipher:%d\n", sta->sta_rsn.rsn_ucastcipher);
         wifi_mac_dump_pkt(frm, skb->len);
     #endif
 
     decrypt_res = aml_pkt_decrypt(sta, skb);
     if (decrypt_res) {
-        ERROR_DEBUG_OUT("decrypt mgmt pkt fail\n");
+        AML_PRINT_LOG_ERR("decrypt mgmt pkt fail\n");
         FREE(mgmt_data, "mgmt_data");
         goto fail;
     }
@@ -438,12 +439,12 @@ int wifi_mac_mgmt_validate(struct wifi_station *sta, struct sk_buff *skb, unsign
 
     #ifdef PMF_PKT_PRINT
         /* print packet content after decryption */
-        AML_OUTPUT("after decrypt\n");
+        AML_PRINT_LOG_INFO("after decrypt\n");
         wifi_mac_dump_pkt(frm, skb->len);
     #endif
 
     if (is_bmc) {
-        AML_OUTPUT("parse mmie for broadcast mgmt pkt\n");
+        AML_PRINT_LOG_INFO("parse mmie for broadcast mgmt pkt\n");
         if (wifi_mac_parse_mmie(sta, skb, subtype) != 1) {
             goto fail;
         }
@@ -452,7 +453,7 @@ int wifi_mac_mgmt_validate(struct wifi_station *sta, struct sk_buff *skb, unsign
     return 0;
 
 fail:
-    ERROR_DEBUG_OUT("validate mgmt failed: subtype = 0x%x\n", subtype);
+    AML_PRINT_LOG_ERR("validate mgmt failed: subtype = 0x%x\n", subtype);
     return 1;
 }
 
@@ -475,10 +476,10 @@ int wifi_mac_add_mmie(struct wifi_station *sta, struct sk_buff *skb) {
 
     bip_aad = ZMALLOC(ori_len, "bip_add", GFP_ATOMIC);
     if (bip_aad == NULL) {
-        ERROR_DEBUG_OUT("bip alloc fail\n");
+        AML_PRINT_LOG_ERR("bip alloc fail\n");
         return 1;
     }
-    AML_OUTPUT("len:%d, frame_body_len:%d\n", skb->len, frame_body_len);
+    AML_PRINT_LOG_INFO("len:%d, frame_body_len:%d\n", skb->len, frame_body_len);
 
     {
         /* broadcast robust mgmt frame, using BIP */
@@ -502,7 +503,7 @@ int wifi_mac_add_mmie(struct wifi_station *sta, struct sk_buff *skb) {
 
         #ifdef PMF_PKT_PRINT
             /* dump the packet content before decrypt */
-            AML_OUTPUT("before add aad:%d\n", skb->len);
+            AML_PRINT_LOG_INFO("before add aad:%d\n", skb->len);
             wifi_mac_dump_pkt(frm, skb->len);
         #endif
 
@@ -532,7 +533,7 @@ int wifi_mac_add_mmie(struct wifi_station *sta, struct sk_buff *skb) {
 
         /* dump total packet include MME with zero MIC */
         #if 0
-            AML_OUTPUT("bip_aad:%d\n", ori_len);
+            AML_PRINT_LOG_INFO("bip_aad:%d\n", ori_len);
             wifi_mac_dump_pkt(bip_add, ori_len);
         #endif
 
@@ -544,10 +545,10 @@ int wifi_mac_add_mmie(struct wifi_station *sta, struct sk_buff *skb) {
         /* dump calculated mic result */
         if (0) {
             int i;
-            AML_OUTPUT("Calculated mic result: \n");
+            AML_PRINT_LOG_INFO("Calculated mic result: \n");
             for (i = 0; i < 16; i++)
-                AML_OUTPUT(" %02x \n", mic[i]);
-            AML_OUTPUT("\n");
+                AML_PRINT_LOG_INFO(" %02x \n", mic[i]);
+            AML_PRINT_LOG_INFO("\n");
         }
 
         frm_end = frm + skb->len;
@@ -558,7 +559,7 @@ int wifi_mac_add_mmie(struct wifi_station *sta, struct sk_buff *skb) {
             memcpy(frm_end - 16, mic, 16);
 
         #ifdef PMF_PKT_PRINT
-            AML_OUTPUT("after add mic:%d\n", skb->len);
+            AML_PRINT_LOG_INFO("after add mic:%d\n", skb->len);
             wifi_mac_dump_pkt(frm, skb->len);
         #endif
     }
@@ -586,7 +587,7 @@ int _aml_ccmp_encrypt(struct wifi_mac_key *key, unsigned char *pn, unsigned int 
     }
 
     if (enc == NULL) {
-        ERROR_DEBUG_OUT("Failed to encrypt CCMP(%d) frame", key->wk_keylen);
+        AML_PRINT_LOG_ERR("Failed to encrypt CCMP(%d) frame", key->wk_keylen);
         return 0;
     }
 
@@ -631,7 +632,7 @@ int wifi_mac_sw_encrypt(struct wifi_station *sta, struct sk_buff *skb) {
 
     #ifdef PMF_PKT_PRINT
         /* dump the packet content before decrypt */
-        AML_OUTPUT("before encrypt rsn_ucastcipher:%d\n", sta->sta_rsn.rsn_ucastcipher);
+        AML_PRINT_LOG_INFO("before encrypt rsn_ucastcipher:%d\n", sta->sta_rsn.rsn_ucastcipher);
         wifi_mac_dump_pkt(frm, skb->len);
     #endif
 
@@ -651,11 +652,11 @@ int wifi_mac_sw_encrypt(struct wifi_station *sta, struct sk_buff *skb) {
 
     PN = (unsigned long long *)pn;
     (*PN)++;
-    //AML_OUTPUT("PN is %016x, pn[0]:%02x, pn[7]:%02x\n", *PN, pn[0], pn[7]);
+    //AML_PRINT_LOG_INFO("PN is %016x, pn[0]:%02x, pn[7]:%02x\n", *PN, pn[0], pn[7]);
 
     #ifdef PMF_PKT_PRINT
         /* dump the packet content before decrypt */
-        AML_OUTPUT("after encrypt:\n");
+        AML_PRINT_LOG_INFO("after encrypt:\n");
         wifi_mac_dump_pkt(frm, skb->len);
     #endif
 
@@ -669,7 +670,7 @@ int wifi_mac_send_sa_query(struct wifi_station *sta, unsigned char action, unsig
     arg.action = action;
     arg.arg1 = seq;
 
-    AML_OUTPUT("sta:%p, action:%d\n", sta, action);
+    AML_PRINT_LOG_INFO("sta:%p, action:%d\n", sta, action);
     wifi_mac_send_actionframe(sta->sta_wnet_vif, sta, &arg);
     return 0;
 }

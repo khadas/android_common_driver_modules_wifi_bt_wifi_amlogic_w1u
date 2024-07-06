@@ -79,7 +79,7 @@ int wifi_mac_classify(struct wifi_station *sta, struct sk_buff *skb)
     if (v_wme_ac > d_wme_ac)
     {
         cb->u_tid = v_pri;
-        AML_OUTPUT("<running> cb->u_tid = %d\n", cb->u_tid);
+        AML_PRINT_LOG_INFO("<running> cb->u_tid = %d\n", cb->u_tid);
         os_skb_set_priority(skb,v_wme_ac);
     }
 
@@ -111,7 +111,7 @@ int wifi_mac_classify(struct wifi_station *sta, struct sk_buff *skb)
     }
 
     txinfo->tid_index =  os_skb_get_tid(skb);
-    //AML_OUTPUT("tid_index:%d\n", txinfo->tid_index);
+    //AML_PRINT_LOG_INFO("tid_index:%d\n", txinfo->tid_index);
 
     return 0;
 }
@@ -146,7 +146,7 @@ void wifi_mac_get_rtsp_session(char* rtsp, struct wifi_mac_p2p* p2p)
             strcat(p2p->wfd_session_id, id_buf);
             buf++;
         }
-        AML_OUTPUT("wfd_session_id=%s\n", p2p->wfd_session_id);
+        AML_PRINT_LOG_INFO("wfd_session_id=%s\n", p2p->wfd_session_id);
     }
 }
 
@@ -175,14 +175,14 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
 
         mac_pkt_info->b_eap = 1;
         if (p_eap[1] == 3 && p_eap[4] == 2) {
-            AML_OUTPUT("send eapol frame,len:%d, key_info:%04x\n", (p_eap[2]<<8)|p_eap[3], (p_eap[5]<<8)|p_eap[6]);
+            AML_PRINT_LOG_INFO("send eapol frame,len:%d, key_info:%04x\n", (p_eap[2]<<8)|p_eap[3], (p_eap[5]<<8)|p_eap[6]);
         }
 
         if (sta->wnet_vif_id == 0 && ((p_eap[5] << 8) | p_eap[6]) == REKEY_EAPOL_2 && sta->sta_is_adding_key == true)
             sta->sta_is_adding_key = false;
     } else if (eh->ether_type == __constant_htons(ETHERTYPE_IP)) {
         if (iphdrp->protocol == IPPROTO_TCP) {
-            AML_PRINT(AML_DBG_MODULES_TX, "tcp src:%d, dst:%d, seq:%u, tcp ack:%u\n",  __constant_htons(th->source),  __constant_htons(th->dest),
+            AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG, "tcp src:%d, dst:%d, seq:%u, tcp ack:%u\n",  __constant_htons(th->source),  __constant_htons(th->dest),
                 __constant_htonl(th->seq), __constant_htonl(th->ack_seq));
 
             rtsp = (char *)th + 32;
@@ -191,7 +191,7 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
                 wifi_mac_get_rtsp_session(rtsp, sta->sta_wnet_vif->vm_p2p);
                 if (memcmp(sta->sta_wnet_vif->vm_p2p->wfd_session_id, zero_session, MAC_WFD_SESSION_LEN)) {
                     wifimac->is_miracast_connect = 1;
-                    AML_OUTPUT("set wifimac->is_miracast_connect=%d\n",wifimac->is_miracast_connect);
+                    AML_PRINT_LOG_INFO("set wifimac->is_miracast_connect=%d\n",wifimac->is_miracast_connect);
                 }
             }
 
@@ -231,7 +231,7 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
                 while ((dhcp_p[offset] != 255) && (offset < offset_max)) {
                     if (dhcp_p[offset] == 53) {
                         mac_pkt_info->op_type = dhcp_p[offset + 2];
-                        AML_OUTPUT("dhcp send status:%d\n", dhcp_p[offset + 2]);
+                        AML_PRINT_LOG_INFO("dhcp send status:%d\n", dhcp_p[offset + 2]);
                         break;
                     }
 
@@ -263,7 +263,7 @@ void wifi_mac_xmit_pkt_parse(struct sk_buff *skb, struct wifi_mac *wifimac)
             }
         }
         if (tid_index >= WME_NUM_TID) {
-            AML_OUTPUT("all tid with ba session, set arp dhcp eap tid 2\n");
+            AML_PRINT_LOG_INFO("all tid with ba session, set arp dhcp eap tid 2\n");
             cb->u_tid = 2;
         }
     }
@@ -307,7 +307,7 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
     if (wifimac->msdu_cnt[tid_index] > MAX_MSDU_CNT) {
         wnet_vif->vm_devstats.tx_dropped++;
         wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[tid_index]++;
-        AML_OUTPUT("tid:%d, msdu_cnt:%d\n", tid_index, wifimac->msdu_cnt[tid_index]);
+        AML_PRINT_LOG_INFO("tid:%d, msdu_cnt:%d\n", tid_index, wifimac->msdu_cnt[tid_index]);
         return NETDEV_TX_BUSY;
     }
 
@@ -316,7 +316,7 @@ int wifi_mac_is_allow_send(struct wlan_net_vif *wnet_vif, struct wifi_station *s
         pending_cnt = wifimac->drv_priv->drv_ops.drv_tx_pending_pkt(wifimac->drv_priv);
 
         if (qlen_real + pending_cnt > 200) {
-            //AML_OUTPUT("qlen_real:%d, pending_cnt:%d\n", qlen_real, pending_cnt);
+            //AML_PRINT_LOG_INFO("qlen_real:%d, pending_cnt:%d\n", qlen_real, pending_cnt);
             wnet_vif->vm_devstats.tx_dropped++;
             wnet_vif->vif_sts.sts_tx_tid_drop_bf_in_msdu[tid_index]++;
             return NETDEV_TX_BUSY;
@@ -545,7 +545,7 @@ netdev_tx_t wifi_mac_hardstart(struct sk_buff *skb, struct net_device *dev)
         }
     }
 
-    AML_PRINT(AML_DBG_MODULES_TX, "vid:%d, eh->ether_type:%04x\n", wnet_vif->wnet_vif_id, eh->ether_type);
+    AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG, "vid:%d, eh->ether_type:%04x\n", wnet_vif->wnet_vif_id, eh->ether_type);
     txinfo->cb.sta = sta;
     txinfo->ptxdesc = ptxdesc;
     txinfo->ptxdesc->drv_pkt_info.pkt_info_count = 1;
@@ -563,7 +563,7 @@ netdev_tx_t wifi_mac_hardstart(struct sk_buff *skb, struct net_device *dev)
 bad:
 
 
-    AML_PRINT(AML_DBG_MODULES_TX_ERROR, "vid:%d, error:%d\n", wnet_vif->wnet_vif_id, error);
+    AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG, "vid:%d, error:%d\n", wnet_vif->wnet_vif_id, error);
     if (error > 9) {
         return NETDEV_TX_BUSY;
 
@@ -634,6 +634,36 @@ void wifi_mac_send_setup(struct wlan_net_vif *wnet_vif,
 }
 
 static void
+wifi_mac_mgmt_csa_action_bracast_output(struct wifi_station *sta, struct sk_buff *skb, int type)
+{
+    struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
+    struct wifi_mac *wifimac = sta->sta_wmac;
+    struct wifi_frame *wh;
+    struct wifi_skb_callback *cb = (struct wifi_skb_callback *)skb->cb;
+
+    KASSERT(sta != NULL, ("null nsta"));
+
+    cb->sta = sta;
+
+    wh = (struct wifi_frame *)os_skb_push(skb, sizeof(struct wifi_frame));
+    wifi_mac_send_setup(wnet_vif, sta, wh, WIFINET_FC0_TYPE_MGT | type,
+        wnet_vif->vm_myaddr, BROADCAST_ADDRESS, sta->sta_bssid);
+
+    if ((cb->flags & M_LINK0) != 0 && sta->sta_challenge != NULL)
+    {
+        cb->flags &= ~M_LINK0;
+        WIFINET_DPRINTF_MACADDR(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_DEBUG, wh->i_addr1, "%s", "encrypting frame");
+        wh->i_fc[1] |= WIFINET_FC1_WEP;
+    }
+
+    if (WIFINET_VMAC_IS_SLEEPING(sta->sta_wnet_vif))
+        wh->i_fc[1] |= WIFINET_FC1_PWR_MGT;
+
+    WIFINET_NODE_STAT(sta, tx_mgmt);
+    wifi_mac_tx_mgmt_frm(wifimac, skb);
+}
+
+static void
 wifi_mac_mgmt_output(struct wifi_station *sta, struct sk_buff *skb, int type)
 {
     struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
@@ -652,7 +682,7 @@ wifi_mac_mgmt_output(struct wifi_station *sta, struct sk_buff *skb, int type)
     if ((cb->flags & M_LINK0) != 0 && sta->sta_challenge != NULL)
     {
         cb->flags &= ~M_LINK0;
-        WIFINET_DPRINTF_MACADDR(AML_DEBUG_CONNECT, wh->i_addr1, "encrypting frame (%s)", __func__);
+        WIFINET_DPRINTF_MACADDR(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_DEBUG, wh->i_addr1, "%s \n", "encrypting frame");
         wh->i_fc[1] |= WIFINET_FC1_WEP;
     }
 
@@ -692,14 +722,14 @@ wifi_mac_mgmt_probe_resp_output(struct wifi_station *sta,
         bssid = sta->sta_bssid;
         sa = wnet_vif->vm_myaddr;
     }
-    WIFINET_DPRINTF(AML_DEBUG_XMIT,"p2p send proberesp da=%s\n ", ether_sprintf(macaddr));
-    WIFINET_DPRINTF(AML_DEBUG_XMIT,"p2p send proberesp bssid=%s\n ", ether_sprintf(bssid));
+    WIFINET_DPRINTF(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"p2p send proberesp da=%s\n ", ether_sprintf(macaddr));
+    WIFINET_DPRINTF(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"p2p send proberesp bssid=%s\n ", ether_sprintf(bssid));
     wifi_mac_send_setup(wnet_vif, sta, wh, WIFINET_FC0_TYPE_MGT | WIFINET_FC0_SUBTYPE_PROBE_RESP, sa,macaddr, bssid);
 
     if ((cb->flags & M_LINK0) != 0 && sta->sta_challenge != NULL)
     {
         cb->flags &= ~M_LINK0;
-        WIFINET_DPRINTF_MACADDR( AML_DEBUG_CONNECT, wh->i_addr1, "encrypting frame (%s)", __func__);
+        WIFINET_DPRINTF_MACADDR( AML_LOG_ID_CONNECT, AML_LOG_LEVEL_DEBUG, wh->i_addr1, "%s \n", "encrypting frame");
         wh->i_fc[1] |= WIFINET_FC1_WEP;
     }
 
@@ -735,7 +765,7 @@ int wifi_mac_send_nulldata_for_ap(struct wifi_station *sta, unsigned char pwr_sa
 
     skb = wifi_mac_get_mgmt_frm(wnet_vif->vm_wmac, pkt_len);
     if (skb == NULL) {
-        WIFINET_DPRINTF_STA(AML_DEBUG_ERROR, sta, "%s: Unable to allocate frame", __func__);
+        WIFINET_DPRINTF_STA(AML_LOG_ID_XMIT, AML_LOG_LEVEL_ERROR, sta, " Unable to allocate frame");
         return ENOMEM;
     }
 
@@ -873,7 +903,7 @@ int wifi_mac_send_testdata(struct wifi_station *sta, int length)
     skb = wifi_mac_alloc_skb(wifimac, sizeof(struct wifi_qos_frame)+len+sizeof(struct hi_tx_desc)); //2016.12.21 fix
     if (skb == NULL)
     {
-        DPRINTF(AML_DEBUG_WARNING, "WARNING:: %s %d, alloc skb fail \n",__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_WARN, "WARNING:: alloc skb fail \n");
         wnet_vif->vif_sts.sts_tx_no_buf++;
         return -ENOMEM;
     }
@@ -931,7 +961,7 @@ wifi_mac_skbhdr_adjust(struct wlan_net_vif *wnet_vif, int hdrsize,
         pskb = os_skb_copy_expand(skb, need_headroom+32, need_tailroom+32, GFP_ATOMIC, pskb);
         if (pskb == NULL)
         {
-            ERROR_DEBUG_OUT("alloc skb fail.\n");
+            AML_PRINT_LOG_ERR("alloc skb fail.\n");
         }
         os_skb_free(skb);
     }
@@ -995,7 +1025,7 @@ void calculate_checksum_for_fragment_pkt(struct sk_buff *skb, struct ether_heade
             struct tcphdr *th = (struct tcphdr *)((unsigned char *)iphdrp + (iphdrp->ihl << 2));
             struct udphdr *uh = (struct udphdr *)((unsigned char *)iphdrp + (iphdrp->ihl << 2));
 
-            //AML_OUTPUT("chris ip_pkt_offset:%d, hdrsize:%d, iphdrp->ihl:%d\n", ip_pkt_offset, hdrsize, iphdrp->ihl);
+            //AML_PRINT_LOG_INFO("chris ip_pkt_offset:%d, hdrsize:%d, iphdrp->ihl:%d\n", ip_pkt_offset, hdrsize, iphdrp->ihl);
             iphdrp->check = 0;
             ip_hdr = (unsigned short *)((unsigned char *)os_skb_data(skb) + ip_pkt_offset);
             iphdrp->check = calculate_checksum(ip_hdr, iphdrp->ihl * 4);
@@ -1052,8 +1082,8 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *sta, struct sk_buff *skb)
 
         if (key == NULL && !mac_pkt_info->b_eap)
         {
-            WIFINET_DPRINTF_MACADDR( AML_DEBUG_KEY, eh.ether_dhost, "no default transmit key (%s) deftxkey %u",
-                __func__, wnet_vif->vm_def_txkey);
+            WIFINET_DPRINTF_MACADDR( AML_LOG_ID_KEY, AML_LOG_LEVEL_DEBUG, eh.ether_dhost, "no default transmit key deftxkey %u",
+                 wnet_vif->vm_def_txkey);
             wnet_vif->vif_sts.sts_tx_key_err++;
         }
     }
@@ -1318,7 +1348,7 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *sta, struct sk_buff *skb)
 
         if (skbcnt != fragcnt)
         {
-            WIFINET_DPRINTF_MACADDR( AML_DEBUG_DEBUG, eh.ether_dhost, "%s", "skbcnt != fragcnt, discard frame");
+            WIFINET_DPRINTF_MACADDR( AML_LOG_ID_LOG, AML_LOG_LEVEL_DEBUG, eh.ether_dhost, "%s", "skbcnt != fragcnt, discard frame");
             goto bad;
         }
     }
@@ -1335,7 +1365,7 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *sta, struct sk_buff *skb)
 
             if (!wifi_mac_security_enmic(wnet_vif, key, skb, force_swmic))
             {
-                WIFINET_DPRINTF_MACADDR( AML_DEBUG_XMIT, eh.ether_dhost, "%s", "enmic failed, discard frame");
+                WIFINET_DPRINTF_MACADDR( AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG, eh.ether_dhost, "%s", "enmic failed, discard frame");
                 goto bad;
             }
         }
@@ -1344,10 +1374,10 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *sta, struct sk_buff *skb)
     *(unsigned short *)wh->i_seq = 0;
     if (fragcnt > 1)
     {
-        int fragment, offset, pdulen;
+        int fragnum, offset, pdulen;
         void *pdu;
 
-        fragment = 0;
+        fragnum = 0;
         wh = twh = (struct wifi_frame *) os_skb_data(skb);
 
         wh->i_fc[1] |= WIFINET_FC1_MORE_FRAG;
@@ -1355,8 +1385,8 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *sta, struct sk_buff *skb)
         *(unsigned short *)&wh->i_seq[0] = htole16(sta->sta_txseqs[cb->u_tid] << WIFINET_SEQ_SEQ_SHIFT);
         sta->sta_txseqs[cb->u_tid]++;
 
-        *(unsigned short *)&wh->i_seq[0] |= htole16((fragment & WIFINET_SEQ_FRAG_MASK) << WIFINET_SEQ_FRAG_SHIFT);
-        ++fragment;
+        *(unsigned short *)&wh->i_seq[0] |= htole16((fragnum & WIFINET_SEQ_FRAG_MASK) << WIFINET_SEQ_FRAG_SHIFT);
+        ++fragnum;
 
         offset = hdrsize + pdusize;
         datalen = (os_skb_get_pktlen(skb) - hdrsize) - pdusize;
@@ -1369,8 +1399,8 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *sta, struct sk_buff *skb)
             twh = (struct wifi_frame *) os_skb_put(tskb, hdrsize);
             memcpy((void *) twh, (void *) wh, hdrsize);
 
-            *(unsigned short *)&twh->i_seq[0] |= htole16((fragment & WIFINET_SEQ_FRAG_MASK) << WIFINET_SEQ_FRAG_SHIFT);
-            ++fragment;
+            *(unsigned short *)&twh->i_seq[0] |= htole16((fragnum & WIFINET_SEQ_FRAG_MASK) << WIFINET_SEQ_FRAG_SHIFT);
+            ++fragnum;
 
             if (pdusize <= datalen)
                 pdulen = pdusize;
@@ -1915,7 +1945,7 @@ wifi_mac_add_wide_bandwidth_subie(unsigned char *frm,struct wifi_station *sta)
     struct wifi_channel *switch_chan = wnet_vif->csa_target.switch_chan;
 
     if (WIFINET_IS_CHAN_ERR(switch_chan)) {
-        ERROR_DEBUG_OUT("NULL chan\n");
+        AML_PRINT_LOG_ERR("NULL chan\n");
         return frm;
     }
 
@@ -1974,38 +2004,38 @@ void print_ht_opt_information(unsigned char* ht_opt)
 {
     if (ht_opt[0] != WIFINET_ELEMID_HTINFO)
     {
-        AML_OUTPUT("Not HT OP IE:%d.\n\n", ht_opt[0]);
+        AML_PRINT_LOG_INFO("Not HT OP IE:%d.\n\n", ht_opt[0]);
         return;
     }
 
     /*Print Primary Channel*/
-    AML_OUTPUT("primary channel:%d.\n", ht_opt[2]);
+    AML_PRINT_LOG_INFO("primary channel:%d.\n", ht_opt[2]);
 
     /*Second channel offset parsing*/
     switch( ht_opt[3] & 0x03 )
     {
         case 1:
-            AML_OUTPUT("Secondary Channel is ABOVE the primary channel.\n");
+            AML_PRINT_LOG_INFO("Secondary Channel is ABOVE the primary channel.\n");
             break;
         case 3:
-            AML_OUTPUT("Secondary Channel is BELOW the primary channel.\n");
+            AML_PRINT_LOG_INFO("Secondary Channel is BELOW the primary channel.\n");
             break;
         case 0:
-            AML_OUTPUT("No Secondary Channel is present.\n");
+            AML_PRINT_LOG_INFO("No Secondary Channel is present.\n");
             break;
         default:
-            AML_OUTPUT("Reserved value.\n");
+            AML_PRINT_LOG_INFO("Reserved value.\n");
             break;
     }
 
     /*STA Channel Width parsing*/
     if ( ht_opt[3] & 0x03 )
     {
-       AML_OUTPUT("HT_OP:Allow use of any channel width in the supported channel width set.\n");
+       AML_PRINT_LOG_INFO("HT_OP:Allow use of any channel width in the supported channel width set.\n");
     }
     else
     {
-       AML_OUTPUT("HT_OP:20M channel bandwidth.\n");
+       AML_PRINT_LOG_INFO("HT_OP:20M channel bandwidth.\n");
     }
 
     return;
@@ -2256,21 +2286,21 @@ void print_vht_opt_information(unsigned char* vht_opt)
 {
     if (vht_opt[0] != WIFINET_ELEMID_VHTOP)
     {
-        AML_OUTPUT("Not VHT OP IE:%d.\n\n", vht_opt[0]);
+        AML_PRINT_LOG_INFO("Not VHT OP IE:%d.\n\n", vht_opt[0]);
         return;
     }
     if (vht_opt[2] & 0x3 )/*Channel Width,1:80M;0:20M or 40M BSS bandwidth*/
     {
-        AML_OUTPUT("Channel bandwidth: 80M.\n");
+        AML_PRINT_LOG_INFO("Channel bandwidth: 80M.\n");
     }
     else
     {
-        AML_OUTPUT("Channel bandwidth: 20M or 40M.\n");
+        AML_PRINT_LOG_INFO("Channel bandwidth: 20M or 40M.\n");
     }
 
     /*Print vht_oper_centr_freq_seg0/1_idx*/
-    AML_OUTPUT("vht_oper_centr_freq_seg0_idx:%d.\n", vht_opt[3]);
-    AML_OUTPUT("vht_oper_centr_freq_seg1_idx:%d.\n", vht_opt[4]);
+    AML_PRINT_LOG_INFO("vht_oper_centr_freq_seg0_idx:%d.\n", vht_opt[3]);
+    AML_PRINT_LOG_INFO("vht_oper_centr_freq_seg1_idx:%d.\n", vht_opt[4]);
 
     return;
 }
@@ -2297,7 +2327,7 @@ unsigned char*wifi_mac_add_vht_opt(unsigned char *frm, struct wifi_station *sta,
         xsect_bw = (sta->sta_wnet_vif->vm_bandwidth > sta->sta_chbw) ? sta->sta_chbw : sta->sta_wnet_vif->vm_bandwidth;
 
     } else {
-        ERROR_DEBUG_OUT("Not supported sub_type:0x%x\n ", sub_type);
+        AML_PRINT_LOG_ERR("Not supported sub_type:0x%x\n ", sub_type);
     }
 
     vhtop->vht_op_chwidth = (xsect_bw >= WIFINET_BWC_WIDTH80) ? 1 : 0;
@@ -2306,7 +2336,7 @@ unsigned char*wifi_mac_add_vht_opt(unsigned char *frm, struct wifi_station *sta,
         vhtop->vht_op_ch_freq_seg1 = wifi_mac_mhz2chan(sta->sta_wnet_vif->vm_curchan->chan_cfreq1);
 
     } else {
-        ERROR_DEBUG_OUT("vm_curchan is NULL!!!, vm_macmode:%d\n", sta->sta_wnet_vif->vm_mac_mode);
+        AML_PRINT_LOG_ERR("vm_curchan is NULL!!!, vm_macmode:%d\n", sta->sta_wnet_vif->vm_mac_mode);
         vhtop->vht_op_ch_freq_seg1 = 0;
     }
     vhtop->vht_op_ch_freq_seg2 = 0;
@@ -2317,9 +2347,9 @@ unsigned char*wifi_mac_add_vht_opt(unsigned char *frm, struct wifi_station *sta,
     /* Fill in the VHT Basic MCS set */
     vhtop->vhtop_basic_mcs_set =  htole16(sta->sta_wnet_vif->vm_vhtop_basic_mcs);
 
-    DPRINTF(AML_DEBUG_BWC,"%s(%d) sub_type:0x%x, self_bw: 0x%x, peer_bw:0x%x, xsect_bw:0x%x,"
+    AML_PRINT(AML_LOG_ID_BWC,AML_LOG_LEVEL_DEBUG,"sub_type:0x%x, self_bw: 0x%x, peer_bw:0x%x, xsect_bw:0x%x,"
         "bw_in_frm: 0x%x, vht_op_ch_freq_seg1:%d, vht_op_ch_freq_seg2:%d\n",
-        __func__, __LINE__, sub_type,  sta->sta_wnet_vif->vm_bandwidth, sta->sta_chbw, xsect_bw,
+        sub_type,  sta->sta_wnet_vif->vm_bandwidth, sta->sta_chbw, xsect_bw,
         vhtop->vht_op_chwidth, vhtop->vht_op_ch_freq_seg1, vhtop->vht_op_ch_freq_seg2);
 
     return frm + vht_opt_len;
@@ -2513,6 +2543,7 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
     unsigned short capinfo;
     unsigned short pkt_len;
     unsigned char  index;
+    struct wifi_mac_rateset rs = wnet_vif->vm_mainsta->sta_rates;
 
     pkt_len = 8 + sizeof(unsigned short) + sizeof(unsigned short) + 2 + WIFINET_NWID_LEN + 2 + WIFINET_RATE_SIZE
         + 7 + 6 + 3 + 2 + (WIFINET_RATE_MAXSIZE - WIFINET_RATE_SIZE) + wifimac->wm_countryinfo.country_len + 2
@@ -2595,9 +2626,13 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
     }
     else
 #endif//CONFIG_P2P
+    if (wnet_vif->vm_sae_h2e_only == 1) {
+        rs.dot11_rate[rs.dot11_rate_num++] = WIFINET_SAE_H2E_ONLY;
+    }
+
     {
-        frm = wifi_mac_add_rates(frm, &wnet_vif->vm_mainsta->sta_rates);
-        frm = wifi_mac_add_xrates(frm, &wnet_vif->vm_mainsta->sta_rates);
+        frm = wifi_mac_add_rates(frm, &rs);
+        frm = wifi_mac_add_xrates(frm, &rs);
     }
 
     /*5G mode ,non-support DSSS Parameter Set*/
@@ -2657,8 +2692,8 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
     }
 
     if (wnet_vif->app_ie[WIFINET_APPIE_FRAME_PROBE_RESP].ie) {
-        WIFINET_DPRINTF( AML_DEBUG_XMIT, "add wps ie ie for proberesp, len=%d\n",
-            wnet_vif->app_ie[WIFINET_APPIE_FRAME_PROBE_RESP].length);
+        WIFINET_DPRINTF( AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG,"add wps ie ie for proberesp, len=%d\n",
+                        wnet_vif->app_ie[WIFINET_APPIE_FRAME_PROBE_RESP].length);
         memcpy(frm, wnet_vif->app_ie[WIFINET_APPIE_FRAME_PROBE_RESP].ie,
             wnet_vif->app_ie[WIFINET_APPIE_FRAME_PROBE_RESP].length);
         frm += wnet_vif->app_ie[WIFINET_APPIE_FRAME_PROBE_RESP].length;
@@ -2692,7 +2727,7 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
         memcpy(frm, wnet_vif->vm_p2p->wfd_app_ie[WIFINET_APPIE_FRAME_PROBE_RESP].ie,
                wnet_vif->vm_p2p->wfd_app_ie[WIFINET_APPIE_FRAME_PROBE_RESP].length);
         frm += wnet_vif->vm_p2p->wfd_app_ie[WIFINET_APPIE_FRAME_PROBE_RESP].length;
-        //  DPRINTF(AML_DEBUG_P2P,"%s %d wfd ie\n",__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"wfd ie\n");
     }
 #endif//#ifdef CONFIG_WFD
 
@@ -2731,7 +2766,7 @@ int wifi_mac_send_auth(struct wlan_net_vif *wnet_vif,struct wifi_station *sta,vo
     *(int *)arg &= 0xffff;
     has_challenge = ((*(int *)arg == WIFINET_AUTH_SHARED_CHALLENGE ||
         *(int *)arg == WIFINET_AUTH_SHARED_RESPONSE) && (sta->sta_challenge != NULL));
-    WIFINET_DPRINTF( AML_DEBUG_CONNECT, "status=%d seq=%d", status, *(int *)arg);
+    WIFINET_DPRINTF( AML_LOG_ID_CONNECT,AML_LOG_LEVEL_DEBUG, "status=%d seq=%d", status, *(int *)arg);
 
     is_shared_key = has_challenge || *(int *)arg >= WIFINET_AUTH_SHARED_RESPONSE ||
         (*(int *)arg == WIFINET_AUTH_SHARED_REQUEST && wnet_vif->vm_mainsta->sta_authmode == WIFINET_AUTH_SHARED);
@@ -2741,7 +2776,7 @@ int wifi_mac_send_auth(struct wlan_net_vif *wnet_vif,struct wifi_station *sta,vo
 
     if (skb == NULL)
     {
-        ERROR_DEBUG_OUT("Auth: Unable to allocate mgmt frame\n");
+        AML_PRINT_LOG_ERR("Auth: Unable to allocate mgmt frame\n");
         return ENOMEM;
     }
     frm = os_skb_put(skb, 3 * sizeof(unsigned short)
@@ -2757,7 +2792,7 @@ int wifi_mac_send_auth(struct wlan_net_vif *wnet_vif,struct wifi_station *sta,vo
 
         if (*(int *)arg == WIFINET_AUTH_SHARED_RESPONSE) {
             struct wifi_skb_callback *cb = (struct wifi_skb_callback *)skb->cb;
-            WIFINET_DPRINTF_STA( AML_DEBUG_CONNECT, sta, "request encrypt frame (%s)", __func__);
+            WIFINET_DPRINTF_STA( AML_LOG_ID_CONNECT,AML_LOG_LEVEL_DEBUG, sta, " %s \n", "request encrypt frame");
             cb->flags |= M_LINK0;
         }
     }
@@ -2777,7 +2812,7 @@ int wifi_mac_send_auth(struct wlan_net_vif *wnet_vif,struct wifi_station *sta,vo
 
     if (wnet_vif->vm_opmode == WIFINET_M_STA)
     {
-        DPRINTF(AML_DEBUG_TIMER,"TIMERdbg <running> %s %d \n",__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_TIMER,AML_LOG_LEVEL_DEBUG, "TIMERdbg <running> \n");
         os_timer_ex_start_period(&wnet_vif->vm_mgtsend, DEFAULT_AUTH_RETRY_INTERVAL);
     }
     return 0;
@@ -2789,11 +2824,11 @@ int wifi_mac_send_deauth(struct wlan_net_vif  *wnet_vif, struct wifi_station *st
     unsigned char *frm;
     unsigned char pkt_len = sizeof(unsigned short) + WIFINET_CIPHER_AES_CMAC;
 
-    WIFINET_DPRINTF_STA(AML_DEBUG_WARNING, sta, "send station deauthenticate (reason %d)", *(int *)arg);
+    WIFINET_DPRINTF_STA(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_INFO, sta, "send station deauthenticate (reason %d)", *(int *)arg);
 
     skb = wifi_mac_get_mgmt_frm(wnet_vif->vm_wmac, pkt_len);
     if (skb == NULL) {
-        WIFINET_DPRINTF_STA(AML_DEBUG_WARNING, sta, "%s: DeAuth: Unable to allocate mgmt frame", __func__);
+        WIFINET_DPRINTF_STA(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_WARN, sta, "DeAuth: Unable to allocate mgmt frame");
         return ENOMEM;
     }
     frm = os_skb_put(skb, sizeof(unsigned short));
@@ -2828,13 +2863,13 @@ int aml_rsn_sync_pmkid(struct wifi_station *sta, int pmkid_index)
     }
 
     if (wnet_vif->vm_opt_ie_len <= 0 || rsnie == NULL) {
-        DPRINTF(AML_DEBUG_WARNING, "RSN ie invalid\n");
+        AML_PRINT(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_WARN, "RSN ie invalid\n");
         return WIFINET_REASON_IE_INVALID;
     }
 
     if (pmkid_index != -1) {
         if (rsn->rsn_pmkid_count == 0) {
-            DPRINTF(AML_DEBUG_WARNING, "no rsn pmkid, need to add\n");
+            AML_PRINT(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_WARN,"no rsn pmkid, need to add\n");
             memcpy(rsnie+pmkid_pos+WPA_PMKID_LEN,rsnie+pmkid_pos,wnet_vif->vm_opt_ie_len-rsnie_offset-pmkid_pos);
             rsnie[rsn->rsn_caps_offset + 2] = 1;
             rsnie[rsn->rsn_caps_offset + 3] = 0;
@@ -2847,25 +2882,25 @@ int aml_rsn_sync_pmkid(struct wifi_station *sta, int pmkid_index)
 
         } else {
             if (memcmp(rsn->rsn_pmkid, wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, WPA_PMKID_LEN)) {
-                DPRINTF(AML_DEBUG_CFG80211, "%s pmkid not the same:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
-                    __func__, rsn->rsn_pmkid[0], rsn->rsn_pmkid[1], rsn->rsn_pmkid[2], rsn->rsn_pmkid[3], rsn->rsn_pmkid[4], rsn->rsn_pmkid[5], rsn->rsn_pmkid[6],
+                AML_PRINT(AML_LOG_ID_CFG80211, AML_LOG_LEVEL_INFO, "pmkid not the same:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
+                    rsn->rsn_pmkid[0], rsn->rsn_pmkid[1], rsn->rsn_pmkid[2], rsn->rsn_pmkid[3], rsn->rsn_pmkid[4], rsn->rsn_pmkid[5], rsn->rsn_pmkid[6],
                     rsn->rsn_pmkid[7], rsn->rsn_pmkid[8], rsn->rsn_pmkid[9], rsn->rsn_pmkid[10], rsn->rsn_pmkid[11], rsn->rsn_pmkid[12], rsn->rsn_pmkid[13],
                     rsn->rsn_pmkid[14], rsn->rsn_pmkid[15]);
 
                 memcpy(rsnie+rsn->rsn_pmkid_offset, wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, WPA_PMKID_LEN);
                 memcpy(rsn->rsn_pmkid, wnet_vif->pmk_list->pmkid_cache[pmkid_index].pmkid, WPA_PMKID_LEN);
             } else {
-                DPRINTF(AML_DEBUG_WARNING, "pmkid the same\n");
+                AML_PRINT(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_WARN, "pmkid the same\n");
             }
         }
 
     } else {
         if (rsn->rsn_pmkid_count == 0) {
-            DPRINTF(AML_DEBUG_WARNING, "no rsn pmkid, just return, not delete\n");
+            AML_PRINT(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_WARN,"no rsn pmkid, just return, not delete\n");
             return 0;
         }
         pmkid_count = rsnie[rsn->rsn_caps_offset + 2] | (rsnie[rsn->rsn_caps_offset + 3] << 8);
-        DPRINTF(AML_DEBUG_WARNING, "delete rsn pmkid:%d\n", pmkid_count);
+        AML_PRINT(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_WARN, "delete rsn pmkid:%d\n", pmkid_count);
 
         rsnie[IE_LEN_OFFSET] -= pmkid_count * WPA_PMKID_LEN;
         rsnie[rsn->rsn_caps_offset + 2] = 0;
@@ -2880,7 +2915,7 @@ int aml_rsn_sync_pmkid(struct wifi_station *sta, int pmkid_index)
             rsn->rsn_pmkid_offset = 0;
 
         } else {
-            ERROR_DEBUG_OUT("BUG!\n");
+            AML_PRINT(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_ERROR,"BUG!\n");
         }
     }
 
@@ -2933,8 +2968,8 @@ int wifi_mac_send_assoc_req(struct wlan_net_vif *wnet_vif, struct wifi_station *
 
     skb = wifi_mac_get_mgmt_frm(wifimac, pkt_len);
     if (skb == NULL) {
-        WIFINET_DPRINTF_STA( AML_DEBUG_CONNECT, sta,
-            "%s: Assoc/Reassoc Req: Unable to allocate mgmt frame", __func__);
+        WIFINET_DPRINTF_STA( AML_LOG_ID_CONNECT,AML_LOG_LEVEL_DEBUG, sta,
+            "%s \n", "Assoc/Reassoc Req: Unable to allocate mgmt frame");
         return ENOMEM;
     }
     frm = os_skb_put(skb, pkt_len);
@@ -3040,7 +3075,7 @@ int wifi_mac_send_assoc_req(struct wlan_net_vif *wnet_vif, struct wifi_station *
     os_skb_trim(skb, frm - os_skb_data(skb));
     wifi_mac_save_app_ie(&wnet_vif->assocreq_ie, os_skb_data(skb) + 4/*sizeof(capinfo+listen int)*/,os_skb_get_pktlen(skb) - 4);
     wifi_mac_mgmt_output(sta, skb, type);
-    DPRINTF(AML_DEBUG_TIMER, "TIMERdbg <running> %s %d \n",__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_TIMER,AML_LOG_LEVEL_DEBUG, "TIMERdbg <running> \n");
     os_timer_ex_start_period(&wnet_vif->vm_mgtsend, DEFAULT_MGMT_RETRY_INTERVAL);
     return 0;
 }
@@ -3062,7 +3097,7 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
 
     skb = wifi_mac_get_mgmt_frm(wifimac, pkt_len);
     if (skb == NULL) {
-        WIFINET_DPRINTF_STA(AML_DEBUG_CONNECT, sta, "%s: Assoc/Reassoc Resp: Unable to allocate mgmt frame", __func__);
+        WIFINET_DPRINTF_STA(AML_LOG_ID_CONNECT,AML_LOG_LEVEL_ERROR, sta, "%s \n"," Assoc/Reassoc Resp: Unable to allocate mgmt frame" );
         return ENOMEM;
     }
     frm = os_skb_put(skb, pkt_len);
@@ -3113,12 +3148,12 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
 
     if (sta->sta_use_h2e == WIFINET_H2E_VALID) {
         frm = wifi_mac_add_rsnxe(frm, wnet_vif);
-        AML_OUTPUT("add rsnxe ie\n");
+        AML_PRINT_LOG_INFO("add rsnxe ie\n");
     }
 
-    AML_OUTPUT("sta flags: 0x%x, assoc success :%d.\n", sta->sta_flags, *(int *)arg);
+    AML_PRINT_LOG_INFO("sta flags: 0x%x, assoc success :%d.\n", sta->sta_flags, *(int *)arg);
     if (sta->sta_flags & WIFINET_NODE_HT) {
-        AML_OUTPUT("will add ht cat and op for assocresp\n");
+        AML_PRINT_LOG_INFO("will add ht cat and op for assocresp\n");
         frm = wifi_mac_add_htcap(frm, sta);
         frm = wifi_mac_add_htinfo(frm, sta);
 
@@ -3129,7 +3164,7 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
     }
 
     if (wifi_mac_is_vht_enable(wnet_vif) && (sta->sta_flags & WIFINET_NODE_VHT)) {
-        AML_OUTPUT("will add vht cat and op for assoresp\n");
+        AML_PRINT_LOG_INFO("will add vht cat and op for assoresp\n");
         frm = wifi_mac_add_vht_cap( frm, sta) ;
         frm = wifi_mac_add_vht_opt( frm, sta , WIFINET_FC0_SUBTYPE_ASSOC_RESP);
     }
@@ -3146,7 +3181,7 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
     if (wnet_vif->vm_p2p->p2p_enable && (sta->sta_p2p_ie[0] != NULL)
         &&  wnet_vif->vm_p2p->p2p_app_ie[WIFINET_APPIE_FRAME_ASSOC_RESP].ie)
     {
-        AML_PRINT(AML_DBG_MODULES_P2P,"add p2p ie for assocresp\n");
+        AML_PRINT(AML_LOG_ID_P2P, AML_LOG_LEVEL_DEBUG,"add p2p ie for assocresp\n");
         memcpy(frm, wnet_vif->vm_p2p->p2p_app_ie[WIFINET_APPIE_FRAME_ASSOC_RESP].ie,
                wnet_vif->vm_p2p->p2p_app_ie[WIFINET_APPIE_FRAME_ASSOC_RESP].length);
         frm += wnet_vif->vm_p2p->p2p_app_ie[WIFINET_APPIE_FRAME_ASSOC_RESP].length;
@@ -3181,11 +3216,11 @@ int wifi_mac_send_disassoc(struct wlan_net_vif *wnet_vif, struct wifi_station *s
     unsigned char *frm;
     unsigned char pkt_len = sizeof(unsigned short) + MME_IE_LENGTH_CMAC;
 
-    WIFINET_DPRINTF_STA(AML_DEBUG_WARNING, sta, "send station disassociate (reason %d)", *(int *)arg);
+    WIFINET_DPRINTF_STA(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_INFO, sta, "send station disassociate (reason %d)", *(int *)arg);
 
     skb = wifi_mac_get_mgmt_frm(wnet_vif->vm_wmac, pkt_len);
     if (skb == NULL) {
-        WIFINET_DPRINTF_STA(AML_DEBUG_WARNING, sta, "%s: disassoc: Unable to allocate mgmt frame", __func__);
+        WIFINET_DPRINTF_STA(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_WARN, sta, "disassoc: Unable to allocate mgmt frame");
         return ENOMEM;
     }
     frm = os_skb_put(skb, sizeof(unsigned short));
@@ -3211,7 +3246,7 @@ void wifi_mac_get_bsscoexist_channel(unsigned char *chan_list, unsigned char *nu
 
     WIFI_SCAN_SE_LIST_LOCK(st);
     list_for_each_entry(se,&st->st_entry,se_list) {
-        DPRINTF(AML_DEBUG_SCAN, "<running> %s %d se%p st_entry%p \n",__func__,__LINE__,se, &st->st_entry);
+        AML_PRINT(AML_LOG_ID_SCAN, AML_LOG_LEVEL_DEBUG, "<running> se%p st_entry%p \n",se, &st->st_entry);
         channel = se->scaninfo.SI_chan->chan_pri_num;
         if (channel > 14) {
             continue;
@@ -3316,6 +3351,68 @@ unsigned char wmm_ac_find_tid(struct wlan_net_vif *wnet_vif, unsigned char tid, 
     return -1;
 }
 
+void wifi_mac_csa_send_action_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TYPE param3,SYS_TYPE param4,SYS_TYPE param5)
+{
+    struct wifi_mac *wifimac = (struct wifi_mac *)param1;
+    struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param2;
+    struct cfg80211_chan_def *chan_def_ptr = (struct cfg80211_chan_def *)param3;
+    struct cfg80211_chan_def chan_def = {0};
+
+
+    memcpy(&chan_def, chan_def_ptr, sizeof(struct cfg80211_chan_def));
+    wifi_mac_csa_send_action(wifimac, wnet_vif, wnet_vif->vm_mainsta, chan_def);
+    AML_PRINT_LOG_INFO("target_chan:%d cur_chan:%d wnet_vif->csa_count:%d\n", chan_def.chan->hw_value, wifimac->wm_curchan->chan_pri_num, wnet_vif->csa_count);
+
+    return;
+}
+
+int wifi_mac_csa_send_action(struct wifi_mac *wifimac, struct wlan_net_vif *wnet_vif, struct wifi_station *sta, struct cfg80211_chan_def chan_def)
+{
+    struct sk_buff *skb;
+    int ret = 0;
+    struct wifi_mac_csa_data* csa_data_p = NULL;
+
+    skb = wifi_mac_get_mgmt_frm(wifimac, MAX_ACTION_LEN);
+    if (skb == NULL) {
+        wnet_vif->vif_sts.sts_tx_no_buf++;
+        return -ENOMEM;
+    }
+
+    csa_data_p = (struct wifi_mac_csa_data*)os_skb_put(skb, sizeof(struct wifi_mac_csa_data));
+    csa_data_p->extend_csa.ac_header.ia_category = AML_CATEGORY_PUBLIC;
+    csa_data_p->extend_csa.ac_header.ia_action = WIFINET_ACT_PUBLIC_CSA; //ACT_PUBLIC_EXT_CHL_SWITCH
+    csa_data_p->extend_csa.csa.chan_switch_mode = CSA_BLOCK_TX;
+    csa_data_p->extend_csa.csa.new_operation_class = wifi_mac_get_operation_class(chan_def);
+    csa_data_p->extend_csa.csa.new_chan_num = ieee80211_frequency_to_channel(chan_def.chan->center_freq);
+    csa_data_p->extend_csa.csa.chan_switch_count = wnet_vif->csa_count--;
+    csa_data_p->csa_wrapper.ie = WLAN_EID_WIDE_BW_CHANNEL_SWITCH;
+    csa_data_p->csa_wrapper.len = 3;
+    /* New channel width */
+    switch (chan_def.width) {
+        case NL80211_CHAN_WIDTH_80:
+            csa_data_p->csa_wrapper.info[0] = IEEE80211_VHT_CHANWIDTH_80MHZ;
+        break;
+        case NL80211_CHAN_WIDTH_160:
+            csa_data_p->csa_wrapper.info[0] = IEEE80211_VHT_CHANWIDTH_160MHZ;
+        break;
+        case NL80211_CHAN_WIDTH_80P80:
+            csa_data_p->csa_wrapper.info[0] = IEEE80211_VHT_CHANWIDTH_80P80MHZ;
+        break;
+        default:
+            csa_data_p->csa_wrapper.info[0] = IEEE80211_VHT_CHANWIDTH_USE_HT;
+    }
+    /* new center frequency segment 0 */
+    csa_data_p->csa_wrapper.info[1] = ieee80211_frequency_to_channel(chan_def.center_freq1);
+    /* new center frequency segment 1 */
+    if (chan_def.center_freq2)
+        csa_data_p->csa_wrapper.info[2] = ieee80211_frequency_to_channel(chan_def.center_freq2);
+    else
+        csa_data_p->csa_wrapper.info[2] = 0;
+
+    wifi_mac_mgmt_csa_action_bracast_output(sta, skb, WIFINET_FC0_SUBTYPE_ACTION);
+    return ret;
+}
+
 int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station *sta, void *arg)
 {
     struct sk_buff *skb = NULL;
@@ -3357,7 +3454,7 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
     switch (category)
     {
         case AML_CATEGORY_QOS:
-            WIFINET_DPRINTF_STA(AML_DEBUG_ACTION, sta, "%s: QoS action mgt frames not supported", __func__);
+            WIFINET_DPRINTF_STA(AML_LOG_ID_ACTION, AML_LOG_LEVEL_DEBUG, sta, "QoS action mgt frames not supported");
             wnet_vif->vif_sts.sts_tx_unsprt_mngt++;
             result = EINVAL;
             break;
@@ -3369,7 +3466,7 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
                 case WIFINET_ACTION_BA_ADDBA_REQUEST:
                     frm = os_skb_put(skb, sizeof(struct wifi_mac_action_ba_addbarequest));
 
-                    DPRINTF(AML_DEBUG_ADDBA,"<running> %s %d addba req rq_dialogtoken =%d \n",__func__,__LINE__,tid_index + 1);
+                    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"<running> addba req rq_dialogtoken =%d \n",tid_index + 1);
                     addbarequest = (struct wifi_mac_action_ba_addbarequest *)frm;
                     addbarequest->rq_header.ia_category = AML_CATEGORY_BACK;
                     addbarequest->rq_header.ia_action = action;
@@ -3380,8 +3477,8 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
                     *(unsigned short *)&addbarequest->rq_baparamset = htole16(*(unsigned short *)&baparamset);
                     addbarequest->rq_batimeout = htole16(batimeout);
                     *(unsigned short *)&addbarequest->rq_basequencectrl = htole16(*(unsigned short *)&basequencectrl);
-                    DPRINTF(AML_DEBUG_ADDBA, "%s: ADDBA request action mgt frame. TID %d, buffer size %d tid %d rq_baparamset tid %d  \n",
-                            __func__, tid_index, baparamset.buffersize,baparamset.tid,addbarequest->rq_baparamset.tid);
+                    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG, "ADDBA request action mgt frame. TID %d, buffer size %d tid %d rq_baparamset tid %d  \n",
+                            tid_index, baparamset.buffersize,baparamset.tid,addbarequest->rq_baparamset.tid);
                     break;
 
                 case WIFINET_ACTION_BA_ADDBA_RESPONSE:
@@ -3406,35 +3503,39 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
 
                         //AMSDU is supported on the opposite end
                         if (actionargs->arg2) {
-                            addbaresponse->rs_baparamset.buffersize = 24;
-                            AML_OUTPUT("coex change rx_addba_rsp ---> FDD\n");
-                            DPRINTF(AML_DEBUG_ADDBA, "%s: ADDBA response. opposite support AMSDU, reduce buffer size to %d\n",
-                                __func__, addbaresponse->rs_baparamset.buffersize);
+                            if (aml_bus_type == AML_BUS_TYPE_USB) {
+                                addbaresponse->rs_baparamset.buffersize = 16;
+                            } else if (aml_bus_type == AML_BUS_TYPE_SDIO) {
+                                addbaresponse->rs_baparamset.buffersize = 24;
+                            }
+                            AML_PRINT_LOG_INFO("addba_resp, opposite_support_amsdu, buffer_size:%d\n", addbaresponse->rs_baparamset.buffersize);
+                            AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG, "ADDBA response. opposite support AMSDU, reduce buffer size to %d\n",
+                                addbaresponse->rs_baparamset.buffersize);
                         }
 
                         if (wifi_mac->wm_bt_en) {
                             if (wifi_mac->wm_esco_en) {
                                 addbaresponse->rs_baparamset.buffersize = DEFAULT_TXAMPDU_SUB_MAX_COEX_ESCO;
-                                AML_OUTPUT("coex change rx_addba_rsp ---> TDD ESCO\n");
+                                AML_PRINT_LOG_INFO("coex change rx_addba_rsp ---> TDD ESCO\n");
 
                             } else if (wifi_mac->wm_a2dp_en){
                                 addbaresponse->rs_baparamset.buffersize = DEFAULT_TXAMPDU_SUB_MAX_COEX;
-                                AML_OUTPUT("coex change rx_addba_rsp ---> TDD A2DP\n");
+                                AML_PRINT_LOG_INFO("coex change rx_addba_rsp ---> TDD A2DP\n");
                             }else{
                                 addbaresponse->rs_baparamset.buffersize = 16;
-                                AML_OUTPUT("coex change rx_addba_rsp ---> FDD or BT EN and no connect\n");
+                                AML_PRINT_LOG_INFO("coex change rx_addba_rsp ---> FDD or BT EN and no connect\n");
                             }
                         }
                         if (wifi_mac->wm_manual_rx_bufsize) {
                             addbaresponse->rs_baparamset.buffersize = wifi_mac->wm_manual_rx_bufsize;
-                            AML_OUTPUT("manual change rx_addba_rsp ---> %d\n", addbaresponse->rs_baparamset.buffersize);
+                            AML_PRINT_LOG_INFO("manual change rx_addba_rsp ---> %d\n", addbaresponse->rs_baparamset.buffersize);
                         }
                         wifi_mac->g_rs_baparamset_buffersize = addbaresponse->rs_baparamset.buffersize;
-                        DPRINTF(AML_DEBUG_WARNING, "%s: ADDBA response action mgt frame. TID %d, buffer size %d, status %d \n",
-                            __func__, tid_index, baparamset.buffersize, statuscode);
+                        AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_WARN, "ADDBA response action mgt frame. TID %d, buffer size %d, status %d \n",
+                            tid_index, baparamset.buffersize, statuscode);
                     } else {
                         result = EINVAL;
-                        ERROR_DEBUG_OUT("ADDBA response TID %d exceeds the max value %d\n", tid_index, WME_NUM_TID);
+                        AML_PRINT_LOG_ERR("ADDBA response TID %d exceeds the max value %d\n", tid_index, WME_NUM_TID);
                     }
                     break;
 
@@ -3450,12 +3551,12 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
                     reasoncode = actionargs->arg3;
                     *(unsigned short *)&delba->dl_delbaparamset = htole16(*(unsigned short *)&delbaparamset);
                     delba->dl_reasoncode = htole16(reasoncode);
-                    DPRINTF(AML_DEBUG_WARNING, "%s: DELBA action mgt frame. TID %d, initiator %d, reason %d\n",
-                            __func__, tid_index, delbaparamset.initiator, reasoncode);
+                    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_WARN, "DELBA action mgt frame. TID %d, initiator %d, reason %d\n",
+                            tid_index, delbaparamset.initiator, reasoncode);
                     break;
 
                 default:
-                    WIFINET_DPRINTF_STA( AML_DEBUG_ACTION, sta, "%s: invalid BA action mgt frame", __func__);
+                    WIFINET_DPRINTF_STA( AML_LOG_ID_ACTION, AML_LOG_LEVEL_DEBUG, sta, "invalid BA action mgt frame");
                     wnet_vif->vif_sts.sts_tx_unsprt_mngt++;
                     result = EINVAL;
                     break;
@@ -3467,8 +3568,8 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
             {
                 case WIFINET_ACTION_HT_TXCHWIDTH:
                     frm = os_skb_put(skb, sizeof(struct wifi_mac_action_ht_txchwidth));
-                    WIFINET_DPRINTF_STA( AML_DEBUG_ACTION, sta, "%s: HT txchwidth action mgt frame. Width %d",
-                        __func__, wnet_vif->vm_bandwidth);
+                    WIFINET_DPRINTF_STA( AML_LOG_ID_ACTION, AML_LOG_LEVEL_DEBUG, sta, "HT txchwidth action mgt frame. Width %d",
+                        wnet_vif->vm_bandwidth);
                     txchwidth = (struct wifi_mac_action_ht_txchwidth *)frm;
                     txchwidth->at_header.ia_category = AML_CATEGORY_HT;
                     txchwidth->at_header.ia_action = WIFINET_ACTION_HT_TXCHWIDTH;
@@ -3477,13 +3578,13 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
                     break;
 
                 case WIFINET_ACTION_HT_SMPOWERSAVE:
-                    WIFINET_DPRINTF_STA( AML_DEBUG_ACTION, sta, "%s: HT SM pwr save action mgt frame not implemented", __func__);
+                    WIFINET_DPRINTF_STA( AML_LOG_ID_ACTION, AML_LOG_LEVEL_DEBUG, sta, "HT SM pwr save action mgt frame not implemented");
                     wnet_vif->vif_sts.sts_tx_unsprt_mngt++;
                     result = EINVAL;
                     break;
 
                 default:
-                    WIFINET_DPRINTF_STA( AML_DEBUG_ACTION, sta, "%s: invalid HT action mgt frame", __func__);
+                    WIFINET_DPRINTF_STA( AML_LOG_ID_ACTION, AML_LOG_LEVEL_DEBUG, sta, "invalid HT action mgt frame");
                     wnet_vif->vif_sts.sts_tx_unsprt_mngt++;
                     result = EINVAL;
                     break;
@@ -3494,7 +3595,7 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
             switch (action) {
                 case WIFINET_ACT_PUBLIC_BSSCOEXIST:
                     wifi_mac_get_bsscoexist_channel(chan_list, &num_channels, &num_intol);
-                    AML_OUTPUT("num_channels=%d, num_intol=%d.\n", num_channels, num_intol);
+                    AML_PRINT_LOG_INFO("num_channels=%d, num_intol=%d.\n", num_channels, num_intol);
 
                     frm = os_skb_put(skb, sizeof(struct wifi_mac_action_bss_coex_frame) + num_channels);
                     bsscoex = (struct wifi_mac_action_bss_coex_frame *)frm;
@@ -3514,7 +3615,7 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
                     break;
 
                default:
-                   WIFINET_DPRINTF_STA( AML_DEBUG_ACTION, sta, "%s: invalid public action mgt frame", __func__);
+                   WIFINET_DPRINTF_STA( AML_LOG_ID_ACTION, AML_LOG_LEVEL_DEBUG, sta, "invalid public action mgt frame");
                    result = EINVAL;
                    break;
             }
@@ -3559,21 +3660,21 @@ int wifi_mac_send_actionframe(struct wlan_net_vif *wnet_vif, struct wifi_station
                     break;
 
                 default:
-                    WIFINET_DPRINTF_STA(AML_DEBUG_ACTION, sta, "%s: invalid public action mgt frame", __func__);
+                    WIFINET_DPRINTF_STA(AML_LOG_ID_ACTION, AML_LOG_LEVEL_DEBUG, sta, "invalid public action mgt frame");
                     result = EINVAL;
                     break;
             }
         break;
 
         default:
-            WIFINET_DPRINTF_STA(AML_DEBUG_ACTION, sta, "%s: action mgt frame has invalid category %d", __func__, category);
+            WIFINET_DPRINTF_STA(AML_LOG_ID_ACTION, AML_LOG_LEVEL_DEBUG, sta, "action mgt frame has invalid category %d", category);
             wnet_vif->vif_sts.sts_tx_unsprt_mngt++;
             result = EINVAL;
             break;
     }
 
     if (result) {
-        os_skb_free(skb);
+        wifi_mac_free_skb(skb);
 
     } else {
         wifi_mac_mgmt_output(sta, skb, WIFINET_FC0_SUBTYPE_ACTION);
@@ -3591,7 +3692,7 @@ int wifi_mac_send_mgmt(struct wifi_station *sta, int type, void *arg)
     KASSERT(sta != NULL, ("null nsta"));
 
     if (sta->sta_wnet_vif->vm_curchan == NULL && !sta->sta_wnet_vif->vm_p2p_support) {
-        ERROR_DEBUG_OUT("vm_curchan is NULL, just return\n");
+        AML_PRINT_LOG_ERR("vm_curchan is NULL, just return\n");
         ret = EINVAL;
         return ret;
     }
@@ -3640,7 +3741,7 @@ int wifi_mac_send_mgmt(struct wifi_station *sta, int type, void *arg)
             break;
 
         default:
-            WIFINET_DPRINTF_STA( AML_DEBUG_ANY, sta, "invalid mgmt frame type %u", type);
+            WIFINET_DPRINTF_STA( AML_LOG_ID_XMIT, AML_LOG_LEVEL_WARN, sta, "invalid mgmt frame type %u", type);
             ret = EINVAL;
             wnet_vif->vif_sts.sts_tx_unsprt_mngt++;
             break;
@@ -3662,30 +3763,30 @@ int wifi_mac_send_arp_req(struct wlan_net_vif *wnet_vif) {
     unsigned char i = 0;
 
     if (wnet_vif->vm_state != WIFINET_S_CONNECTED) {
-        ERROR_DEBUG_OUT("not connected\n");
+        AML_PRINT_LOG_ERR("not connected\n");
         return 0;
     }
 
     /* get ipv4 addr */
     in_dev = __in_dev_get_rtnl(wnet_vif->vm_ndev);
     if (!in_dev) {
-        ERROR_DEBUG_OUT("get own ip dev error\n");
+        AML_PRINT_LOG_ERR("get own ip dev error\n");
         return 0;
     }
 
     ifa_v4 = in_dev->ifa_list;
     if (!ifa_v4) {
-        ERROR_DEBUG_OUT("get own ip list error\n");
+        AML_PRINT_LOG_ERR("get own ip list error\n");
         return 0;
     }
     memset(&ipv4, 0, sizeof(ipv4));
     ipv4 = ifa_v4->ifa_local;
 
-    AML_OUTPUT("wifi_mac_send_arp_req, ipv4:%08x\n", ipv4);
+    AML_PRINT_LOG_INFO("wifi_mac_send_arp_req, ipv4:%08x\n", ipv4);
     for (i = 1; i < 15; ++i) {
         skb = os_skb_alloc(pkt_len + 64 + HI_TXDESC_DATAOFFSET);
         if (skb == NULL) {
-            ERROR_DEBUG_OUT("fail to alloc frm\n");
+            AML_PRINT_LOG_ERR("fail to alloc frm\n");
             return -ENOMEM;
         }
         skb_reserve(skb, HI_TXDESC_DATAOFFSET + 32);
@@ -3725,14 +3826,14 @@ int wifi_mac_send_udp_pkt(struct wlan_net_vif *wnet_vif) {
     unsigned char intel_dst[WIFINET_ADDR_LEN] = { 0xac, 0xfd, 0xce, 0x8a, 0x78, 0x7f};
     int i = 0;
     if (wnet_vif->vm_state != WIFINET_S_CONNECTED) {
-        ERROR_DEBUG_OUT("not connected\n");
+        AML_PRINT_LOG_ERR("not connected\n");
         return 0;
     }
     for (i = 0; i < udp_cnt; i++) {
         pkt_len = aml_udp_info[i].pkt_len + 14 + 20 + 8;
         skb = os_skb_alloc(pkt_len + 64 + HI_TXDESC_DATAOFFSET);
         if (skb == NULL) {
-            ERROR_DEBUG_OUT("fail to alloc frm\n");
+            AML_PRINT_LOG_ERR("fail to alloc frm\n");
             return -ENOMEM;
         }
         skb_reserve(skb, HI_TXDESC_DATAOFFSET + 32);
@@ -3788,30 +3889,30 @@ int wifi_mac_set_arp_rsp(struct wlan_net_vif *wnet_vif) {
     struct net_device *dev = wnet_vif->vm_ndev;
 
     if (wnet_vif->vm_state != WIFINET_S_CONNECTED) {
-        ERROR_DEBUG_OUT("not connected\n");
+        AML_PRINT_LOG_ERR("not connected\n");
         return 0;
     }
 
     /* get ipv4 addr */
     in_dev = __in_dev_get_rtnl(wnet_vif->vm_ndev);
     if (!in_dev) {
-        ERROR_DEBUG_OUT("get own ip dev error\n");
+        AML_PRINT_LOG_ERR("get own ip dev error\n");
         return 0;
     }
 
     ifa_v4 = in_dev->ifa_list;
     if (!ifa_v4) {
-        ERROR_DEBUG_OUT("get own ip list error\n");
+        AML_PRINT_LOG_ERR("get own ip list error\n");
         return 0;
     }
     memset(&ipv4, 0, sizeof(ipv4));
     ipv4 = ifa_v4->ifa_local;
 
-    AML_OUTPUT("wifi_mac_set_arp_rsp rx, ipv4:%08x\n", ipv4);
+    AML_PRINT_LOG_INFO("wifi_mac_set_arp_rsp rx, ipv4:%08x\n", ipv4);
     for (i = 1; i < 3; ++i) {
         skb = os_skb_alloc(pkt_len);
         if (skb == NULL) {
-            ERROR_DEBUG_OUT("fail to alloc frm\n");
+            AML_PRINT_LOG_ERR("fail to alloc frm\n");
             return -ENOMEM;
         }
 

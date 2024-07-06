@@ -277,6 +277,7 @@ struct wifi_station
     unsigned char sta_wide_bw_ch_sw_sub_ie[SUB_IE_MAX_LEN];
     unsigned char sta_new_vht_tx_pw_sub_ie[SUB_IE_MAX_LEN];
     unsigned char sta_channel_switch_mode;
+    int sta_chan_switch_chan;
 
     //ext bss ld element
     unsigned short sta_mu_mimo_sta_cnt;
@@ -324,6 +325,8 @@ struct wifi_station
     unsigned char is_disconnecting;
     unsigned long sta_bcn_num_connected;
     unsigned long sta_bcn_start_connected;
+    struct os_timer_ext csa_timer;
+
 };
 
 #define WDS_AGING_TIME 600
@@ -567,7 +570,7 @@ extern int my_mod_use;
 
 #define MY_MOD_INC_USE(_m, _err) do{\
                 if (my_mod_use>2) {\
-                        AML_OUTPUT(KERN_WARNING "try_module_get failed\n"); \
+                        AML_PRINT_LOG_INFO(KERN_WARNING "try_module_get failed\n"); \
                         _err;\
                 }\
                 my_mod_use= 1;\

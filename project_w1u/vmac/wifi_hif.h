@@ -3,6 +3,7 @@
 
 #include "wifi_sdio.h"
 #include "patch_fi_cmd.h"
+#include "aml_interface.h"
 
 #define HIF_RD_MAC_REG_MAX (15)
 #define HIF_RD_PHY_REG_MAX (10)

@@ -14,8 +14,8 @@ struct drv_txdesc *wifi_mac_alloc_txdesc(struct wifi_mac *wifimac)
     if (list_empty(&wifimac->txdesc_freequeue)) {
         TX_DESC_BUF_UNLOCK(wifimac);
         if (!(print_count++ % 20000)) {
-            DPRINTF(AML_DEBUG_WARNING, "%s no tx_desc, bhaltxdrop:%d, bhalPowerSave:%d, page:%d, drv_ps_status:%d, fw_ps_status:%d\n",
-                __func__, hal_priv->bhaltxdrop, hal_priv->bhalPowerSave, hal_priv->txPageFreeNum, hal_priv->hal_drv_ps_status, hal_priv->hal_fw_ps_status);
+            AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_WARN, "no tx_desc, bhaltxdrop:%d, bhalPowerSave:%d, page:%d, drv_ps_status:%d, fw_ps_status:%d\n",
+                hal_priv->bhaltxdrop, hal_priv->bhalPowerSave, hal_priv->txPageFreeNum, hal_priv->hal_drv_ps_status, hal_priv->hal_fw_ps_status);
         }
 
         if (last_free_page_count == hal_priv->txPageFreeNum) {
@@ -27,7 +27,7 @@ struct drv_txdesc *wifi_mac_alloc_txdesc(struct wifi_mac *wifimac)
         }
 
         if (free_page_hold_count >= 50) {
-            //AML_OUTPUT("free_page_hold_count lager than 50, maybe we can reboot here\n");
+            //AML_PRINT_LOG_INFO("free_page_hold_count lager than 50, maybe we can reboot here\n");
         }
         return NULL;
     }
@@ -48,7 +48,7 @@ void wifi_mac_recycle_txdesc(struct sk_buff *skbbuf)
 
     wifimac = wifi_mac_get_mac_handle();
 
-    //AML_OUTPUT("ptxdesc:%p, txinfo:%p\n", txinfo->ptxdesc, txinfo);
+    //AML_PRINT_LOG_INFO("ptxdesc:%p, txinfo:%p\n", txinfo->ptxdesc, txinfo);
     INIT_LIST_HEAD(&tx_queue);
 
     if (txinfo->ptxdesc != NULL) {

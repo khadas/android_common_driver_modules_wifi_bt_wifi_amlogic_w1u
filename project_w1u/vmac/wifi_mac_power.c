@@ -39,13 +39,13 @@ static void wifi_mac_pwrsave_presleep(struct work_struct *work)
 
     if (wnet_vif->vm_pwrsave.ips_sta_psmode == WIFINET_PWRSAVE_NONE)
     {
-        DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d power save mode not enabled\n",__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "power save mode not enabled\n");
         return;
     }
 
     if (wnet_vif->vm_mainsta == NULL)
     {
-        AML_OUTPUT("vm_mainsta is null, cancel sleep this time \n");
+        AML_PRINT_LOG_INFO("vm_mainsta is null, cancel sleep this time \n");
         os_timer_ex_start(&wnet_vif->vm_pwrsave.ips_timer_presleep);
         return;
     }
@@ -70,7 +70,7 @@ static void wifi_mac_pwrsave_presleep(struct work_struct *work)
         {
             //if sta is connected, then send nulldata with ps=1, and set flag for tx_completed
             //when tx_completed, will enter sleep
-            DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d send nulldata to sleep\n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"send nulldata to sleep\n");
             wifi_mac_pwrsave_send_nulldata(wnet_vif->vm_mainsta, NULLDATA_PS, 1);
         }
         else
@@ -78,13 +78,13 @@ static void wifi_mac_pwrsave_presleep(struct work_struct *work)
             if (wnet_vif->vm_opmode != WIFINET_M_HOSTAP)
             {
                 //if sta is disconnected, just sleep
-                DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d disconnect, full sleep \n",__func__,__LINE__);
+                AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "disconnect, full sleep \n");
                 wifi_mac_pwrsave_fullsleep(wnet_vif, SLEEP_AFTER_INACTIVITY_ENOUGH);
             }
         }
     } else {
         if (wnet_vif->vm_pwrsave.ips_state == WIFINET_PWRSAVE_AWAKE) {
-            DPRINTF(AML_DEBUG_PWR_SAVE, "not allow enter sleep this time:cnt %d, vm_pstxqueue_flags:%04x, wm_flags:%08x," \
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"not allow enter sleep this time:cnt %d, vm_pstxqueue_flags:%04x, wm_flags:%08x," \
                 "vm_flags:%08x, state:%d, connect_status:%d\n",
                 wifi_mac_all_txq_all_qcnt(wifimac), wnet_vif->vm_pstxqueue_flags, wifimac->wm_flags,
                 wnet_vif->vm_flags, wnet_vif->vm_pwrsave.ips_state, wnet_vif->vm_mainsta->connect_status);
@@ -144,7 +144,7 @@ void wifi_mac_pwrsave_restore_sleep(struct wlan_net_vif *wnet_vif)
     if ((wnet_vif->vm_opmode != WIFINET_M_STA)
         || (wnet_vif->vm_pwrsave.ips_sta_psmode == WIFINET_PWRSAVE_NONE))
     {
-        DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d \n",__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, " \n");
         wifi_mac_pwrsave_wkup_and_NtfyAp(wnet_vif, WKUP_FROM_PSEXIT_UNKNOWN);
         return;
     }
@@ -153,7 +153,7 @@ void wifi_mac_pwrsave_restore_sleep(struct wlan_net_vif *wnet_vif)
     if (wnet_vif->vm_pwrsave.ips_state == WIFINET_PWRSAVE_NETWORK_SLEEP)
     {
         WIFINET_PWRSAVE_UNLOCK(wnet_vif);
-        DPRINTF(AML_DEBUG_PWR_SAVE,"%s %d <%s> reason=%s\n",__func__,__LINE__,
+        AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"<%s> reason=%s\n",
                 VMAC_DEV_NAME(wnet_vif),ips_sleep_reason[wnet_vif->vm_pwrsave.ips_sleep_wait_reason]);
 #ifdef CONFIG_P2P
         if ((wnet_vif->vm_pwrsave.ips_sleep_wait_reason == SLEEP_AFTER_PS_TRIGGER_TIMEOUT)
@@ -176,8 +176,8 @@ void wifi_mac_pwrsave_restore_sleep(struct wlan_net_vif *wnet_vif)
     }
     else
     {
-        DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d reason %s, state %s, do nothing\n",
-                __func__,__LINE__, ips_sleep_reason[wnet_vif->vm_pwrsave.ips_sleep_wait_reason],
+        AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "reason %s, state %s, do nothing\n",
+                ips_sleep_reason[wnet_vif->vm_pwrsave.ips_sleep_wait_reason],
                 ips_state[wnet_vif->vm_pwrsave.ips_state]);
         WIFINET_PWRSAVE_UNLOCK(wnet_vif);
     }
@@ -203,7 +203,7 @@ static int wifi_mac_pwrsave_sleep_wait (void *arg)
     {
         if (SLEEP_AFTER_PS_TRIGGER_TIMEOUT != wnet_vif->vm_pwrsave.ips_sleep_wait_reason)
         {
-            DPRINTF(AML_DEBUG_PWR_SAVE,"%s %d ps trigger timer err\n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"ps trigger timer err\n");
         }
         wnet_vif->vm_pwrsave.ips_flag_send_ps_trigger = 0;
     }
@@ -212,7 +212,7 @@ static int wifi_mac_pwrsave_sleep_wait (void *arg)
     {
         if (SLEEP_AFTER_WAIT_BEACON_TIMEOUT != wnet_vif->vm_pwrsave.ips_sleep_wait_reason)
         {
-            DPRINTF(AML_DEBUG_PWR_SAVE," %s %d beacon timer err\n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG," beacon timer err\n");
         }
         wnet_vif->vm_pwrsave.ips_flag_waitbeacon_timer_start = 0;
     }
@@ -245,7 +245,7 @@ static int wifi_mac_pwrsave_set_state(struct wlan_net_vif *wnet_vif,
 
     if (wnet_vif->vm_pwrsave.ips_sta_psmode == WIFINET_PWRSAVE_NONE)
     {
-        DPRINTF(AML_DEBUG_PWR_SAVE, "%s power save mode not enabled\n",__func__);
+        AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "power save mode not enabled\n");
         return 0;
     }
 
@@ -282,8 +282,8 @@ static int wifi_mac_pwrsave_set_state(struct wlan_net_vif *wnet_vif,
     if (status)
     {
         wnet_vif->vm_pwrsave.ips_state = newstate;
-        DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d <%s> , state %s -> %s\n",
-            __func__,__LINE__, VMAC_DEV_NAME(wnet_vif), ips_state[oldstate], ips_state[newstate]);
+        AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "<%s> , state %s -> %s\n",
+             VMAC_DEV_NAME(wnet_vif), ips_state[oldstate], ips_state[newstate]);
     }
     WIFINET_PWRSAVE_UNLOCK(wnet_vif);
     wifi_mac_com_ps_set_state(wifimac, newstate, wnet_vif->wnet_vif_id);
@@ -306,8 +306,8 @@ int wifi_mac_pwrsave_fullsleep(struct wlan_net_vif *wnet_vif,
     enum wifinet_ps_sleep_reason reason)
 {
     int status;
-    DPRINTF(AML_DEBUG_PWR_SAVE, "<%s>%s %d reason=%s\n",
-        VMAC_DEV_NAME(wnet_vif), __func__,__LINE__, ips_sleep_reason[reason]);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "<%s> reason=%s\n",
+        VMAC_DEV_NAME(wnet_vif), ips_sleep_reason[reason]);
     status = wifi_mac_pwrsave_set_state(wnet_vif, WIFINET_PWRSAVE_FULL_SLEEP);
     return status;
 }
@@ -317,8 +317,8 @@ int wifi_mac_pwrsave_wakeup(struct wlan_net_vif *wnet_vif,
     enum wifinet_ps_wk_reason reason)
 {
     int status;
-    DPRINTF(AML_DEBUG_PWR_SAVE, "<%s>%s %d reason=%s\n",
-        VMAC_DEV_NAME(wnet_vif), __func__,__LINE__, ips_wakeup_reason[reason]);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "<%s> reason=%s\n",
+        VMAC_DEV_NAME(wnet_vif), ips_wakeup_reason[reason]);
     status = wifi_mac_pwrsave_set_state(wnet_vif, WIFINET_PWRSAVE_AWAKE);
     return status;
 }
@@ -326,8 +326,8 @@ int wifi_mac_pwrsave_wakeup(struct wlan_net_vif *wnet_vif,
 int wifi_mac_pwrsave_wkup_and_NtfyAp (struct wlan_net_vif *wnet_vif,
         enum wifinet_ps_wk_reason reason)
 {
-    DPRINTF(AML_DEBUG_PWR_SAVE, "<%s>%s %d reason=%s\n",
-        VMAC_DEV_NAME(wnet_vif), __func__,__LINE__, ips_wakeup_reason[reason]);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "<%s> reason=%s\n",
+        VMAC_DEV_NAME(wnet_vif), ips_wakeup_reason[reason]);
     wifi_mac_pwrsave_wakeup(wnet_vif, reason);
 
     //fix exception:send null data exit ps, in case no pkt back, restart timer here.
@@ -348,8 +348,8 @@ int wifi_mac_pwrsave_wkup_and_NtfyAp (struct wlan_net_vif *wnet_vif,
 
 void wifi_mac_pwrsave_set_mode(struct wlan_net_vif *wnet_vif, unsigned int mode)
 {
-    DPRINTF(AML_DEBUG_PWR_SAVE, "<%s>%s %d mode %d->%d\n",
-        VMAC_DEV_NAME(wnet_vif),__func__,__LINE__, wnet_vif->vm_pwrsave.ips_sta_psmode, mode);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "<%s> mode %d->%d\n",
+        VMAC_DEV_NAME(wnet_vif), wnet_vif->vm_pwrsave.ips_sta_psmode, mode);
 
     if ((wnet_vif->vm_opmode != WIFINET_M_STA) || (mode > WIFINET_PWRSAVE_MAXIMUM)
         || (mode == wnet_vif->vm_pwrsave.ips_sta_psmode))
@@ -357,7 +357,7 @@ void wifi_mac_pwrsave_set_mode(struct wlan_net_vif *wnet_vif, unsigned int mode)
 
     if (mode == WIFINET_PWRSAVE_NONE)
     {
-        DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d stop ips_timer_presleep\n",__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"stop ips_timer_presleep\n");
         os_timer_ex_cancel(&wnet_vif->vm_pwrsave.ips_timer_presleep, CANCEL_SLEEP);
 #ifdef USER_UAPSD_TRIGGER
         os_timer_ex_cancel(&(wnet_vif->vm_pwrsave.ips_timer_uapsd_trigger), CANCEL_NO_SLEEP);
@@ -383,15 +383,15 @@ void wifi_mac_pwrsave_set_mode(struct wlan_net_vif *wnet_vif, unsigned int mode)
 
         if (wnet_vif->vm_state == WIFINET_S_CONNECTED && wifimac->wm_syncbeacon == 0)
         {
-            AML_OUTPUT("<running> \n");
+            AML_PRINT_LOG_INFO("<running> \n");
             wifi_mac_beacon_sync(wifimac->drv_priv->wmac, wnet_vif->wnet_vif_id);
         }
 
         /*previous state is WIFINET_PWRSAVE_NONE, we will start timer now. */
         if (wnet_vif->vm_pwrsave.ips_sta_psmode == WIFINET_PWRSAVE_NONE)
         {
-            DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d start ips_timer_presleep, ips_inactivitytime=%d\n",
-                __func__,__LINE__, wnet_vif->vm_pwrsave.ips_inactivitytime);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, " start ips_timer_presleep, ips_inactivitytime=%d\n",
+                 wnet_vif->vm_pwrsave.ips_inactivitytime);
             os_timer_ex_start_period(&wnet_vif->vm_pwrsave.ips_timer_presleep, wnet_vif->vm_pwrsave.ips_inactivitytime);
         }
     }
@@ -408,8 +408,8 @@ void wifi_mac_pwrsave_wnet_vif_connect(struct wlan_net_vif *wnet_vif)
     ps->ips_ps_trigger_timeout = WIFINET_PWRSAVE_PSTRIGGER_TIMER_INTERVAL;
     WIFINET_PWRSAVE_UNLOCK(wnet_vif);
     os_timer_ex_start_period(&wnet_vif->vm_pwrsave.ips_timer_presleep, wnet_vif->vm_pwrsave.ips_inactivitytime);
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d ips_ps_trigger_timeout=%dms, ips_ps_waitbeacon_timeout=%dms\n",
-            __func__,__LINE__, ps->ips_ps_trigger_timeout, ps->ips_ps_waitbeacon_timeout);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, " ips_ps_trigger_timeout=%dms, ips_ps_waitbeacon_timeout=%dms\n",
+            ps->ips_ps_trigger_timeout, ps->ips_ps_waitbeacon_timeout);
 }
 
 void wifi_mac_pwrsave_wnet_vif_disconnect(struct wlan_net_vif *wnet_vif)
@@ -453,14 +453,14 @@ void wifi_mac_pwrsave_attach(void)
 
     pwrsave_sleep_wq = create_singlethread_workqueue("aml_pwrsave_wq");
     if (pwrsave_sleep_wq == NULL)
-        AML_OUTPUT("init wq err\n");
+        AML_PRINT_LOG_INFO("init wq err\n");
 }
 
 void wifi_mac_pwrsave_vattach(struct wlan_net_vif *wnet_vif)
 {
     struct wifi_mac_pwrsave_t        *ps = &wnet_vif->vm_pwrsave;
 
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d <%s>\n", __func__,__LINE__, VMAC_DEV_NAME(wnet_vif));
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"<%s>\n", VMAC_DEV_NAME(wnet_vif));
 
     wnet_vif->vif_ops.vm_set_tim = NULL;    //lg
     if (wnet_vif->vm_opmode == WIFINET_M_HOSTAP ||
@@ -497,14 +497,14 @@ void wifi_mac_pwrsave_vattach(struct wlan_net_vif *wnet_vif)
     wnet_vif->vm_legacyps_txframes = 0;
     wifi_mac_pwrsave_wakeup(wnet_vif, WKUP_FROM_VMAC_CREATE);
 
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d ips_timer_presleep=%dms\n",
-            __func__,__LINE__, WIFINET_PWRSAVE_TIMER_INTERVAL);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "ips_timer_presleep=%dms\n",
+             WIFINET_PWRSAVE_TIMER_INTERVAL);
 }
 
 //cb for vmac created end
 void wifi_mac_pwrsave_latevattach(struct wlan_net_vif *wnet_vif)
 {
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d <%s>\n", __func__,__LINE__, VMAC_DEV_NAME(wnet_vif));
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "<%s>\n", VMAC_DEV_NAME(wnet_vif));
 
     if (wnet_vif->vm_opmode == WIFINET_M_HOSTAP)
     {
@@ -513,7 +513,7 @@ void wifi_mac_pwrsave_latevattach(struct wlan_net_vif *wnet_vif)
             GFP_ATOMIC, "wnet_vif->vm_tim_bitmap");
 
         if (wnet_vif->vm_tim_bitmap == NULL) {
-            DPRINTF(AML_DEBUG_WARNING, "%s: no memory for TIM bitmap!\n", __func__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_WARN, " no memory for TIM bitmap!\n");
             wnet_vif->vm_tim_len = 0;
         }
         wnet_vif->vm_ps_pending = 0;
@@ -534,7 +534,7 @@ void wifi_mac_pwrsave_detach(void)
 {
     if (pwrsave_sleep_wq != NULL)
     {
-        AML_OUTPUT("++\n");
+        AML_PRINT_LOG_INFO("++\n");
         destroy_workqueue(pwrsave_sleep_wq);
         pwrsave_sleep_wq = NULL;
     }
@@ -542,7 +542,7 @@ void wifi_mac_pwrsave_detach(void)
 
 void wifi_mac_pwrsave_vdetach(struct wlan_net_vif *wnet_vif)
 {
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d <%s>\n", __func__,__LINE__, VMAC_DEV_NAME(wnet_vif));
+    AML_PRINT(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, "<%s>\n",VMAC_DEV_NAME(wnet_vif));
     //wifi_mac_pwrsave_fullsleep(wnet_vif, SLEEP_AFTER_VMAC_DEL);
     if (wnet_vif->vm_tim_bitmap != NULL)
     {
@@ -570,7 +570,7 @@ void wifi_mac_pwrsave_vdetach(struct wlan_net_vif *wnet_vif)
 //cb for mac created
 void wifi_mac_pwrsave_reason_init(void)
 {
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d \n", __func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, " \n");
 
     ips_sleep_reason[SLEEP_NONE] = "NONE";
     ips_sleep_reason[SLEEP_AFTER_VMAC_CREATE] = "VMAC_CREATE";
@@ -716,7 +716,7 @@ void wifi_mac_buffer_txq_flush(struct sk_buff_head *pstxqueue)
     unsigned int qlen_real = WIFINET_SAVEQ_QLEN(pstxqueue);
 
     if (qlen_real) {
-        AML_OUTPUT("qlen_real:%d\n", qlen_real);
+        AML_PRINT_LOG_INFO("qlen_real:%d\n", qlen_real);
     }
 
     while (qlen_real)
@@ -791,7 +791,7 @@ int wifi_mac_buffer_txq_send(struct sk_buff_head *txqueue)
     skb_queue_walk_safe(txqueue,skb,tmp) {
         sta = os_skb_get_nsta(skb);
         if (!sta_find_in_sta_tbl(sta)) {
-            AML_OUTPUT("not find sta: %p free skb\n",sta);
+            AML_PRINT_LOG_INFO("not find sta: %p free skb\n",sta);
             aml_skb_unlink(skb,txqueue);
             wifi_mac_add_work_task(wifi_mac_get_mac_handle(), wifi_mac_free_skb_task, NULL, 0, (SYS_TYPE)skb, 0, 0, 0);
         }
@@ -810,7 +810,7 @@ int wifi_mac_buffer_txq_send(struct sk_buff_head *txqueue)
         sta = os_skb_get_nsta(skb);
         wifimac = sta->sta_wmac;
         if (wifimac->wm_vsdb_flags & CONCURRENT_CHANNEL_SWITCH) {
-            DPRINTF(AML_DEBUG_CONNECT, "%s, break due to channel switch,vif:%d\n", __func__,sta->wnet_vif_id);
+            AML_PRINT(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_DEBUG, "break due to channel switch,vif:%d\n",sta->wnet_vif_id);
             return qlen_real;
         }
     }
@@ -886,7 +886,7 @@ void wifi_mac_pwrsave_send_pspoll(struct wifi_station *sta)
     skb = wifi_mac_alloc_skb(wifimac, sizeof(struct WIFINET_S_FRAME_ADDR2));
     if (skb == NULL)
     {
-        DPRINTF(AML_DEBUG_ERROR,"<%s> %s, alloc skb fail \n", VMAC_DEV_NAME(wnet_vif), __func__);
+        AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_ERROR,"<%s>  alloc skb fail \n", VMAC_DEV_NAME(wnet_vif));
         return;
     }
     cb = (struct wifi_skb_callback *)skb->cb;
@@ -912,8 +912,8 @@ void wifi_mac_pwrsave_send_pspoll(struct wifi_station *sta)
     {
         wh->i_fc[1] |= WIFINET_FC1_PWR_MGT;
     }
-    DPRINTF(AML_DEBUG_PWR_SAVE, "<%s>:%s aid=0x%x ps=%d\n",
-        VMAC_DEV_NAME(wnet_vif), __func__, *(unsigned short *)(&wh->i_aidordur), (wh->i_fc[1]&WIFINET_FC1_PWR_MGT) != 0);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"<%s>: aid=0x%x ps=%d\n",
+        VMAC_DEV_NAME(wnet_vif), *(unsigned short *)(&wh->i_aidordur), (wh->i_fc[1]&WIFINET_FC1_PWR_MGT) != 0);
 
     wifi_mac_tx_mgmt_frm(wifimac, skb);
 }
@@ -925,7 +925,7 @@ void wifi_mac_pwrsave_sta_uapsd_trigger_ex(SYS_TYPE param1,
     struct wifi_station *sta = wnet_vif->vm_mainsta;
     int qosinfo = wnet_vif->vm_uapsdinfo;
 
-    AML_OUTPUT("send uapsd trigger\n");
+    AML_PRINT_LOG_INFO("send uapsd trigger\n");
     wifi_mac_send_qosnulldata_as_trigger(sta, qosinfo);
 }
 
@@ -968,19 +968,19 @@ void wifi_mac_pwrsave_sta_trigger (struct wlan_net_vif *wnet_vif)
     if ((sta ->sta_flags & WIFINET_NODE_UAPSD) &&
         WME_STA_UAPSD_ALL_AC_ENABLED(qosinfo))
     {
-        DPRINTF(AML_DEBUG_PWR_SAVE, "%s%d, sta send trigger\n", __func__, __LINE__);
+        AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"sta send trigger\n");
         wifi_mac_send_qosnulldata_as_trigger(sta, qosinfo);
         ps_timer_flag = 1;
     }
     else
     {
         if (sta->sta_fetch_pkt_method == 1) {
-            DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d send ps_poll\n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "send ps_poll\n");
             wifi_mac_pwrsave_send_pspoll(sta);
             ps_timer_flag = 1;
         } else if (sta->sta_fetch_pkt_method == 0) {
             wifi_mac_pwrsave_wkup_and_NtfyAp(wnet_vif, WKUP_FROM_RECEIVE);
-            DPRINTF(AML_DEBUG_PWR_SAVE,"%s %d wakeup due to ap cached pkt\n", __func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"wakeup due to ap cached pkt\n");
         }
     }
 
@@ -1003,7 +1003,7 @@ wifi_mac_pwrsave_proc_tim(struct wlan_net_vif *wnet_vif)
     if (wnet_vif->vm_pwrsave.ips_state == WIFINET_PWRSAVE_AWAKE)
     {
         WIFINET_PWRSAVE_UNLOCK(wnet_vif);
-        //DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d recv tim in awake, recover\n", __func__, __LINE__);
+        //AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "recv tim in awake, recover\n");
         wifi_mac_pwrsave_wkup_and_NtfyAp(wnet_vif, WKUP_FROM_RECEIVE);
         return;
     }
@@ -1012,8 +1012,8 @@ wifi_mac_pwrsave_proc_tim(struct wlan_net_vif *wnet_vif)
         WIFINET_PWRSAVE_UNLOCK(wnet_vif);
     }
 
-    DPRINTF(AML_DEBUG_PWR_SAVE,"<%s> %s %d psmode=%d\n",
-        VMAC_DEV_NAME(wnet_vif),__func__,__LINE__, psmode);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"<%s>  psmode=%d\n",
+        VMAC_DEV_NAME(wnet_vif), psmode);
     if (WIFINET_PWRSAVE_LOW >= psmode)
     {
         wifi_mac_pwrsave_wkup_and_NtfyAp(wnet_vif, WKUP_FROM_RECEIVE);
@@ -1026,7 +1026,7 @@ wifi_mac_pwrsave_proc_tim(struct wlan_net_vif *wnet_vif)
 
 void     wifi_mac_pwrsave_proc_dtim(struct wlan_net_vif *wnet_vif)
 {
-    DPRINTF(AML_DEBUG_PWR_SAVE,"<%s> %s %d \n",VMAC_DEV_NAME(wnet_vif),__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"<%s>  \n",VMAC_DEV_NAME(wnet_vif));
     wifi_mac_pwrsave_wkup_and_NtfyAp(wnet_vif, WKUP_FROM_RECEIVE);
 }
 
@@ -1077,15 +1077,15 @@ void wifi_mac_pwrsave_check_ps_end(void * ieee,
         ac = TID_TO_WME_AC(tid);
         if (WME_STA_UAPSD_AC_ENABLED(ac, qosinfo))
         {
-            DPRINTF(AML_DEBUG_PWR_SAVE, "<running> %s %d uapsd tid=%d ac=%d more=%d eosp=%d\n",
-                __func__,__LINE__, tid, ac, (qwh->i_fc[1] & WIFINET_FC1_MORE_DATA) != 0,
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "<running> uapsd tid=%d ac=%d more=%d eosp=%d\n",
+                 tid, ac, (qwh->i_fc[1] & WIFINET_FC1_MORE_DATA) != 0,
                 (qwh->i_qos[0] & WIFINET_QOS_EOSP) != 0);
 
             ac_triggered_delivery_flag = 1;
             if (!(qwh->i_fc[1] & WIFINET_FC1_MORE_DATA))
             {
-                DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d U-APSD, no more data, uapsd trigger:%d\n",
-                    __func__,__LINE__,ps->ips_flag_uapsd_trigger);
+                AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, " U-APSD, no more data, uapsd trigger:%d\n",
+                    ps->ips_flag_uapsd_trigger);
                 if (ps->ips_flag_uapsd_trigger == 1)
                 {
                     ps->ips_flag_uapsd_trigger = 0;
@@ -1106,11 +1106,11 @@ void wifi_mac_pwrsave_check_ps_end(void * ieee,
 
     if (!ac_triggered_delivery_flag)
     {
-        DPRINTF(AML_DEBUG_PWR_SAVE, "<running> %s %d legacy ac=%d more=%d\n",
-            __func__,__LINE__, ac, qwh->i_fc[1] & WIFINET_FC1_MORE_DATA);
+        AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "<running>  legacy ac=%d more=%d\n",
+             ac, qwh->i_fc[1] & WIFINET_FC1_MORE_DATA);
         if (!(qwh->i_fc[1] & WIFINET_FC1_MORE_DATA))
         {
-            DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d legacy, no more data\n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "legacy, no more data\n");
             ps_over_flag = PS_OVER_FLAG_PSPOLL;
         }
         else
@@ -1131,7 +1131,7 @@ void wifi_mac_pwrsave_check_ps_end(void * ieee,
         }
         else
         {
-            DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d legacy, send ps-poll\n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "legacy, send ps-poll\n");
             wifi_mac_pwrsave_send_pspoll(sta);
         }
     }
@@ -1206,7 +1206,7 @@ int wifi_mac_pwrsave_txpre (struct sk_buff *skb)
         {
             M_FLAG_SET(skb, M_UAPSD);
             WIFINET_NODE_STAT(sta, tx_uapsd);
-            DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d uapsd\n", __func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "uapsd\n");
             if ((wnet_vif->vif_ops.vm_set_tim != NULL) && WME_UAPSD_NODE_ALL_AC_CAN_TRIGGER(sta))
             {
                 wnet_vif->vif_ops.vm_set_tim(sta, 1);
@@ -1216,7 +1216,7 @@ int wifi_mac_pwrsave_txpre (struct sk_buff *skb)
         else if (sta->sta_flags & WIFINET_NODE_PWR_MGT)
         {
             M_PWR_SAV_SET(skb);
-            DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d legacy ps\n", __func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "legacy ps\n");
             ret = 2;
         }
         break;
@@ -1256,7 +1256,7 @@ wifi_mac_pwrsave_psqueue_age(struct wifi_station *sta,
         WIFINET_SAVEQ_LOCK(&(sta->sta_pstxqueue));
         while ((skb = skb_peek(&sta->sta_pstxqueue)) != NULL) {
             if (M_AGE_GET(skb) < WIFINET_INACT_WAIT) {
-                WIFINET_DPRINTF_STA( AML_DEBUG_PWR_SAVE, sta,
+                WIFINET_DPRINTF_STA( AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG,sta,
                     "discard frame, age %u", M_AGE_GET(skb));
 
                 skb = __skb_dequeue(&sta->sta_pstxqueue);
@@ -1277,7 +1277,7 @@ wifi_mac_pwrsave_psqueue_age(struct wifi_station *sta,
 
         WIFINET_SAVEQ_UNLOCK(&(sta->sta_pstxqueue));
 
-        WIFINET_DPRINTF_STA( AML_DEBUG_PWR_SAVE, sta,
+        WIFINET_DPRINTF_STA( AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, sta,
                              "discard %u frames for age", discard);
         WIFINET_NODE_STAT_ADD(sta, ps_discard, discard);
     }
@@ -1313,7 +1313,7 @@ void wifi_mac_pwrsave_set_tim(struct wifi_station *sta, int set)
         wnet_vif->vm_flags |= WIFINET_F_TIMUPDATE;
     }
     WIFINET_BEACON_UNLOCK(sta->sta_wmac);
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d set=%d\n", __func__,__LINE__, set);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, "set=%d\n", set);
 }
 
 /*ap set tim for power save station */
@@ -1323,11 +1323,11 @@ void wifi_mac_pwrsave_psqueue_enqueue(struct wifi_station *sta, struct sk_buff *
 
     int qlen, age;
 
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d save data for tx to ps sta\n", __func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, " save data for tx to ps sta\n");
     if (WIFINET_SAVEQ_QLEN(&sta->sta_pstxqueue) >= WIFINET_PS_MAX_QUEUE)
     {
         WIFINET_NODE_STAT(sta,psq_drops);
-        WIFINET_DPRINTF_STA(AML_DEBUG_ANY, sta, "pwr save q overflow, (size %d)", WIFINET_PS_MAX_QUEUE);
+        WIFINET_DPRINTF_STA(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_WARN, sta, "pwr save q overflow, (size %d)", WIFINET_PS_MAX_QUEUE);
         wifi_mac_free_skb(skb);
         return;
     }
@@ -1340,7 +1340,7 @@ void wifi_mac_pwrsave_psqueue_enqueue(struct wifi_station *sta, struct sk_buff *
     qlen = WIFINET_SAVEQ_QLEN(&sta->sta_pstxqueue);
     WIFINET_SAVEQ_UNLOCK(&sta->sta_pstxqueue);
 
-    WIFINET_DPRINTF_STA( AML_DEBUG_PWR_SAVE, sta, "save frame, %u now queued", qlen);
+    WIFINET_DPRINTF_STA( AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG , sta, "save frame, %u now queued", qlen);
 
     if (qlen == 1 && wnet_vif->vif_ops.vm_set_tim != NULL)
         wnet_vif->vif_ops.vm_set_tim(sta, 1);
@@ -1381,7 +1381,7 @@ static int wifi_mac_pwrsave_psqueue_send (struct wifi_station *sta, int force)
             {
                 wifi_mac_send_nulldata_for_ap(sta, 0, 0, 0, 0);
                 wnet_vif->vif_sts.sts_tx_ps_no_data++;
-                AML_OUTPUT("tx null for pspoll\n");
+                AML_PRINT_LOG_INFO("tx null for pspoll\n");
             }
             qlen = 0;
             break;
@@ -1448,7 +1448,7 @@ void wifi_mac_pwrsave_state_change(struct wifi_station *sta, int enable)
 {
     struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
 
-    DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d enable=%d\n", __func__,__LINE__, !!enable);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, " enable=%d\n", !!enable);
     KASSERT(wnet_vif->vm_opmode == WIFINET_M_HOSTAP ||
             wnet_vif->vm_opmode == WIFINET_M_IBSS,
             ("unexpected operating mode %u", wnet_vif->vm_opmode));
@@ -1459,7 +1459,7 @@ void wifi_mac_pwrsave_state_change(struct wifi_station *sta, int enable)
             wnet_vif->vm_ps_sta++;
         sta->sta_flags |= WIFINET_NODE_PWR_MGT;
 
-        WIFINET_DPRINTF_STA( AML_DEBUG_PWR_SAVE, sta,
+        WIFINET_DPRINTF_STA( AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, sta,
                              "power save mode on, %u sta's in ps mode", wnet_vif->vm_ps_sta);
         return;
     }
@@ -1479,7 +1479,7 @@ void wifi_mac_pwrsave_state_change(struct wifi_station *sta, int enable)
         }
     }
 
-    WIFINET_DPRINTF_STA( AML_DEBUG_PWR_SAVE, sta,
+    WIFINET_DPRINTF_STA( AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, sta,
                          "power save mode off, %u sta's in ps mode", wnet_vif->vm_ps_sta);
     wifi_mac_pwrsave_psqueue_flush(sta);
 
@@ -1498,11 +1498,11 @@ void wifi_mac_pwrsave_recv_pspoll(struct wifi_station *sta, struct sk_buff *skb0
     if (sta->sta_associd == 0)
     {
         WIFINET_DPRINTF(
-            AML_DEBUG_PWR_SAVE | AML_DEBUG_DEBUG,
+            AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG,
             "ps-poll %s","unassociated station");
         wnet_vif->vif_sts.sts_rx_ps_uncnnt++;
         arg = WIFINET_REASON_NOT_ASSOCED;
-        AML_OUTPUT("<running> \n");
+        AML_PRINT_LOG_INFO("<running> \n");
         wifi_mac_send_mgmt(sta, WIFINET_FC0_SUBTYPE_DEAUTH, (void *)&arg);
         return;
     }
@@ -1510,11 +1510,11 @@ void wifi_mac_pwrsave_recv_pspoll(struct wifi_station *sta, struct sk_buff *skb0
     aid = le16toh(*(unsigned short *)wh->i_dur);
     if (aid != sta->sta_associd)
     {
-        WIFINET_DPRINTF(AML_DEBUG_PWR_SAVE | AML_DEBUG_DEBUG,
+        WIFINET_DPRINTF(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG,
                         "ps-poll aid mismatch: sta aid 0x%x poll aid 0x%x", sta->sta_associd, aid);
         wnet_vif->vif_sts.sts_rx_ps_aid_err++;
         arg = WIFINET_REASON_NOT_ASSOCED;
-        AML_OUTPUT("<running> \n");
+        AML_PRINT_LOG_INFO("<running> \n");
         wifi_mac_send_mgmt(sta, WIFINET_FC0_SUBTYPE_DEAUTH, (void *)&arg);
         return;
     }
@@ -1523,14 +1523,14 @@ void wifi_mac_pwrsave_recv_pspoll(struct wifi_station *sta, struct sk_buff *skb0
 
     if (qlen == 0)
     {
-        WIFINET_DPRINTF_STA( AML_DEBUG_PWR_SAVE, sta,
+        WIFINET_DPRINTF_STA( AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, sta,
                              "%s", "recv ps-poll, send packet, queue empty");
         if (wnet_vif->vif_ops.vm_set_tim != NULL)
             wnet_vif->vif_ops.vm_set_tim(sta, 0);
     }
     else
     {
-        WIFINET_DPRINTF_STA( AML_DEBUG_PWR_SAVE, sta,
+        WIFINET_DPRINTF_STA( AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, sta,
                              "recv ps-poll, send packet, %u still queued", qlen);
     }
 }
@@ -1565,8 +1565,8 @@ void wifi_mac_pwrsave_chk_uapsd_trig(void * ieee,
          ((sta->sta_flags & WIFINET_NODE_UAPSD_TRIG) == WIFINET_NODE_UAPSD_TRIG)))
     {
         sta->sta_flags &= ~WIFINET_NODE_UAPSD_SP;
-        DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d rx nsta ps change, ps=%d\n",
-                __func__,__LINE__, !!(qwh->i_fc[1] & WIFINET_FC1_PWR_MGT));
+        AML_PRINT(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, "rx nsta ps change, ps=%d\n",
+                !!(qwh->i_fc[1] & WIFINET_FC1_PWR_MGT));
 
         //if the first trigger, flag it
         if (qwh->i_fc[1] & WIFINET_FC1_PWR_MGT)
@@ -1602,10 +1602,9 @@ void wifi_mac_pwrsave_chk_uapsd_trig(void * ieee,
             unsigned short frame_seq;
             int queue_qcnt;
             /*
-            DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d rx nsta trigger tid=%d ac=%d\n",
-                __func__,__LINE__, tid, ac);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, " rx nsta trigger tid=%d ac=%d\n",tid, ac);
             */
-            AML_OUTPUT("rx uapsd trigger\n");
+            AML_PRINT_LOG_INFO("rx uapsd trigger\n");
 
             frame_seq = le16toh(*(unsigned short *)qwh->i_seq);
             if ((qwh->i_fc[1] & WIFINET_FC1_RETRY) &&
@@ -1652,7 +1651,7 @@ void wifi_mac_pwrsave_eosp_indicate(void* nsta,  struct sk_buff * skbbuf, int tx
         if ((qwh->i_qos[0] & WIFINET_QOS_EOSP) || 
             (sta->sta_flags_ext & WIFINET_NODE_UAPSD_WAIT_NOA_END))
         {
-            DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d\n", __func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, " \n");
             sta->sta_flags &= ~WIFINET_NODE_UAPSD_SP;
             sta->sta_flags_ext &= ~WIFINET_NODE_UAPSD_WAIT_NOA_END;
         }
@@ -1731,7 +1730,7 @@ int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
     int listen_interval = 0, connect = 0;
     unsigned int filter = 0, cnt = 0;
 
-    AML_OUTPUT("\n");
+    AML_PRINT_LOG_INFO("\n");
     WIFINET_PWRSAVE_MUTEX_LOCK(wnet_vif);
     if (wifimac->wm_suspend_mode == WIFI_SUSPEND_STATE_WOW)
     {
@@ -1739,8 +1738,8 @@ int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
         return 0;
     }
 
-    DPRINTF(AML_DEBUG_PWR_SAVE, "<%s>:%s %d scan abort when host suspend \n",
-        wnet_vif->vm_ndev->name,__func__, __LINE__);
+    AML_PRINT(AML_LOG_ID_PWR_SAVE, AML_LOG_LEVEL_DEBUG, "<%s> scan abort when host suspend \n",
+        wnet_vif->vm_ndev->name);
     wnet_vif->vm_scan_hang = 1;
     wifi_mac_cancel_scan(wifimac);
     /* waiting for completing scan process */
@@ -1749,7 +1748,7 @@ int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
         msleep(20);
         if (cnt++ > 20)
         {
-            ERROR_DEBUG_OUT("<%s>:wait scan end fail when host suspend \n",
+            AML_PRINT_LOG_ERR("<%s>:wait scan end fail when host suspend \n",
                 wnet_vif->vm_ndev->name);
             WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
             return -1;
@@ -1846,9 +1845,10 @@ void wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
     int connect = 0;
     int ret = 0;
 
-    AML_OUTPUT("\n");
+    AML_PRINT_LOG_INFO("\n");
     WIFINET_PWRSAVE_MUTEX_LOCK(wnet_vif);
 
+#ifndef CONFIG_USB_CLOSE
     if (aml_bus_type)
     {
         printk("------usb state: 0x%x\n", g_udev->state);
@@ -1859,7 +1859,7 @@ void wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
         printk("--------usb configured-------\n");
         usb_submit_urb(g_urb, GFP_ATOMIC);
     }
-
+#endif
     if (wifimac->wm_suspend_mode == WIFI_SUSPEND_STATE_NONE)
     {
         WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
@@ -1894,7 +1894,7 @@ void wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
         if (ret == 0)
             wnet_vif_tmp->vm_pwrsave.ips_state = WIFINET_PWRSAVE_AWAKE;
         else
-            ERROR_DEBUG_OUT("ret -1 \n");
+            AML_PRINT_LOG_ERR("ret -1 \n");
         WIFINET_PWRSAVE_UNLOCK(wnet_vif);
     }
 

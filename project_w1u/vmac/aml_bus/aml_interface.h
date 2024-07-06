@@ -1,10 +1,10 @@
 #ifndef _AML_INTERFACE_H_
 #define _AML_INTERFACE_H_
 
-enum interface_type {
-    SDIO_MODE,
-    USB_MODE,
-    PCIE_MODE
+enum AML_BUS_TYPE {
+    AML_BUS_TYPE_SDIO = 0,
+    AML_BUS_TYPE_USB,
+    AML_BUS_TYPE_PCIE,
 };
 
 struct aml_bus_state_detect {
@@ -18,4 +18,10 @@ struct aml_bus_state_detect {
   int (*insmod_drv)(void);
 };
 
+struct aml_pm_type {
+    atomic_t bus_suspend_cnt;
+    atomic_t drv_suspend_cnt;
+    atomic_t is_suht_down;
+    atomic_t wifi_enable;
+};
 #endif

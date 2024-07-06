@@ -1,3 +1,4 @@
+#ifndef CONFIG_USB_CLOSE
 #ifndef __WIFI_USB__
 #define __WIFI_USB__
 
@@ -59,6 +60,7 @@ enum wifi_cmd {
     CMD_OTHER_CMD,
     CMD_USB_IRQ,
     CMD_READ_EFUSE = 0xCD,
+    CMD_WRITE_EFUSE,
 };
 
 enum usb_endpoint_num{
@@ -113,5 +115,6 @@ void aml_aon_write_reg(unsigned int addr,unsigned int data);
 unsigned int aml_aon_read_reg(unsigned int addr);
 void set_reg_fragment(unsigned int addr, unsigned int bit_end,
         unsigned int bit_start,unsigned int value);
+#endif
 #endif
 #endif

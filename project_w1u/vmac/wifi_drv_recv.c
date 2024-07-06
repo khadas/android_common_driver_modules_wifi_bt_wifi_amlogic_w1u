@@ -31,8 +31,8 @@ drv_set_addba_rsp( struct drv_private *drv_priv, void * nsta,
     struct drv_rx_scoreboard *RxTidState = &drv_sta->rx_scb[tid_index];
 
     RxTidState->userstatuscode = statuscode;
-    DPRINTF(AML_DEBUG_ADDBA,"<running> %s %d tid_index %d RxTidState->userstatuscode  %d,drv_sta %p \n",
-        __func__,__LINE__,tid_index,RxTidState->userstatuscode,drv_sta );
+    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"<running> tid_index %d RxTidState->userstatuscode  %d,drv_sta %p \n",
+        tid_index,RxTidState->userstatuscode,drv_sta );
 }
 
 void
@@ -60,13 +60,13 @@ int drv_rx_addbareq(struct drv_private *drv_priv, void *nsta, unsigned char dial
 
     if (!drv_priv->drv_config.cfg_rxaggr)
     {
-        DPRINTF(AML_DEBUG_ADDBA, "<running> %s %d \n",__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG, "<running>  \n");
         RxTidState->statuscode = WIFINET_STATUS_REFUSED;
     }
     else if (RxTidState->userstatuscode != WIFINET_STATUS_SUCCESS)
     {
-        DPRINTF(AML_DEBUG_ADDBA,"<running> %s %d tid_index %d RxTidState->userstatuscode  %d \n",
-            __func__,__LINE__,tid_index,RxTidState->userstatuscode );
+        AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"<running> tid_index %d RxTidState->userstatuscode  %d \n",
+            tid_index,RxTidState->userstatuscode );
         RxTidState->statuscode = RxTidState->userstatuscode;
     }
     else
@@ -92,7 +92,7 @@ int drv_rx_addbareq(struct drv_private *drv_priv, void *nsta, unsigned char dial
             RxTidState->pRxDesc = (struct drv_rxdesc *)NET_MALLOC(
                                   DRV_TID_MAX_BUFS * sizeof(struct drv_rxdesc),
                                   GFP_ATOMIC, "drv_rx_addbareq.RxTidState->pRxDesc");
-            DPRINTF(AML_DEBUG_ADDBA,"<running> %s %d RxTidState->pRxDesc= %p\n", __func__, __LINE__, RxTidState->pRxDesc);
+            AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"<running> RxTidState->pRxDesc= %p\n",RxTidState->pRxDesc);
         }
 
         if (RxTidState->pRxDesc == NULL)
@@ -101,7 +101,7 @@ int drv_rx_addbareq(struct drv_private *drv_priv, void *nsta, unsigned char dial
         }
         else
         {
-            DPRINTF(AML_DEBUG_ADDBA,"<running> %s %d \n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"<running> \n");
             RxTidState->rx_addba_exchangecomplete = 1;
         }
     }
@@ -134,8 +134,8 @@ void drv_rx_addbarsp(struct drv_private *drv_priv, void * nsta, unsigned char ti
     }
     else
     {
-        DPRINTF(AML_DEBUG_ADDBA,"%s %d fail,RxTidState->statuscode  %d tid_index %d,drv_sta %p\n",
-            __func__,__LINE__,RxTidState->statuscode,tid_index,drv_sta );
+        AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"fail,RxTidState->statuscode  %d tid_index %d,drv_sta %p\n",
+            RxTidState->statuscode,tid_index,drv_sta );
     }
 }
 
@@ -278,7 +278,7 @@ int drv_rx_input( struct drv_private *drv_priv, void *nsta,
         tid = whqos->i_qos[0] & WIFINET_QOS_TID;
     }
     if (tid >= WME_NUM_TID) {
-        ERROR_DEBUG_OUT("get error tid: %d", tid);
+        AML_PRINT_LOG_ERR("get error tid: %d", tid);
     }
     RxTidState = &drv_sta->rx_scb[tid];
 

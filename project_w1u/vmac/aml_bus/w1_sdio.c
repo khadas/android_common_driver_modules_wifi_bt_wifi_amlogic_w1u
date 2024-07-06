@@ -23,7 +23,8 @@ unsigned char wifi_in_insmod;
 unsigned char wifi_in_rmmod;
 unsigned char  wifi_sdio_access = 1;
 unsigned char  chip_en_access = 0;
-unsigned char  wifi_sdio_timeout = 0;
+unsigned char  sdio_req_byte_timeout = 0;
+unsigned char  sdio_req_buffer_timeout = 0;
 unsigned char wifi_sdio_shutdown = 0;
 unsigned char wifi_irq_enable = 0;
 unsigned int  shutdown_i = 0;
@@ -172,7 +173,7 @@ static int _aml_w1_sdio_request_byte(unsigned char func_num,
     kmalloc_buf =  (unsigned char *)kzalloc(len, GFP_DMA | GFP_ATOMIC);//virt_to_phys(fwICCM);
     if (kmalloc_buf == NULL)
     {
-        ERROR_DEBUG_OUT("kmalloc buf fail\n");
+        AML_PRINT_LOG_ERR("kmalloc buf fail\n");
         AML_W1_BT_WIFI_MUTEX_OFF();
         return SDIOH_API_RC_FAIL;
     }
@@ -203,14 +204,14 @@ static int _aml_w1_sdio_request_byte(unsigned char func_num,
     kfree(kmalloc_buf);
     AML_W1_BT_WIFI_MUTEX_OFF();
     if (err_ret == 0) {
-        wifi_sdio_timeout = 0;
+        sdio_req_byte_timeout = 0;
 
     } else {
-        wifi_sdio_timeout++;
-        if (wifi_sdio_timeout > 10) {
+        sdio_req_byte_timeout++;
+        if (sdio_req_byte_timeout > 10) {
             chip_en_access = 1;
         }
-        printk("%s %d timeout times = %d\n", __func__, __LINE__, wifi_sdio_timeout);
+        printk("%s %d timeout times = %d\n", __func__, __LINE__, sdio_req_byte_timeout);
     }
     return (err_ret == 0) ? SDIOH_API_RC_SUCCESS : SDIOH_API_RC_FAIL;
 }
@@ -259,14 +260,14 @@ static int _aml_w1_sdio_request_buffer(unsigned char func_num,
     /* Release host controller */
     sdio_release_host(func);
     if (err_ret == 0) {
-        wifi_sdio_timeout = 0;
+        sdio_req_buffer_timeout = 0;
 
     } else {
-        wifi_sdio_timeout++;
-        if (wifi_sdio_timeout > 10) {
+        sdio_req_buffer_timeout++;
+        if (sdio_req_buffer_timeout > 10) {
             chip_en_access = 1;
         }
-        printk("%s %d timeout times = %d\n", __func__, __LINE__, wifi_sdio_timeout);
+        printk("%s %d timeout times = %d\n", __func__, __LINE__, sdio_req_buffer_timeout);
     }
 
     return (err_ret == 0) ? SDIOH_API_RC_SUCCESS : SDIOH_API_RC_FAIL;
@@ -288,18 +289,18 @@ int aml_w1_sdio_bottom_read(unsigned char func_num, int addr, void *buf, size_t 
     if (!wifi_sdio_access) {
         if (func_num == SDIO_FUNC5) {
             /*SDIO_FUNC5 ignore*/
-            ERROR_DEBUG_OUT("SDIO_FUNC5, func num %d, addr 0x%08x\n", func_num, addr);
+            AML_PRINT_LOG_ERR("SDIO_FUNC5, func num %d, addr 0x%08x\n", func_num, addr);
 
         } else if (func_num == SDIO_FUNC1) {
             /*SDIO_FUNC1 ignore*/
-            ERROR_DEBUG_OUT("SDIO_FUNC1, func num %d, addr 0x%08x\n", func_num, addr);
+            AML_PRINT_LOG_ERR("SDIO_FUNC1, func num %d, addr 0x%08x\n", func_num, addr);
 
         }  else if ((func_num == SDIO_FUNC2) && (addr == 0x00005080)) {
             /*SDIO_FUNC2 && 0x00005080 ignore*/
-            ERROR_DEBUG_OUT("SDIO_FUNC1, func num %d, addr 0x%08x\n", func_num, addr);
+            AML_PRINT_LOG_ERR("SDIO_FUNC1, func num %d, addr 0x%08x\n", func_num, addr);
 
         } else {
-            ERROR_DEBUG_OUT("fw recovery downloading, func num %d, addr 0x%08x\n", func_num, addr);
+            AML_PRINT_LOG_ERR("fw recovery downloading, func num %d, addr 0x%08x\n", func_num, addr);
             return -1;
         }
     }
@@ -310,7 +311,7 @@ int aml_w1_sdio_bottom_read(unsigned char func_num, int addr, void *buf, size_t 
         if (host_wake_req() == 0)
         {
             aml_wifi_sdio_power_unlock();
-            ERROR_DEBUG_OUT("aml_w1_sdio_bottom_read, host wake w1 fail\n");
+            AML_PRINT_LOG_ERR("aml_w1_sdio_bottom_read, host wake w1 fail\n");
             return -1;
         }
     }
@@ -340,7 +341,7 @@ int aml_w1_sdio_bottom_read(unsigned char func_num, int addr, void *buf, size_t 
 
     if (kmalloc_buf == NULL)
     {
-        ERROR_DEBUG_OUT("kmalloc buf fail\n");
+        AML_PRINT_LOG_ERR("kmalloc buf fail\n");
         AML_W1_BT_WIFI_MUTEX_OFF();
         aml_wifi_sdio_power_unlock();
         return SDIOH_API_RC_FAIL;
@@ -372,18 +373,18 @@ int aml_w1_sdio_bottom_write(unsigned char func_num, int addr, void *buf, size_t
     if (!wifi_sdio_access) {
         if (func_num == SDIO_FUNC5) {
             /*SDIO_FUNC5 ignor*/
-            ERROR_DEBUG_OUT("SDIO_FUNC5, func num %d, addr 0x%08x\n", func_num, addr);
+            AML_PRINT_LOG_ERR("SDIO_FUNC5, func num %d, addr 0x%08x\n", func_num, addr);
 
         } else if (func_num == SDIO_FUNC1) {
             /*SDIO_FUNC1 ignor*/
-            ERROR_DEBUG_OUT("SDIO_FUNC1, func num %d, addr 0x%08x\n", func_num, addr);
+            AML_PRINT_LOG_ERR("SDIO_FUNC1, func num %d, addr 0x%08x\n", func_num, addr);
 
         }  else if ((func_num == SDIO_FUNC2) && (addr == 0x00005080)) {
             /*SDIO_FUNC2 && 0x00005080 ignor*/
-            ERROR_DEBUG_OUT("SDIO_FUNC2, func num %d, addr 0x%08x\n", func_num, addr);
+            AML_PRINT_LOG_ERR("SDIO_FUNC2, func num %d, addr 0x%08x\n", func_num, addr);
 
         } else {
-            ERROR_DEBUG_OUT("fw recovery downloading, func num %d, addr 0x%08x\n", func_num, addr);
+            AML_PRINT_LOG_ERR("fw recovery downloading, func num %d, addr 0x%08x\n", func_num, addr);
             return -1;
         }
     }
@@ -396,7 +397,7 @@ int aml_w1_sdio_bottom_write(unsigned char func_num, int addr, void *buf, size_t
         if (host_wake_req() == 0)
         {
             aml_wifi_sdio_power_unlock();
-            ERROR_DEBUG_OUT("aml_w1_sdio_bottom_write, host wake w1 fail\n");
+            AML_PRINT_LOG_ERR("aml_w1_sdio_bottom_write, host wake w1 fail\n");
             return -1;
         }
     }
@@ -411,7 +412,7 @@ int aml_w1_sdio_bottom_write(unsigned char func_num, int addr, void *buf, size_t
     kmalloc_buf =  (unsigned char *)kzalloc(len, GFP_DMA | GFP_ATOMIC);//virt_to_phys(fwICCM);
     if (kmalloc_buf == NULL)
     {
-        ERROR_DEBUG_OUT("kmalloc buf fail\n");
+        AML_PRINT_LOG_ERR("kmalloc buf fail\n");
         AML_W1_BT_WIFI_MUTEX_OFF();
         aml_wifi_sdio_power_unlock();
         return SDIOH_API_RC_FAIL;
@@ -661,7 +662,7 @@ static int amlw_w1_sdio_alloc_prep_scat_req(struct amlw1_hwif_sdio *hif_sdio)
     scat_req = kzalloc(sizeof(struct amlw_hif_scatter_req), GFP_KERNEL);
     if (scat_req == NULL)
     {
-        ERROR_DEBUG_OUT("[sdio sg alloc_scat_req]: no mem\n");
+        AML_PRINT_LOG_ERR("[sdio sg alloc_scat_req]: no mem\n");
         return 1;
     }
 
@@ -754,7 +755,7 @@ void aml_w1_sdio_scat_complete (struct amlw_hif_scatter_req * scat_req)
     }
     else
     {
-        ERROR_DEBUG_OUT("error: no complete function\n");
+        AML_PRINT_LOG_ERR("error: no complete function\n");
     }
 
     scat_req->free = true;
@@ -1049,7 +1050,7 @@ void write_word_32ba(unsigned char Bus, unsigned char SlaveAddr,
 
         cnt++;
         if (cnt == 100000) {
-            ERROR_DEBUG_OUT("-------[ERR]-----> i2c[W] err\n");
+            AML_PRINT_LOG_ERR("-------[ERR]-----> i2c[W] err\n");
             break;
         }
     } while (tmp & (1 << 2));
@@ -1099,7 +1100,7 @@ unsigned int read_word_32ba(unsigned int SlaveAddr, unsigned int RegAddr)
 
         cnt++;
         if (cnt == 100000) {
-            ERROR_DEBUG_OUT("-------[ERR]-----> i2c[R] err\n");
+            AML_PRINT_LOG_ERR("-------[ERR]-----> i2c[R] err\n");
             break;
         }
     } while( tmp & (1 << 2));

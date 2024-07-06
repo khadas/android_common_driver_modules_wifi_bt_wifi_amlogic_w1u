@@ -312,20 +312,26 @@ struct country_na_freq_set country_na_freq_plan_list [] =
     },
 
 };
-
+/*pwr_cfg_gain_limit 0-29 for 5g 5(5bands)*6(lowrate20/40/80M highrate20/40/80M); 30-38 for 2.4g 20M/40M/11b, 39-56 RESERVED*/
 struct tx_power_plan tx_power_plan_list[] = {
-    {57, {0, 0, 0, 0}, {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100}}, //TX_POWER_DEFAULT
-    {57, {0, 0, 0, 0}, {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100}}, //TX_POWER_CE
-    {57, {0, 0, 0, 0}, {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100}}, //TX_POWER_FCC
-    {57, {0, 0, 0, 0}, {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100}}, //TX_POWER_ARIB
-    {57, {0, 0, 0, 0}, {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100}}, //TX_POWER_SRRC
-    {57, {0, 0, 0, 0}, {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100}}, //TX_POWER_ANATEL
+    {57, {0, 0, 0, 0}, {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}}, //TX_POWER_DEFAULT
+    {57, {0, 0, 0, 0}, {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}}, //TX_POWER_CE
+    {57, {0, 0, 0, 0}, {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}}, //TX_POWER_FCC
+    {57, {0, 0, 0, 0}, {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}}, //TX_POWER_ARIB
+    {57, {0, 0, 0, 0}, {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}}, //TX_POWER_SRRC
+    {57, {0, 0, 0, 0}, {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}}, //TX_POWER_ANATEL
 };
 
 struct country_chan_plan country_chan_plan_list[] = {
@@ -638,6 +644,153 @@ unsigned char if_southamerica_country(unsigned char *countrycode) {
     return 0;
 }
 
+void wifi_mac_get_chandef(struct wifi_channel *vmac_chan, struct cfg80211_chan_def *chandef)
+{
+    unsigned int index = 0;
+
+    if (vmac_chan == WIFINET_CHAN_ERR)
+    {
+        AML_PRINT_LOG_ERR("vmac_chan is WIFINET_CHAN_ERR\n");
+        return ;
+    }
+
+    if (vmac_chan->chan_pri_num >= 1 && vmac_chan->chan_pri_num <=14 )
+    {
+        chandef->chan = &aml_2ghz_channels[vmac_chan->chan_pri_num - 1];
+    } else if (vmac_chan->chan_pri_num >=36 ) {
+        for (index = 0; index < AML_5G_CHANNELS_NUM; index++) {
+            if (aml_5ghz_channels[index].hw_value == vmac_chan->chan_pri_num) {
+                chandef->chan = &aml_5ghz_channels[index];
+                break;
+            }
+        }
+    }
+
+    if (vmac_chan->chan_bw == WIFINET_BWC_WIDTH20) {
+        chandef->width = NL80211_CHAN_WIDTH_20;
+    } else if (vmac_chan->chan_bw == WIFINET_BWC_WIDTH40) {
+        chandef->width = NL80211_CHAN_WIDTH_40;
+    } else if (vmac_chan->chan_bw == WIFINET_BWC_WIDTH80) {
+        chandef->width = NL80211_CHAN_WIDTH_80;
+    } else {
+        AML_PRINT_LOG_ERR("station chan_bw  do not support\n");
+    }
+
+    chandef->center_freq1 = vmac_chan->chan_cfreq1;
+
+    return;
+}
+
+u8 wifi_mac_get_operation_class(struct cfg80211_chan_def chandef)
+{
+    u8 vht_opclass = 0;
+    u32 freq = chandef.center_freq1;
+    u8 ret = 0;
+
+    if (freq >= 2412 && freq <= 2472) {
+        if (chandef.width > NL80211_CHAN_WIDTH_40)
+            return ret;
+
+        /* 2.407 GHz, channels 1..13 */
+        if (chandef.width == NL80211_CHAN_WIDTH_40) {
+            if (freq > chandef.chan->center_freq)
+                ret = 83; /* HT40+ */
+            else
+                ret = 84; /* HT40- */
+        } else {
+            ret = 81;
+        }
+
+        return ret;
+    }
+
+    if (freq == 2484) {
+        /* channel 14 is only for IEEE 802.11b */
+        if (chandef.width != NL80211_CHAN_WIDTH_20_NOHT)
+            return ret;
+        ret = 82; /* channel 14 */
+        return ret;
+    }
+
+    /* 5 GHz, channels 36..48 */
+    if (freq >= 5180 && freq <= 5240) {
+        if (vht_opclass) {
+            ret = vht_opclass;
+        } else if (chandef.width == NL80211_CHAN_WIDTH_40) {
+            if (freq > chandef.chan->center_freq)
+                ret = 116;
+            else
+                ret = 117;
+        } else {
+            ret = 115;
+        }
+
+        return ret;
+    }
+
+    /* 5 GHz, channels 52..64 */
+    if (freq >= 5260 && freq <= 5320) {
+        if (vht_opclass) {
+            ret = vht_opclass;
+        } else if (chandef.width == NL80211_CHAN_WIDTH_40) {
+            if (freq > chandef.chan->center_freq)
+                ret = 119;
+            else
+                ret = 120;
+        } else {
+            ret = 118;
+        }
+
+        return ret;
+    }
+
+    /* 5 GHz, channels 100..144 */
+    if (freq >= 5500 && freq <= 5720) {
+        if (vht_opclass) {
+            ret = vht_opclass;
+        } else if (chandef.width == NL80211_CHAN_WIDTH_40) {
+            if (freq > chandef.chan->center_freq)
+                ret = 122;
+            else
+                ret = 123;
+        } else {
+            ret = 121;
+        }
+
+        return ret;
+    }
+
+    /* 5 GHz, channels 149..169 */
+    if (freq >= 5745 && freq <= 5845) {
+        if (vht_opclass) {
+            ret = vht_opclass;
+        } else if (chandef.width == NL80211_CHAN_WIDTH_40) {
+            if (freq > chandef.chan->center_freq)
+                ret = 126;
+            else
+                ret = 127;
+        } else if (freq <= 5805) {
+            ret = 124;
+        } else {
+            ret = 125;
+        }
+
+        return ret;
+    }
+
+    /* 56.16 GHz, channel 1..4 */
+    if (freq >= 56160 + 2160 * 1 && freq <= 56160 + 2160 * 6) {
+        if (chandef.width >= NL80211_CHAN_WIDTH_40)
+            return ret;
+
+        ret = 180;
+        return ret;
+    }
+
+    /* not supported yet */
+    return ret;
+}
+
 static int  wifi_mac_get_pos(struct wifi_channel in[], int a, int b)
 {
     int i = a;
@@ -742,7 +895,7 @@ void  wifi_mac_select_chan_from_global(int country_code, int sub_set[], int num,
     int chn_idx_80M = 0;
 
     if ((!sub_set) || (!wifimac)) {
-        ERROR_DEBUG_OUT("input or memory err!\n");
+        AML_PRINT_LOG_ERR("input or memory err!\n");
         return;
     }
 
@@ -796,13 +949,13 @@ void  wifi_mac_select_chan_from_global(int country_code, int sub_set[], int num,
     wifi_mac_chan_order(wifimac->wm_channels, 0, wifimac->wm_nchans - 1);
 
 #if 0
-    AML_OUTPUT("wifimac->wm_nchans:%d\n", wifimac->wm_nchans);
+    AML_PRINT_LOG_INFO("wifimac->wm_nchans:%d\n", wifimac->wm_nchans);
     for (i = 0; i < wifimac->wm_nchans; ++i) {
-        //AML_OUTPUT("chan_cfreq1:%d\n", wifimac->wm_channels[i].chan_cfreq1);
-        //AML_OUTPUT("chan_bw:%d\n", wifimac->wm_channels[i].chan_bw);
-        AML_OUTPUT("chan_pri_num:%d\n", wifimac->wm_channels[i].chan_pri_num);
+        //AML_PRINT_LOG_INFO("chan_cfreq1:%d\n", wifimac->wm_channels[i].chan_cfreq1);
+        //AML_PRINT_LOG_INFO("chan_bw:%d\n", wifimac->wm_channels[i].chan_bw);
+        AML_PRINT_LOG_INFO("chan_pri_num:%d\n", wifimac->wm_channels[i].chan_pri_num);
     }
-    AML_OUTPUT("i is %d\n", i);
+    AML_PRINT_LOG_INFO("i is %d\n", i);
 #endif
 }
 
@@ -822,14 +975,14 @@ void wifi_mac_mark_dfs_channel_ex(int country_code, struct wifi_mac *wifimac, in
                 || ((IS_5G_BAND3(chan_pri_num)) && (dfs_chan_flag & DFS_5G_B3))
                 || ((IS_5G_BAND4(chan_pri_num)) && (dfs_chan_flag & DFS_5G_B4))
                 || ((chan_pri_num >= 12 && chan_pri_num <= 14) && (dfs_chan_flag & PASSIVE_2G_12_14))) {
-//                AML_OUTPUT("mark channel %d \n", chan_pri_num);
+//                AML_PRINT_LOG_INFO("mark channel %d \n", chan_pri_num);
                 wifimac->wm_channels[i].chan_flags |= WIFINET_CHAN_DFS;
             }
         }
     } else {
         for (i = 0; i <  wifimac->wm_nchans; i++) {
             if (wifimac->wm_channels[i].chan_pri_num == chan_num) {
-//                AML_OUTPUT("mark channel %d \n",wifimac->wm_channels[i].chan_pri_num);
+//                AML_PRINT_LOG_INFO("mark channel %d \n",wifimac->wm_channels[i].chan_pri_num);
                 wifimac->wm_channels[i].chan_flags |= WIFINET_CHAN_DFS;
             }
         }
@@ -843,7 +996,7 @@ void wifi_mac_unmark_dfs_channel_ex(int country_code, struct wifi_mac *wifimac, 
     for (i = 0; i < wifimac->wm_nchans; i++) {
         if (( chan_num == 0 && (wifimac->wm_channels[i].chan_flags & WIFINET_CHAN_DFS) )
             || (chan_num != 0 && (wifimac->wm_channels[i].chan_pri_num == chan_num)) ){
-//            AML_OUTPUT("UNmark channel %d \n", wifimac->wm_channels[i].chan_pri_num);
+//            AML_PRINT_LOG_INFO("UNmark channel %d \n", wifimac->wm_channels[i].chan_pri_num);
             wifimac->wm_channels[i].chan_flags &= ~WIFINET_CHAN_DFS;
         }
     }
@@ -857,7 +1010,7 @@ int wifi_mac_if_dfs_channel(struct wifi_mac *wifimac, int chan_num)
 
     for (i = 0; i <  wifimac->wm_nchans; i++) {
         if (wifimac->wm_channels[i].chan_pri_num == chan_num && (wifimac->wm_channels[i].chan_flags & WIFINET_CHAN_DFS)) {
-//            AML_OUTPUT("is dfs channel %d \n", wifimac->wm_channels[i].chan_pri_num);
+//            AML_PRINT_LOG_INFO("is dfs channel %d \n", wifimac->wm_channels[i].chan_pri_num);
             WIFI_CHANNEL_UNLOCK(wifimac);
             return 1;
         }
@@ -890,7 +1043,7 @@ void wifi_mac_mark_dfs_channel(struct wlan_net_vif *wnet_vif, int chan_num)
 
     if ((wnet_vif->vm_opmode == WIFINET_M_STA) && (wifimac->wm_nrunning == 1)) {
         if (wifi_mac_if_dfs_channel(wifimac, wnet_vif->vm_curchan->chan_pri_num) == 1) {
-            AML_OUTPUT("current channel %d is dfs channel \n", wnet_vif->vm_curchan->chan_pri_num);
+            AML_PRINT_LOG_INFO("current channel %d is dfs channel \n", wnet_vif->vm_curchan->chan_pri_num);
             wnet_vif->vm_chan_roaming_scan_flag = 0;
             wifi_mac_scan_access(wnet_vif);
             wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
@@ -902,7 +1055,7 @@ void  wifi_mac_update_chan_list_by_country(int country_code, int support_opt[], 
 {
     if ((!support_opt)||(support_num==0))
     {
-        ERROR_DEBUG_OUT("input is NULL!!!\n");
+        AML_PRINT_LOG_ERR("input is NULL!!!\n");
     }
 
     memset(wifimac->wm_channels, 0, sizeof(struct wifi_channel) * (WIFINET_CHAN_MAX * 2 + 1));
@@ -961,7 +1114,7 @@ const struct wifi_channel *c)
 {
     if (c == NULL)
     {
-        ERROR_DEBUG_OUT("amlwifi,invalid channel (NULL)\n");
+        AML_PRINT_LOG_ERR("amlwifi,invalid channel (NULL)\n");
         return WIFINET_CHAN_INVALUE;
     }
     return c->chan_pri_num;
@@ -1007,7 +1160,7 @@ struct wifi_channel * wifi_mac_find_chan(struct wifi_mac *wifimac, int chan, int
     for (i = 0; i < wifimac->wm_nchans; i++) {
         c = &wifimac->wm_channels[i];
         if ((c->chan_pri_num== chan) && (c->chan_bw == bw) && (c->chan_cfreq1 == wifi_mac_Ieee2mhz(center_chan, 0))) {
-            DPRINTF(AML_DEBUG_BWC, "%s(%d): find a chan=%d, bw=%d and cntr chan=%d.\n", __func__, __LINE__, chan, bw ,center_chan);
+            AML_PRINT(AML_LOG_ID_BWC,AML_LOG_LEVEL_DEBUG, "find a chan=%d, bw=%d and cntr chan=%d.\n", chan, bw ,center_chan);
             WIFI_CHANNEL_UNLOCK(wifimac);
             return c;
         }
@@ -1042,7 +1195,7 @@ unsigned char wifi_mac_set_p2p_home_chan(struct wifi_mac * wifimac, unsigned sho
         return 1;
     }
     wifimac->wm_p2p_home_channel = channel;
-    AML_OUTPUT("config p2p home channel %d\n", channel);
+    AML_PRINT_LOG_INFO("config p2p home channel %d\n", channel);
     return 0;
 }
 
@@ -1121,30 +1274,30 @@ struct wifi_channel * wifi_mac_scan_sta_get_ap_channel(struct wlan_net_vif *wnet
         htcapval = le16toh(htcap->hc_cap);
     }
 
-    DPRINTF(AML_DEBUG_BWC, "%s(%d) %s, chan %d htinfo %p,chwidth %x, htcapval 0x%x \n", __func__, __LINE__,
+    AML_PRINT(AML_LOG_ID_BWC,AML_LOG_LEVEL_DEBUG, "%s, chan %d htinfo %p,chwidth %x, htcapval 0x%x \n",
         ssidie_sprintf(sp->ssid), sp->chan, htinfo, htinfo?htinfo->hi_txchwidth : 0, htcapval);
 
     if ((htinfo != NULL) && (htinfo->hi_txchwidth == WIFINET_HTINFO_TXWIDTH_2040))
     {
-        DPRINTF(AML_DEBUG_BWC, "%s pri_chn %d\n",__func__, htinfo->hi_ctrlchannel);
+        AML_PRINT(AML_LOG_ID_BWC,AML_LOG_LEVEL_DEBUG, "pri_chn %d\n", htinfo->hi_ctrlchannel);
 
         switch (htinfo->hi_extchoff)
         {
             case WIFINET_HTINFO_EXTOFFSET_ABOVE:
-                DPRINTF(AML_DEBUG_BWC, "%s %d  WIFINET_HTINFO_EXTOFFSET_ABOVE \n", __func__,__LINE__);
+                AML_PRINT(AML_LOG_ID_BWC,AML_LOG_LEVEL_DEBUG, "WIFINET_HTINFO_EXTOFFSET_ABOVE \n");
                 bw = WIFINET_BWC_WIDTH40;
                 center_chan = htinfo->hi_ctrlchannel + 2;
                 break;
 
                 case WIFINET_HTINFO_EXTOFFSET_BELOW:
-                DPRINTF(AML_DEBUG_BWC, "%s %d  WIFINET_HTINFO_EXTOFFSET_BELOW\n", __func__,__LINE__);
+                AML_PRINT(AML_LOG_ID_BWC,AML_LOG_LEVEL_DEBUG, " WIFINET_HTINFO_EXTOFFSET_BELOW\n");
                 bw = WIFINET_BWC_WIDTH40;
                 center_chan = htinfo->hi_ctrlchannel - 2;
                 break;
 
             case WIFINET_HTINFO_EXTOFFSET_NA:
             default:
-                DPRINTF(AML_DEBUG_BWC, "%s %d 20M only mode\n",__func__,__LINE__);
+                AML_PRINT(AML_LOG_ID_BWC,AML_LOG_LEVEL_DEBUG, "20M only mode\n");
                 bw = WIFINET_BWC_WIDTH20;
                 center_chan = htinfo->hi_ctrlchannel;
                 break;
@@ -1160,14 +1313,14 @@ struct wifi_channel * wifi_mac_scan_sta_get_ap_channel(struct wlan_net_vif *wnet
     if ((bw == WIFINET_BWC_WIDTH40) && (xhtcap != NULL) && !(htcapval & WIFINET_HTCAP_SUPPORTCBW40)) {
         bw = WIFINET_BWC_WIDTH20;
         center_chan = chan;
-        AML_OUTPUT("htcap and htinfo information conflict\n");
+        AML_PRINT_LOG_INFO("htcap and htinfo information conflict\n");
     }
 
     if((vht_opt_ie != NULL) &&
     (vht_opt_ie->vht_op_chwidth >= WIFINET_VHTOP_CHWIDTH_80))
     {
         center_chan = vht_opt_ie->vht_op_ch_freq_seg1;
-        DPRINTF(AML_DEBUG_BWC, "%s center chn %d\n",__func__, center_chan);
+        AML_PRINT(AML_LOG_ID_BWC,AML_LOG_LEVEL_DEBUG, "center chn %d\n", center_chan);
 
         switch(vht_opt_ie->vht_op_chwidth)
         {
@@ -1186,7 +1339,7 @@ struct wifi_channel * wifi_mac_scan_sta_get_ap_channel(struct wlan_net_vif *wnet
         }
     }
 
-    DPRINTF(1, "%s chan %d, bw %d, center_chan %d \n", __func__, chan, bw, center_chan);
+    AML_PRINT(AML_LOG_ID_BWC, AML_LOG_LEVEL_DEBUG, "chan %d, bw %d, center_chan %d \n", chan, bw, center_chan);
     apchan = wifi_mac_find_chan(wifimac, chan, bw, center_chan);
     if ((apchan == NULL) && (htinfo != NULL)) {
         if ((htinfo->hi_txchwidth == WIFINET_HTINFO_TXWIDTH_2040) && (bw == WIFINET_BWC_WIDTH40)) {
@@ -1260,7 +1413,7 @@ void wifi_mac_chan_setup(void * ieee, unsigned int wMode, int countrycode_ex)
     support_num = country_chan_plan_list[support_index].support_class_num;
     support_ptr = country_chan_plan_list[support_index].support_class;
 
-    AML_OUTPUT("country code 0x%x, support num %d\n", countrycode_ex, support_num);
+    AML_PRINT_LOG_INFO("country code 0x%x, support num %d\n", countrycode_ex, support_num);
     wifi_mac_update_chan_list_by_country(countrycode_ex,support_ptr, support_num, wifimac);
 
     for(i= 0; i < wifimac->wm_nchans; i++) {
@@ -1275,7 +1428,7 @@ void wifi_mac_ChangeChannel(void * ieee, struct wifi_channel *chan, unsigned cha
     unsigned int delay_time = 0;
 
     if (chan == WIFINET_CHAN_ERR) {
-        ERROR_DEBUG_OUT("chan not valid !!\n");
+        AML_PRINT_LOG_ERR("chan not valid !!\n");
         return;
     }
 
@@ -1298,7 +1451,7 @@ void wifi_mac_ChangeChannel(void * ieee, struct wifi_channel *chan, unsigned cha
     wifimac->drv_priv->drv_ops.set_channel(wifimac->drv_priv, &hchan, flag, vid);
 
     if (!(wifimac->wm_flags & WIFINET_F_SCAN)) {
-        DPRINTF(AML_DEBUG_WARNING, "%s: %.3d %d\n", __func__, chan->chan_pri_num, chan->chan_bw);
+        AML_PRINT(AML_LOG_ID_BWC, AML_LOG_LEVEL_WARN, " %.3d %d\n", chan->chan_pri_num, chan->chan_bw);
     }
 }
 
@@ -1316,7 +1469,7 @@ struct wifi_channel * wifi_mac_get_wm_chan (struct wifi_mac *wifimac)
 {
     if (wifimac->wm_curchan != WIFINET_CHAN_ERR)
     {
-        DPRINTF(AML_DEBUG_ERROR,  "wm_curchan != WIFINET_CHAN_ERR\n");
+        AML_PRINT(AML_LOG_ID_BWC,AML_LOG_LEVEL_INFO,  "wm_curchan != WIFINET_CHAN_ERR\n");
         return wifimac->wm_curchan;
     }
     else
@@ -1330,25 +1483,25 @@ int wifi_mac_set_wnet_vif_channel(struct wlan_net_vif *wnet_vif,  int chan, int 
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
     struct wifi_channel * c = NULL;
 
-    AML_OUTPUT("vid:%d\n", wnet_vif->wnet_vif_id);
+    AML_PRINT_LOG_INFO("vid:%d\n", wnet_vif->wnet_vif_id);
     c = wifi_mac_find_chan(wifimac, chan, bw, center_chan);
 
     if (c == NULL) {
-        ERROR_DEBUG_OUT("WARNING<%s>can't support set this channel, chan %d, bw %d, c_chan %d\n",
+        AML_PRINT_LOG_ERR("WARNING<%s>can't support set this channel, chan %d, bw %d, c_chan %d\n",
             (wnet_vif)->vm_ndev->name, chan, bw, center_chan);
         wifimac->wm_disconnect_code = DISCONNECT_UNSUPCHAN;
         return false;
     }
     if (c->chan_flags & WIFINET_CHAN_DFS && !g_DFS_on) {
-        AML_OUTPUT(" dfs channel on[%d] \n",g_DFS_on);
+        AML_PRINT_LOG_INFO(" dfs channel on[%d] \n",g_DFS_on);
         wifimac->wm_disconnect_code = DISCONNECT_DFSCHAN;
         return false;
     }
 
     wnet_vif->vm_curchan = c;
 
-    DPRINTF(AML_DEBUG_WARNING, "%s %d, chan_pri_num:%d, chan_cfreq1:%d, chan_flags:0x%x\n",
-        __func__,__LINE__, c->chan_pri_num, c->chan_cfreq1, c->chan_flags);
+    AML_PRINT(AML_LOG_ID_BWC, AML_LOG_LEVEL_INFO, "chan_pri_num:%d, chan_cfreq1:%d, chan_flags:0x%x\n",
+         c->chan_pri_num, c->chan_cfreq1, c->chan_flags);
 
     wifi_mac_add_work_task(wnet_vif->vm_wmac, wifi_mac_set_wnet_vif_chan_ex, NULL,
         (SYS_TYPE)(wnet_vif->vm_wmac), (SYS_TYPE)c, (SYS_TYPE)wnet_vif, 0, 0);
@@ -1407,7 +1560,7 @@ void wifi_mac_restore_wnet_vif_channel(struct wlan_net_vif *wnet_vif)
     }
 
     if ((selected_wnet_vif->vm_curchan != WIFINET_CHAN_ERR) && (wifimac->wm_curchan != selected_wnet_vif->vm_curchan)) {
-        DPRINTF(AML_DEBUG_SCAN, "%s vid:%d, prichan:%d, bw:%d\n",  __func__, selected_wnet_vif->wnet_vif_id,
+        AML_PRINT(AML_LOG_ID_SCAN, AML_LOG_LEVEL_DEBUG, "vid:%d, prichan:%d, bw:%d\n", selected_wnet_vif->wnet_vif_id,
             selected_wnet_vif->vm_curchan->chan_pri_num, selected_wnet_vif->vm_curchan->chan_bw);
         wifi_mac_ChangeChannel(wifimac, selected_wnet_vif->vm_curchan, 1, selected_wnet_vif->wnet_vif_id);
     }
@@ -1468,7 +1621,7 @@ void chan_dbg(struct wifi_channel *chan, char* str, int line)
         return;
     }
 
-    DPRINTF(AML_DEBUG_BWC, "%s(%d)->curr: freq1 %d flags 0x%x prim %d, maxpw %d, minpw %d bw %d\n",
+    AML_PRINT(AML_LOG_ID_BWC,AML_LOG_LEVEL_DEBUG, "%s(%d)->curr: freq1 %d flags 0x%x prim %d, maxpw %d, minpw %d bw %d\n",
         str, line, chan->chan_cfreq1,chan->chan_flags,chan->chan_pri_num,
         chan->chan_maxpower,chan->chan_minpower,chan->chan_bw);
 }
@@ -1499,7 +1652,7 @@ int wifimac_set_tx_pwr_plan(int txpoweplan)
     struct drv_private *drv_priv = drv_get_drv_priv();
 
     if (txpoweplan == drv_priv->drv_config.cfg_txpoweplan) {
-        AML_OUTPUT("not need to update tx power plan(%d)\n", txpoweplan);
+        AML_PRINT_LOG_INFO("not need to update tx power plan(%d)\n", txpoweplan);
     } else {
         drv_priv->drv_config.cfg_txpoweplan = txpoweplan;
         wifi_mac_set_tx_power_coefficient(drv_priv, wifimac->wm_curchan, txpoweplan);
@@ -1543,7 +1696,7 @@ int update_tx_power_coefficient_plan(int tx_power_plan, unsigned short pwr_coeff
     for (i = 0; i < power_plan_size; i++) {
         tx_power_plan_list[tx_power_plan].coefficient[i] = pwr_coefficient[i];
         if (tx_power_plan_list[tx_power_plan].coefficient[i] == 0) {
-            tx_power_plan_list[tx_power_plan].coefficient[i] = 100;
+            tx_power_plan_list[tx_power_plan].coefficient[i] = 0xFF;
         }
     }
 

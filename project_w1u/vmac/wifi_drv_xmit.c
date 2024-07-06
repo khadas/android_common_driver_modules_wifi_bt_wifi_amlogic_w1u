@@ -231,7 +231,7 @@ int aml_tx_hal_buffer_full(struct drv_private *drv_priv,
 
     } else {
         if (print_cnt++ == 200) {
-            AML_OUTPUT("queue_id:%d full\n", queue_id);
+            AML_PRINT_LOG_INFO("queue_id:%d full\n", queue_id);
         }
     }
 
@@ -343,7 +343,7 @@ void aml_prepare_agg_tx_priv_param(struct drv_private *drv_priv,
     agg_content->MpduNum = ptxdesc->txdesc_pktnum;
     agg_content->AGGR_len = ptxdesc->txdesc_agglen;
     agg_content->aggr_page_num =  ptxdesc->txdesc_aggr_page_num;
-    DPRINTF(AML_DEBUG_XMIT,"b_mcast %d b_mgmt %d\n",ptxdesc->txinfo->b_mcast,ptxdesc->txinfo->b_mgmt);
+    AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG,"b_mcast %d b_mgmt %d\n",ptxdesc->txinfo->b_mcast,ptxdesc->txinfo->b_mgmt);
     if (ptxdesc->txinfo->b_mcast || ptxdesc->txinfo->b_mgmt)
     {
         agg_content->FLAG |= ptxdesc->txdesc_flag<<WIFI_CHANNEL_BW_OFFSET ;
@@ -518,7 +518,7 @@ int drv_to_hal(struct drv_private *drv_priv, struct drv_txlist *txlist, struct l
     }
 
     if (hal_priv->bhaltxdrop || hal_priv->bhalPowerSave) {
-        AML_OUTPUT("bhaltxdrop:%d, bhalPowerSave:%d\n", hal_priv->bhaltxdrop, hal_priv->bhalPowerSave);
+        AML_PRINT_LOG_INFO("bhaltxdrop:%d, bhalPowerSave:%d\n", hal_priv->bhaltxdrop, hal_priv->bhalPowerSave);
     }
     return 0;
 }
@@ -612,7 +612,7 @@ static void drv_tx_lower_rate_when_signal_weak(struct wlan_net_vif *wnet_vif, st
                 }
             }
             else
-                ERROR_DEBUG_OUT("bw-%d not found!\n", sta_chbw);
+                AML_PRINT_LOG_ERR("bw-%d not found!\n", sta_chbw);
 
         } else {
             if (sta_chbw == WIFINET_BWC_WIDTH20  || power < sta->sta_wmac->wm_signal_power_bw_change_thresh_narrow) {
@@ -658,7 +658,7 @@ static void drv_tx_lower_rate_when_signal_weak(struct wlan_net_vif *wnet_vif, st
                 }
             }
             else
-                ERROR_DEBUG_OUT("BW-%d not found!\n", sta_chbw);
+                AML_PRINT_LOG_ERR("BW-%d not found!\n", sta_chbw);
 
         }
 
@@ -690,7 +690,7 @@ static void drv_tx_lower_rate_when_signal_weak(struct wlan_net_vif *wnet_vif, st
                 }
                 ptxdesc->txdesc_rateinfo[i].flags |= IEEE80211_TX_RC_MCS;
             } else {
-                ERROR_DEBUG_OUT("power: %d; bw: %d; rate: 0x%x\n", power, sta_chbw, rate);
+                AML_PRINT_LOG_ERR("power: %d; bw: %d; rate: 0x%x\n", power, sta_chbw, rate);
             }
             ptxdesc->txdesc_rateinfo[i].shortgi_en = 0;
             ptxdesc->txdesc_rateinfo[i].bw = mcs_bw;
@@ -852,12 +852,12 @@ static int drv_tx_prepare(struct drv_private *drv_priv, struct sk_buff *skbbuf,s
 
     ptxdesc->rate_valid = 1;
     txinfo->seqnum = *(unsigned short *)wh->i_seq >> WIFINET_SEQ_SEQ_SHIFT;//seqnum
-    //AML_OUTPUT("ptxdesc:%p, skbbuf:%p, vid:%d, sta:%p, tid:%d, sn:%04x, ampdu:%d, qos:%d, rate_code:%02x, frame_control:%04x, mcast:%d, data:%d, dhcp:%d, eap:%d\n",
+    //AML_PRINT_LOG_INFO("ptxdesc:%p, skbbuf:%p, vid:%d, sta:%p, tid:%d, sn:%04x, ampdu:%d, qos:%d, rate_code:%02x, frame_control:%04x, mcast:%d, data:%d, dhcp:%d, eap:%d\n",
     //    ptxdesc, skbbuf, wnet_vif->wnet_vif_id, sta, txinfo->tid_index, txinfo->seqnum, txinfo->b_Ampdu, txinfo->b_qosdata,
     //    ratectrl->vendor_rate_code, *((unsigned short *)&(wh->i_fc[0])), txinfo->b_mcast, txinfo->b_datapkt, mac_pkt_info->b_dhcp, mac_pkt_info->b_eap);
 
     if (txinfo->b_pmf) {
-        AML_OUTPUT("vid:%d, sta:%p, sn:%04x, frame_control:%04x, mcast:%d\n",
+        AML_PRINT_LOG_INFO("vid:%d, sta:%p, sn:%04x, frame_control:%04x, mcast:%d\n",
             wnet_vif->wnet_vif_id, sta, txinfo->seqnum, *((unsigned short *)&(wh->i_fc[0])), txinfo->b_mcast);
     }
 
@@ -883,18 +883,18 @@ int drv_tx_start( struct drv_private *drv_priv, struct sk_buff *skbbuf)
 
     if (!sta  || wnet_vif == NULL || wnet_vif->vm_wmac == NULL ||
         (wnet_vif->vm_opmode == WIFINET_M_HOSTAP && sta->is_disconnecting && txinfo->b_datapkt)) {
-        ERROR_DEBUG_OUT("sta is NULL or softap disconnect\n");
+        AML_PRINT_LOG_ERR("sta is NULL or softap disconnect\n");
         return -1;
     }
 
     if (wnet_vif->vm_recovery_state < WIFINET_RECOVERY_VIF_UP) {
-        ERROR_DEBUG_OUT("fw recovery not finish\n");
+        AML_PRINT_LOG_ERR("fw recovery not finish\n");
         return -2;
     }
 
     drv_sta = sta->drv_sta;
     if (!drv_sta) {
-        ERROR_DEBUG_OUT("drv_sta is NULL\n");
+        AML_PRINT_LOG_ERR("drv_sta is NULL\n");
         return -3;
     }
     tid = DRV_GET_TIDTXINFO(drv_sta, txinfo->tid_index);
@@ -911,7 +911,7 @@ int drv_tx_start( struct drv_private *drv_priv, struct sk_buff *skbbuf)
         ASSERT(skbbuf != NULL);
 
         if (drv_priv->drv_pkt_drop[wnet_vif->wnet_vif_id]) {
-            ERROR_DEBUG_OUT("vid:%d, disconnect not allow to send pkt\n", wnet_vif->wnet_vif_id);
+            AML_PRINT_LOG_ERR("vid:%d, disconnect not allow to send pkt\n", wnet_vif->wnet_vif_id);
             error = -4;
             break;
         }
@@ -925,7 +925,7 @@ int drv_tx_start( struct drv_private *drv_priv, struct sk_buff *skbbuf)
         if (((wnet_vif->vm_wmac->wm_vsdb_slot != CONCURRENT_SLOT_NONE)
             && (wnet_vif->wnet_vif_id != wnet_vif->vm_wmac->wm_vsdb_slot))
             || (wnet_vif->vm_wmac->wm_vsdb_flags & CONCURRENT_CHANNEL_SWITCH)) {
-            DPRINTF(AML_DEBUG_WARNING, "backup due to vid:%d, slot:%d, flag:%04x\n",
+            AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_WARN, "backup due to vid:%d, slot:%d, flag:%04x\n",
                 wnet_vif->wnet_vif_id, wnet_vif->vm_wmac->wm_vsdb_slot, wnet_vif->vm_wmac->wm_vsdb_flags);
             drv_priv->net_ops->wifi_mac_buffer_txq_enqueue(&wnet_vif->vm_tx_buffer_queue, skbbuf);
             return 0;
@@ -943,14 +943,14 @@ int drv_tx_start( struct drv_private *drv_priv, struct sk_buff *skbbuf)
             {
                 if (wnet_vif->vm_state != WIFINET_S_CONNECTED)
                 {
-                    DPRINTF(AML_DEBUG_CONNECT, "%s %d state=%s, disconnecting, drop\n",
-                            __func__,__LINE__, wifi_mac_state_name[wnet_vif->vm_state]);
+                    AML_PRINT(AML_LOG_ID_CONNECT, AML_LOG_LEVEL_DEBUG, "state=%s, disconnecting, drop\n",
+                            wifi_mac_state_name[wnet_vif->vm_state]);
                     error = -5;
                     break;
                 }
 
-                DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d iv_pstxqueue_flags=0x%x fc[0]=0x%x\n",
-                        __func__,__LINE__, wnet_vif->vm_pstxqueue_flags & WIFINET_PSQUEUE_MASK, wh->i_fc[0]);
+                AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG,"iv_pstxqueue_flags=0x%x fc[0]=0x%x\n",
+                        wnet_vif->vm_pstxqueue_flags & WIFINET_PSQUEUE_MASK, wh->i_fc[0]);
 
                 drv_priv->net_ops->wifi_mac_buffer_txq_enqueue(&wnet_vif->vm_tx_buffer_queue, skbbuf);
                 error = 0;
@@ -960,7 +960,7 @@ int drv_tx_start( struct drv_private *drv_priv, struct sk_buff *skbbuf)
             //for ap/go, if peer sta is in powersave, backup
             if (sta->sta_flags & WIFINET_NODE_PWR_MGT)
             {
-                //AML_OUTPUT("ap buffer queue\n");
+                //AML_PRINT_LOG_INFO("ap buffer queue\n");
                 drv_priv->net_ops->wifi_mac_pwrsave_psqueue_enqueue(sta, skbbuf);
                 error = 0;
                 break;
@@ -1015,7 +1015,7 @@ int drv_tx_start( struct drv_private *drv_priv, struct sk_buff *skbbuf)
 
         drv_priv->net_ops->wifi_mac_tx_complete(wnet_vif, skbbuf, &ts);
 
-        ERROR_DEBUG_OUT("drop skb in drv_send due to err:%d\n", error);
+        AML_PRINT_LOG_ERR("drop skb in drv_send due to err:%d\n", error);
     }
 
     return error;
@@ -1121,7 +1121,7 @@ int drv_send(struct sk_buff *skbbuf, struct drv_private *drv_priv)
     DRV_TXQ_LOCK(txlist);
     //get a fitable rate according tx_info
     if (!drv_tx_prepare(drv_priv, skbbuf, ptxdesc)) {
-        ERROR_DEBUG_OUT("drv_tx_prepare not ok\n");
+        AML_PRINT_LOG_ERR("drv_tx_prepare not ok\n");
         goto bad;
     }
 
@@ -1137,14 +1137,14 @@ int drv_send(struct sk_buff *skbbuf, struct drv_private *drv_priv)
     if (txinfo->b_uapsd && (wh->i_fc[0] & (FRAME_TYPE_MASK | FRAME_SUBTYPE_MASK)) == MAC_FCTRL_QOS_DATA) {
         drv_tx_queue_uapsd_nsta(drv_priv, &txdesc_list_head, drv_sta);
         DRV_TXQ_UNLOCK(txlist);
-        AML_OUTPUT("uapsd\n");
+        AML_PRINT_LOG_INFO("uapsd\n");
         return 0;
     }
 
     /*send qos data frames : not frag and set agg flag*/
     if (txinfo->b_Ampdu) {
         if (drv_tx_send_ampdu(drv_priv, txlist, tid, &txdesc_list_head)) {
-            ERROR_DEBUG_OUT("<running> drv_tx_send_ampdu fail\n");
+            AML_PRINT_LOG_ERR("<running> drv_tx_send_ampdu fail\n");
             goto bad;
         }
 
@@ -1156,7 +1156,7 @@ int drv_send(struct sk_buff *skbbuf, struct drv_private *drv_priv)
             //mcast backup also use txlist_backup_qcnt
             if (txinfo->ps) {
                 drv_tx_mcastq_addbuf(drv_priv, &txdesc_list_head);
-                AML_OUTPUT("mcastq\n");
+                AML_PRINT_LOG_INFO("mcastq\n");
                 return 0;
             }
 #endif
@@ -1166,7 +1166,7 @@ int drv_send(struct sk_buff *skbbuf, struct drv_private *drv_priv)
         DRV_TXQ_LOCK(txlist);
 
         if (ret != 0) {
-            ERROR_DEBUG_OUT("<running> fail\n");
+            AML_PRINT_LOG_ERR("<running> fail\n");
             goto bad;
         }
     }
@@ -1177,7 +1177,7 @@ int drv_send(struct sk_buff *skbbuf, struct drv_private *drv_priv)
 // recycle tx_ds resource
 bad:
     DRV_TXQ_UNLOCK(txlist);
-    DPRINTF(AML_DEBUG_INFO,"<running> %s ret:%d\n",__func__, ret);
+    AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_DEBUG,"<running> ret:%d\n", ret);
     return -ENOMEM;
 }
 
@@ -1196,7 +1196,7 @@ void drv_tx_complete(struct drv_private *drv_priv, struct drv_txdesc *ptxdesc, i
     ts.ts_flags = 0;
 
     if (skbbuf == NULL) {
-        ERROR_DEBUG_OUT("(skbbuf== NULL) ERROR!!!!!!!\n");
+        AML_PRINT_LOG_ERR("(skbbuf== NULL) ERROR!!!!!!!\n");
         return;
     }
 
@@ -1223,7 +1223,7 @@ void drv_tx_complete(struct drv_private *drv_priv, struct drv_txdesc *ptxdesc, i
     }
 
     {
-        struct wifi_frame *wh = (struct wifi_frame *)os_skb_data(skbbuf);
+        struct wifi_frame *wh = (struct wifi_frame *)ptxdesc->txdesc_ddraddr;
         struct wifi_skb_callback *cb = (struct wifi_skb_callback *)skbbuf->cb;
         struct wifi_mac_tx_info *txinfo = ptxdesc->txinfo;
         unsigned short queue_id = txinfo->queue_id;
@@ -1237,8 +1237,8 @@ void drv_tx_complete(struct drv_private *drv_priv, struct drv_txdesc *ptxdesc, i
 
             if (M_NULL_PWR_SAV_GET(skbbuf))
             {
-                DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d null with ps=%d ok=%d\n",
-                        __func__,__LINE__, !!(wh->i_fc[1] & WIFINET_FC1_PWR_MGT), !ts.ts_flags);
+                AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "null with ps=%d ok=%d\n",
+                        !!(wh->i_fc[1] & WIFINET_FC1_PWR_MGT), !ts.ts_flags);
                 if (wh->i_fc[1] & WIFINET_FC1_PWR_MGT)
                 {
                     //if send nulldata with ps=1 successfully, enter sleep
@@ -1264,7 +1264,7 @@ void drv_tx_complete(struct drv_private *drv_priv, struct drv_txdesc *ptxdesc, i
                 if (wnet_vif->vm_legacyps_txframes > 0)
                     wnet_vif->vm_legacyps_txframes--;
                 WIFINET_PWRSAVE_UNLOCK(wnet_vif);
-                DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d legacyps_txframes=%d\n", __func__,__LINE__, wnet_vif->vm_legacyps_txframes);
+                AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "legacyps_txframes=%d\n", wnet_vif->vm_legacyps_txframes);
             }
 
             if ((queue_id == HAL_WME_MCAST) || (queue_id == HAL_WME_UAPSD) || M_PWR_SAV_GET(skbbuf))
@@ -1316,7 +1316,7 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
         || (ptxdesc->txdesc_frame_flag == TX_P2P_GO_NEGO_CONF)
         || (ptxdesc->txdesc_frame_flag == TX_P2P_PRESENCE_REQ)) {
 
-        AML_OUTPUT("txdesc_frame_flag=%d, status=%d\n", ptxdesc->txdesc_frame_flag, status);
+        AML_PRINT_LOG_INFO("txdesc_frame_flag=%d, status=%d\n", ptxdesc->txdesc_frame_flag, status);
         if (txok) {
             sta->sta_wnet_vif->vm_p2p->tx_status_flag = WIFINET_TX_STATUS_SUCC;
             sta->sta_wnet_vif->vm_p2p->send_tx_status_flag = 1;
@@ -1337,7 +1337,7 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
 
 #ifdef CTS_VERIFIER_GAS
     if (ptxdesc->txdesc_frame_flag == TX_P2P_GAS) {
-        AML_OUTPUT("txdesc_frame_flag=%d, status=%d\n", ptxdesc->txdesc_frame_flag, status);
+        AML_PRINT_LOG_INFO("txdesc_frame_flag=%d, status=%d\n", ptxdesc->txdesc_frame_flag, status);
 
         if ((sta->sta_wnet_vif->vm_p2p->action_code == WIFINET_ACT_PUBLIC_GAS_REQ && sta->sta_wnet_vif->vm_p2p->p2p_flag & P2P_GAS_RSP) ||
             (sta->sta_wnet_vif->vm_p2p->action_code == WIFINET_ACT_PUBLIC_GAS_RSP && txok) || txok) {
@@ -1357,7 +1357,7 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
 #endif
     if ((ptxdesc->txdesc_frame_flag >= TX_MGMT_PROBE_REQ) && !txok) {
         drv_priv->drv_ops.cca_busy_check();
-        AML_OUTPUT("txdesc_frame_flag:%d, status=%d, rate:%02x\n",
+        AML_PRINT_LOG_INFO("txdesc_frame_flag:%d, status=%d, rate:%02x\n",
             ptxdesc->txdesc_frame_flag, status, ptxdesc->txdesc_rateinfo[0].vendor_rate_code);
 
     } else if (ptxdesc->txdesc_frame_flag == TX_MGMT_ADDBA_RSP) {
@@ -1426,7 +1426,7 @@ static void drv_tx_complete_task(struct drv_private *drv_priv, struct drv_txlist
 
     ts.ts_ackrssi = AckRssi - 256;
 
-    AML_PRINT(AML_DBG_MODULES_TX,"vid:%d, queue_id:%d, mcast:%d, fc:0x%x, status:%d, ts.ts_longretry:%d, ts.ts_shortretry:%d, rate:%02x:%02x:%02x, bw:%d, seqnum:%d:%04x, rssi:%d, snr:%d\n",
+    AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG,"vid:%d, queue_id:%d, mcast:%d, fc:0x%x, status:%d, ts.ts_longretry:%d, ts.ts_shortretry:%d, rate:%02x:%02x:%02x, bw:%d, seqnum:%d:%04x, rssi:%d, snr:%d\n",
               ptxdesc->txinfo->wnet_vif_id,
               ptxdesc->txinfo->queue_id,
               ptxdesc->txinfo->b_mcast,
@@ -1544,17 +1544,17 @@ static void drv_tx_complete_task(struct drv_private *drv_priv, struct drv_txlist
 
                 if (ptxdesc->txinfo->b_Ampdu) {
                     if (ptxdesc->txdesc_queue_last != ptxdesc) {
-                        AML_PRINT(AML_DBG_MODULES_RATE_CTR, "first status:%d, ts.ts_longretry:%d, ts.ts_shortretry:%d, rate:%02x:%02x:%02x, bw:%d, seqnum:%04x, vid:%d, rssi:%d, snr:%d\n", status,
+                        AML_PRINT(AML_LOH_ID_RATE_CTR,AML_LOG_LEVEL_DEBUG, "first status:%d, ts.ts_longretry:%d, ts.ts_shortretry:%d, rate:%02x:%02x:%02x, bw:%d, seqnum:%04x, vid:%d, rssi:%d, snr:%d\n", status,
                             ts.ts_longretry, ts.ts_shortretry, ptxdesc->txdesc_rateinfo[0].vendor_rate_code, ptxdesc->txdesc_rateinfo[1].vendor_rate_code,
                             ptxdesc->txdesc_rateinfo[2].vendor_rate_code, ptxdesc->txdesc_rateinfo[0].bw, ptxdesc->txinfo->seqnum, ptxdesc->txinfo->wnet_vif_id, sta->sta_avg_bcn_rssi, sta->sta_avg_snr);
 
                     } else {
-                        AML_PRINT(AML_DBG_MODULES_RATE_CTR, "status:%d, ts.ts_longretry:%d, ts.ts_shortretry:%d, rate:%02x:%02x:%02x, bw:%d, seqnum:%04x, vid:%d, rssi:%d, snr:%d\n", status,
+                        AML_PRINT(AML_LOH_ID_RATE_CTR,AML_LOG_LEVEL_DEBUG, "status:%d, ts.ts_longretry:%d, ts.ts_shortretry:%d, rate:%02x:%02x:%02x, bw:%d, seqnum:%04x, vid:%d, rssi:%d, snr:%d\n", status,
                             ts.ts_longretry, ts.ts_shortretry, ptxdesc->txdesc_rateinfo[0].vendor_rate_code, ptxdesc->txdesc_rateinfo[1].vendor_rate_code,
                             ptxdesc->txdesc_rateinfo[2].vendor_rate_code, ptxdesc->txdesc_rateinfo[0].bw, ptxdesc->txinfo->seqnum, ptxdesc->txinfo->wnet_vif_id, sta->sta_avg_bcn_rssi, sta->sta_avg_snr);
                     }
                 } else {
-                    AML_PRINT(AML_DBG_MODULES_RATE_CTR, "status:%d, ts.ts_longretry:%d, ts.ts_shortretry:%d, rate:%02x:%02x:%02x, bw:%d, seqnum:%04x, vid:%d, rssi:%d, snr:%d\n", status,
+                    AML_PRINT(AML_LOH_ID_RATE_CTR,AML_LOG_LEVEL_DEBUG, "status:%d, ts.ts_longretry:%d, ts.ts_shortretry:%d, rate:%02x:%02x:%02x, bw:%d, seqnum:%04x, vid:%d, rssi:%d, snr:%d\n", status,
                         ts.ts_longretry, ts.ts_shortretry, ptxdesc->txdesc_rateinfo[0].vendor_rate_code, ptxdesc->txdesc_rateinfo[1].vendor_rate_code,
                         ptxdesc->txdesc_rateinfo[2].vendor_rate_code, ptxdesc->txdesc_rateinfo[0].bw, ptxdesc->txinfo->seqnum, ptxdesc->txinfo->wnet_vif_id, sta->sta_avg_bcn_rssi, sta->sta_avg_snr);
                 }
@@ -1577,8 +1577,8 @@ static void drv_tx_complete_task(struct drv_private *drv_priv, struct drv_txlist
                     tid->addba_exchangeattempts = 0;
                     tid->addba_exchangestatuscode = WIFINET_STATUS_UNSPECIFIED;
                     tid->cleanup_inprogress = 0;
-                    DPRINTF(AML_DEBUG_ADDBA, "%s head:%d, tail:%d, seq_start:%04x, seq_next:%04x, paused:%d\n",
-                        __func__, tid->baw_head, tid->baw_tail, tid->seq_start, tid->seq_next, tid->paused);
+                    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG, "head:%d, tail:%d, seq_start:%04x, seq_next:%04x, paused:%d\n",
+                        tid->baw_head, tid->baw_tail, tid->seq_start, tid->seq_next, tid->paused);
                 }
             }
             DRV_TXQ_UNLOCK(txlist);
@@ -1599,7 +1599,7 @@ static void drv_tx_complete_task(struct drv_private *drv_priv, struct drv_txlist
             if (status == TX_DESCRIPTOR_STATUS_P2P_NOA_WITHDRAW)
             {
                 //if withdraw by fw, such as p2p noa, backup to uapsd_withdraw_queue
-                DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d uapsd withdraw\n",__func__,__LINE__);
+                AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "uapsd withdraw\n");
                 drv_tx_withdraw_uapsd_addbuf(drv_priv, txdesc_list_head, drv_sta);
                 break;
             }
@@ -1614,7 +1614,7 @@ static void drv_tx_complete_task(struct drv_private *drv_priv, struct drv_txlist
             if (status == TX_DESCRIPTOR_STATUS_P2P_NOA_WITHDRAW)
             {
                 //if withdraw by fw, such as p2p noa, backup to uapsd_withdraw_queue
-                DPRINTF(AML_DEBUG_PWR_SAVE, "%s %d legacy ps withdraw\n",__func__,__LINE__);
+                AML_PRINT(AML_LOG_ID_PWR_SAVE,AML_LOG_LEVEL_DEBUG, "legacy ps withdraw\n");
                 drv_tx_withdraw_legacyps_addbuf(drv_priv, txdesc_list_head, drv_sta);
                 break;
             }
@@ -1624,7 +1624,7 @@ static void drv_tx_complete_task(struct drv_private *drv_priv, struct drv_txlist
         }
 
         if (ptxdesc->txinfo->b_datapkt && mac_pkt_info->b_tcp) {
-            AML_PRINT(AML_DBG_MODULES_TX, "seqnum:%d(0x%04x), scr_port:%u, dst_port:%u; seq_num:%u; ack_num:%u, txok:%d, rate:%02x\n", ptxdesc->txinfo->seqnum,
+            AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG, "seqnum:%d(0x%04x), scr_port:%u, dst_port:%u; seq_num:%u; ack_num:%u, txok:%d, rate:%02x\n", ptxdesc->txinfo->seqnum,
                 ptxdesc->txinfo->seqnum, __constant_htons(mac_pkt_info->tcp_src_port), __constant_htons(mac_pkt_info->tcp_dst_port),
                 __constant_htonl(mac_pkt_info->tcp_seqnum), __constant_htonl(mac_pkt_info->tcp_ack_seqnum), txok, ptxdesc->txdesc_rateinfo[0].vendor_rate_code);
 
@@ -1653,7 +1653,7 @@ static void drv_tx_complete_task(struct drv_private *drv_priv, struct drv_txlist
         }
         else
         {
-            DPRINTF(AML_DEBUG_XMIT, "%s %d normal_backup qcnt=%d\n", __func__, __LINE__, drv_txq_backup_qcnt(txlist));
+            AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG, "normal_backup qcnt=%d\n", drv_txq_backup_qcnt(txlist));
             drv_txq_backup_send(drv_priv, txlist);
         }
     }
@@ -1674,7 +1674,7 @@ void drv_tx_irq_tasklet(void *drv_priv_s, struct txdonestatus *tx_done_status,
 #endif
 
     if (ptxdesc == NULL) {
-        //AML_OUTPUT("callback txds is null\n");
+        //AML_PRINT_LOG_INFO("callback txds is null\n");
         return;
     }
 
@@ -1684,7 +1684,7 @@ void drv_tx_irq_tasklet(void *drv_priv_s, struct txdonestatus *tx_done_status,
 
         DRV_TXQ_LOCK(txlist);
         if (ptxdesc->txdesc_sta == NULL) {
-            AML_OUTPUT("pkt has already freed\n");
+            AML_PRINT_LOG_INFO("pkt has already freed\n");
             DRV_TXQ_UNLOCK(txlist);
             return;
         }
@@ -1793,7 +1793,7 @@ static void drv_txlist_free_all_by_drv_sta(struct drv_private *drv_priv, struct 
             txlist->txlist_qcnt--;
             ptxdesc->txdesc_sta = NULL;
 
-            AML_OUTPUT("free qid:%d, drv_sta:%p\n", ptxdesc->txinfo->queue_id, drv_sta);
+            AML_PRINT_LOG_INFO("free qid:%d, drv_sta:%p\n", ptxdesc->txinfo->queue_id, drv_sta);
             DRV_TXQ_UNLOCK(txlist);
             drv_tx_complete(drv_priv, ptxdesc, 0);
             DRV_TXQ_LOCK(txlist);
@@ -1843,7 +1843,7 @@ void drv_set_pkt_drop(struct drv_private *drv_priv, unsigned char vid, unsigned 
 
 void drv_set_is_mother_channel(struct drv_private *drv_priv, unsigned char vid, unsigned char enable)
 {
-    //AML_OUTPUT("vid:%d mother channel is:%d\n", vid, enable);
+    //AML_PRINT_LOG_INFO("vid:%d mother channel is:%d\n", vid, enable);
     drv_priv->is_mother_channel[vid] = enable;
 }
 
@@ -1857,7 +1857,7 @@ void drv_free_normal_buffer_queue(struct drv_private *drv_priv, unsigned char vi
         ptxdesc = list_first_entry(&drv_priv->drv_normal_buffer_queue[vid], struct drv_txdesc, txdesc_queue);
         list_del_init(&ptxdesc->txdesc_queue);
         drv_tx_complete(drv_priv, ptxdesc, 0);
-        //AML_OUTPUT("\n");
+        //AML_PRINT_LOG_INFO("\n");
     }
 
     drv_priv->drv_normal_buffer_count[vid] = 0;
@@ -1958,7 +1958,7 @@ int drv_txlist_isfull(struct drv_private *drv_priv, int queue_id, struct sk_buff
     if ((sta->sta_flags & WIFINET_NODE_UAPSD) &&
         drv_tx_uapsd_nsta_qcnt(sta->drv_sta) >= WME_UAPSD_NODE_MAXQDEPTH)
     {
-        ERROR_DEBUG_OUT("<running> \n");
+        AML_PRINT_LOG_ERR("<running> \n");
         return -1;
     }
 
@@ -2015,14 +2015,14 @@ int drv_aggr_check( struct drv_private *drv_priv, void * nsta, unsigned char tid
     tid = DRV_GET_TIDTXINFO(drv_sta, tid_index);
 
     if (tid->cleanup_inprogress) {
-        AML_OUTPUT("<running>\n");
+        AML_PRINT_LOG_INFO("<running>\n");
         return 0;
     }
 
     if (!tid->addba_exchangecomplete) {
         if (!tid->addba_exchangeinprogress && (tid->addba_exchangeattempts < ADDBA_EXCHANGE_ATTEMPTS)) {
             tid->addba_exchangeattempts++;
-            DPRINTF(AML_DEBUG_ADDBA,"<running> %s %d \n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"<running> \n");
             return 1;
         }
     }
@@ -2093,7 +2093,7 @@ drv_addba_timer_ex(unsigned long param1,unsigned long param2,
     struct drv_tx_scoreboard *tid = (struct drv_tx_scoreboard *)param1;
     struct drv_private *drv_priv = (struct drv_private *)param2;
 
-    DPRINTF(AML_DEBUG_ADDBA,"<running> %s %d  \n",__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"<running> \n");
 
     driv_ps_wakeup(drv_priv);
     if (cmpxchg(&tid->addba_exchangeinprogress, 1, 0) == 1)
@@ -2133,7 +2133,7 @@ void drv_addba_req_setup(struct drv_private *drv_priv, void * nsta, unsigned cha
     baparamset->tid = tid_index;
     baparamset->buffersize = buffersize;
     *batimeout = 0;
-    basequencectrl->fragment = 0;
+    basequencectrl->fragnum = 0;
     basequencectrl->startseqnum = tid->seq_next;
     tid->seq_start = tid->seq_next;
 
@@ -2141,12 +2141,12 @@ void drv_addba_req_setup(struct drv_private *drv_priv, void * nsta, unsigned cha
     /* Start ADDBA request timer */
     if (cmpxchg(&tid->addba_exchangeinprogress, 0, 1) == 0) {
         if (!os_timer_ex_active(&tid->addba_requesttimer)) {
-            DPRINTF(AML_DEBUG_ADDBA,"<running> %s %d \n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"<running> \n");
             os_timer_ex_start(&tid->addba_requesttimer);
         }
     }
-    DPRINTF(AML_DEBUG_ADDBA,"%s %d addba_exchangecomplete=%d ,addba_exchangeinprogress=%d\n",
-            __func__,__LINE__,tid->addba_exchangecomplete , tid->addba_exchangeinprogress);
+    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"addba_exchangecomplete=%d ,addba_exchangeinprogress=%d\n",
+            tid->addba_exchangecomplete , tid->addba_exchangeinprogress);
     drv_txlist_pause_for_sta_tid(drv_priv, tid);
 }
 
@@ -2166,8 +2166,8 @@ drv_addba_rsp_process(
 
     if (baparamset->tid>= WME_NUM_TID)
     {
-        DPRINTF(AML_DEBUG_ADDBA|AML_DEBUG_ERROR,"<running> %s %d TID too big %d \n",
-                __func__,__LINE__,baparamset->tid);
+        AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_ERROR,"<running> TID too big %d \n",
+                baparamset->tid);
         return;
     }
 
@@ -2184,8 +2184,8 @@ drv_addba_rsp_process(
 
     if (statuscode == WIFINET_STATUS_SUCCESS)
     {
-        DPRINTF(AML_DEBUG_ADDBA,"%s amsdusupported %d start:%04x, next:%04x\n",
-            __func__, baparamset->amsdusupported, tid->seq_start, tid->seq_next);
+        AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"amsdusupported %d start:%04x, next:%04x\n",
+            baparamset->amsdusupported, tid->seq_start, tid->seq_next);
 
         tid->addba_exchangecomplete = 1;
         tid->baw_size = baparamset->buffersize;//MIN(baparamset->buffersize, tid->baw_size);
@@ -2208,7 +2208,7 @@ drv_addba_rsp_process(
     }
     else
     {
-        DPRINTF(AML_DEBUG_ADDBA,"<running> %s %d fail \n",__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"<running> fail \n");
 
         if (resume)
         {
@@ -2276,9 +2276,9 @@ static void drv_tx_add2baw(struct drv_private *drv_priv, struct drv_tx_scoreboar
     desc_id = (tid->baw_head + index) & (DRV_TID_MAX_BUFS - 1);
 
     if (tid->tx_desc[desc_id] != NULL) {
-        AML_OUTPUT("desc_id:%d, sta:%p\n", desc_id, tid->drv_sta->net_nsta);
-        AML_OUTPUT("new seqnum=%d new tid_index=%d\n",  ptxdesc->txinfo->seqnum,  ptxdesc->txinfo->tid_index);
-        AML_OUTPUT("tid->seq_start=%d\n", tid->seq_start);
+        AML_PRINT_LOG_INFO("desc_id:%d, sta:%p\n", desc_id, tid->drv_sta->net_nsta);
+        AML_PRINT_LOG_INFO("new seqnum=%d new tid_index=%d\n",  ptxdesc->txinfo->seqnum,  ptxdesc->txinfo->tid_index);
+        AML_PRINT_LOG_INFO("tid->seq_start=%d\n", tid->seq_start);
     }
 
     tid->tx_desc[desc_id] = ptxdesc;
@@ -2325,7 +2325,7 @@ drv_txlist_pause_for_sta_tid(struct drv_private *drv_priv, struct drv_tx_scorebo
 {
     struct drv_txlist *txlist = &drv_priv->drv_txlist_table[tid->ac->queue_id];
 
-    DPRINTF(AML_DEBUG_XMIT,"<running> %s %d    tid->paused++ \n",__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG,"<running> tid->paused++ \n");
 
     DRV_TXQ_LOCK(txlist);
     tid->paused++;
@@ -2341,10 +2341,10 @@ drv_txlist_resume_for_sta_tid(struct drv_private *drv_priv, struct drv_tx_scoreb
     DRV_TXQ_LOCK(txlist);
 
     ASSERT(tid->paused > 0);
-    DPRINTF(AML_DEBUG_XMIT,"<running> %s %d tid->paused--\n",__func__,__LINE__);
+    AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG,"<running> tid->paused--\n");
     tid->paused--;
 
-    DPRINTF(AML_DEBUG_ADDBA, "%s tid->paused:%d\n",__func__, tid->paused);
+    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG, "tid->paused:%d\n", tid->paused);
     if (tid->paused > 0)
     {
         DRV_TXQ_UNLOCK(txlist);
@@ -2381,7 +2381,7 @@ static void drv_txlist_flush_for_sta_tid(struct drv_private *drv_priv, struct dr
     DRV_TXQ_LOCK(txlist);
     ASSERT(tid->paused > 0);
     tid->paused--;
-    DPRINTF(AML_DEBUG_ADDBA, "%s queue_id:%d, pending:%d, paused:%d\n", __func__, tid->ac->queue_id, txlist->txds_pending_cnt, tid->paused);
+    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG,"queue_id:%d, pending:%d, paused:%d\n", tid->ac->queue_id, txlist->txds_pending_cnt, tid->paused);
 
     if (tid->paused > 0)
     {
@@ -2401,7 +2401,7 @@ static void drv_txlist_flush_for_sta_tid(struct drv_private *drv_priv, struct dr
         DRV_TXQ_UNLOCK(txlist);
         if ((wnet_vif != NULL) && (wnet_vif->vm_state == WIFINET_S_CONNECTED)) {
             ptxdesc->txinfo->b_Ampdu = 0;
-            DPRINTF(AML_DEBUG_XMIT,"<running> %s %d \n",__func__,__LINE__);
+            AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG,"<running> \n");
 
             if (drv_tx_normal(drv_priv, txlist, &txdesc_list_head, wnet_vif->wnet_vif_id))
             {
@@ -2413,7 +2413,7 @@ static void drv_txlist_flush_for_sta_tid(struct drv_private *drv_priv, struct dr
             drv_tx_complete(drv_priv, ptxdesc, 0);
         }
 
-        DPRINTF(AML_DEBUG_XMIT,"<running> %s %d \n",__func__,__LINE__);
+        AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG,"<running> \n");
         DRV_TXQ_LOCK(txlist);
     }
 
@@ -2465,8 +2465,8 @@ drv_txampdu_del(struct drv_private *drv_priv,
     DRV_TXQ_UNLOCK(txlist);
     drv_txlist_flush_for_sta_tid(drv_priv, tid);
 
-    DPRINTF(AML_DEBUG_ADDBA, "%s baw_head:%d, baw_tail:%d, seq start:%04x, next:%04x, paused:%d, cleanup_inprogress:%d\n",
-        __func__, tid->baw_head, tid->baw_tail, tid->seq_start, tid->seq_next, tid->paused, tid->cleanup_inprogress);
+    AML_PRINT(AML_LOG_ID_ADDBA, AML_LOG_LEVEL_DEBUG, "baw_head:%d, baw_tail:%d, seq start:%04x, next:%04x, paused:%d, cleanup_inprogress:%d\n",
+        tid->baw_head, tid->baw_tail, tid->seq_start, tid->seq_next, tid->paused, tid->cleanup_inprogress);
 }
 
 
@@ -2518,14 +2518,14 @@ drv_tx_normal(struct drv_private *drv_priv, struct drv_txlist *txlist, struct li
 
     if (list_empty(txdesc_list_head))
     {
-        ERROR_DEBUG_OUT("----------list empty -------------\n");
+        AML_PRINT_LOG_ERR("----------list empty -------------\n");
         return -1;
     }
     ptxdesc = list_first_entry(txdesc_list_head, struct drv_txdesc, txdesc_queue);
     wh = (struct wifi_frame *)os_skb_data(ptxdesc->txdesc_mpdu);
 
     if (!drv_priv->is_mother_channel[vid] && !WIFINET_IS_PROBEREQ(wh)) {
-        AML_OUTPUT("vid:%d not mother channel, buffer\n", vid);
+        AML_PRINT_LOG_INFO("vid:%d not mother channel, buffer\n", vid);
 
         DRV_TX_NORMAL_BUF_LOCK(drv_priv);
         list_add_tail(&ptxdesc->txdesc_queue, &drv_priv->drv_normal_buffer_queue[vid]);
@@ -2537,19 +2537,18 @@ drv_tx_normal(struct drv_private *drv_priv, struct drv_txlist *txlist, struct li
 
     if (aml_tx_hal_buffer_full(drv_priv,txlist->txlist_qnum,1,(ptxdesc->txdesc_pktnum )) != 0)
     {
-        DPRINTF(AML_DEBUG_XMIT, "%s %d hal_buffer full\n", __func__, __LINE__);
+        AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG, "hal_buffer full\n");
         drv_txq_backup_addbuf(drv_priv, txdesc_list_head, txlist);
 
     } else {
         if (drv_txq_backup_qcnt(txlist) > 0)
         {
-            DPRINTF(AML_DEBUG_XMIT, "%s %d hal_buffer not full, normal_backup qcnt=%d\n",
-                __func__, __LINE__, drv_txq_backup_qcnt(txlist));
+            AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG, "hal_buffer not full, normal_backup qcnt=%d\n", drv_txq_backup_qcnt(txlist));
             drv_txq_backup_addbuf(drv_priv, txdesc_list_head, txlist);
             drv_txq_backup_send(drv_priv, txlist);
 
         } else {
-            DPRINTF(AML_DEBUG_XMIT,"%s vif_id(%d), seq:%d, rate_index:%d, bw:%d \n", __func__,
+            AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG,"vif_id(%d), seq:%d, rate_index:%d, bw:%d \n",
                     ptxdesc->txinfo->wnet_vif_id, ptxdesc->txinfo->seqnum,
                     ptxdesc->txdesc_rateinfo[0].rate_index, ptxdesc->txdesc_rateinfo[0].bw);
 
@@ -2575,7 +2574,7 @@ static int drv_tx_send_ampdu(struct drv_private *drv_priv, struct drv_txlist *tx
 
     if (list_empty(txdesc_list_head))
     {
-        ERROR_DEBUG_OUT("no data to send\n");
+        AML_PRINT_LOG_ERR("no data to send\n");
         return 0;
     }
 
@@ -2593,8 +2592,7 @@ static int drv_tx_send_ampdu(struct drv_private *drv_priv, struct drv_txlist *tx
     ASSERT(txlist->txlist_qnum == ptxdesc->txinfo->queue_id);
 
     drv_tx_queue_tid(txlist, tid);
-    AML_PRINT(AML_DBG_MODULES_TX, "%s, vif_id(%d), mpdu pending cnt:%d, seq:%d, len:%d, qid:%d, tid:%d, sn:0x%04x, timeout:%d rate_idx(%d), rate:0x%02x, bw=%d, \n",
-              __func__,
+    AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG, "vif_id(%d), mpdu pending cnt:%d, seq:%d, len:%d, qid:%d, tid:%d, sn:0x%04x, timeout:%d rate_idx(%d), rate:0x%02x, bw=%d, \n",
               ptxdesc->txinfo->wnet_vif_id,
               txlist->txds_pending_cnt, ptxdesc->txinfo->seqnum,
               ptxdesc->txdesc_agglen, ptxdesc->txinfo->queue_id,
@@ -2634,24 +2632,24 @@ unsigned int drv_lookup_rate(struct drv_private *drv_priv, struct aml_driver_nst
     struct wlan_net_vif *wnet_vif = NULL;
 
     if (!sta) {
-        DPRINTF(AML_DEBUG_WARNING, "%s sta is NULL\n", __func__);
+        AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_WARN, "sta is NULL\n");
         return 0;
     }
     wnet_vif = sta->sta_wnet_vif;
 
     if (wnet_vif != NULL) {
         if (wnet_vif->vm_state != WIFINET_S_CONNECTED) {
-            DPRINTF(AML_DEBUG_WARNING, "%s state:%d\n", __func__, wnet_vif->vm_state);
+            AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_WARN, " state:%d\n", wnet_vif->vm_state);
             return 0;
         }
 
     } else {
-        ERROR_DEBUG_OUT("wnet_vif is NULL\n");
+        AML_PRINT_LOG_ERR("wnet_vif is NULL\n");
         return 0;
     }
     DRV_MINSTREL_LOCK(drv_priv);
     if (!drv_priv->ratctrl_ops->rate_findrate(txdesc_rateinfo, sta, is_amsdu)) {
-        ERROR_DEBUG_OUT("get rate error, drop\n");
+        AML_PRINT_LOG_ERR("get rate error, drop\n");
         DRV_MINSTREL_UNLOCK(drv_priv);
         return 0;
     }
@@ -2665,25 +2663,25 @@ unsigned int drv_lookup_rate(struct drv_private *drv_priv, struct aml_driver_nst
             //frame_length = txdesc_rateinfo[i].maxampdulen;
             frame_length = max_send_packet_len(txdesc_rateinfo[i].vendor_rate_code, 0,  0, 1);
             maxampdulen = MIN(maxampdulen, frame_length);
-            DPRINTF(AML_DEBUG_XMIT,"function %s , line %d,rate =%02x, frame_length=%d, maxampdulen %d\n",\
-             __func__, __LINE__,  txdesc_rateinfo[i].vendor_rate_code, frame_length,maxampdulen );
+            AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG,"rate =%02x, frame_length=%d, maxampdulen %d\n",\
+                                                txdesc_rateinfo[i].vendor_rate_code, frame_length,maxampdulen );
         }
     }
 
     aggr_limit = MIN(maxampdulen, drv_priv->drv_config.cfg_ampdu_limit);
-    DPRINTF(AML_DEBUG_XMIT,"function %s, line %d, cfg_ampdu_limit=%d, maxampdulen =%d, aggr_limit=%d \n",
-                    __func__, __LINE__, drv_priv->drv_config.cfg_ampdu_limit, maxampdulen, aggr_limit);
+    AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG," cfg_ampdu_limit=%d, maxampdulen =%d, aggr_limit=%d \n",
+                                                drv_priv->drv_config.cfg_ampdu_limit, maxampdulen, aggr_limit);
 
     maxampdu = drv_sta->tx_agg_st.maxampdu;
     if (maxampdu)
         aggr_limit = MIN(aggr_limit, maxampdu);
 
-    DPRINTF(AML_DEBUG_XMIT, "%s vif_id(%d), rate_index(%d), bw(%d), vendor_rate_code=%x, trynum:%d:%d:%d\n",
-            __func__, wnet_vif->wnet_vif_id,
-            txdesc_rateinfo[0].rate_index,
-            txdesc_rateinfo[0].bw,
-            txdesc_rateinfo[0].vendor_rate_code,
-            txdesc_rateinfo[0].trynum, txdesc_rateinfo[1].trynum, txdesc_rateinfo[2].trynum);
+    AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG, "vif_id(%d), rate_index(%d), bw(%d), vendor_rate_code=%x, trynum:%d:%d:%d\n",
+                wnet_vif->wnet_vif_id,
+                txdesc_rateinfo[0].rate_index,
+                txdesc_rateinfo[0].bw,
+                txdesc_rateinfo[0].vendor_rate_code,
+                txdesc_rateinfo[0].trynum, txdesc_rateinfo[1].trynum, txdesc_rateinfo[2].trynum);
 
     return aggr_limit;
 }
@@ -2781,13 +2779,13 @@ drv_txampdu_build(struct drv_private *drv_priv, struct drv_tx_scoreboard *tid,
 
     drv_sta = (struct aml_driver_nsta *)bf_first->txdesc_sta;
     if (!drv_sta) {
-        AML_OUTPUT("%s, txdesc_sta is NULL", __func__);
+        AML_PRINT_LOG_INFO("txdesc_sta is NULL");
         return status;
     }
 
     sta = (struct wifi_station *)drv_sta->net_nsta;
     if (!sta) {
-        AML_OUTPUT("%s, sta is NULL", __func__);
+        AML_PRINT_LOG_INFO("sta is NULL");
         return status;
     }
 
@@ -2808,7 +2806,7 @@ drv_txampdu_build(struct drv_private *drv_priv, struct drv_tx_scoreboard *tid,
         aggr_limit = MIN(bf_first->txdesc_rateinfo[2].maxampdulen, aggr_limit);
     }
 
-    AML_PRINT(AML_DBG_MODULES_TX, "seq_start %d, cur_sn %d last_sn = %d, pending:%d, wait_mpdu_timeout:%d, aggr_limit:%d\n",
+    AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG, "seq_start %d, cur_sn %d last_sn = %d, pending:%d, wait_mpdu_timeout:%d, aggr_limit:%d\n",
         tid->seq_start, bf_first->txinfo->seqnum, tid->baw_sn_last, txlist->txds_pending_cnt, drv_priv->wait_mpdu_timeout, aggr_limit);
 
     do {
@@ -2819,7 +2817,7 @@ drv_txampdu_build(struct drv_private *drv_priv, struct drv_tx_scoreboard *tid,
             if (IS_MCS_RATE(ptxdesc->txdesc_rateinfo[0].vendor_rate_code)) {
                 memcpy(&sta->minstrel_sample_rate, &ptxdesc->txdesc_rateinfo, DRV_TXDESC_RATE_NUM * sizeof(struct aml_ratecontrol));
             } else {
-                AML_OUTPUT("vif_id(%d) skip backup sample rate as legacy rate(0x%x)",
+                AML_PRINT_LOG_INFO("vif_id(%d) skip backup sample rate as legacy rate(0x%x)",
                            ptxdesc->txinfo->wnet_vif_id, ptxdesc->txdesc_rateinfo[0].vendor_rate_code);
             }
         }
@@ -2936,7 +2934,7 @@ static void drv_tx_sched_aggr(struct drv_private *drv_priv, struct drv_txlist *t
     unsigned char hal_co_get_cnt;
 
     if (!drv_priv->is_mother_channel[tid->vid]) {
-        //AML_OUTPUT("not mother channel vid:%d\n", tid->vid);
+        //AML_PRINT_LOG_INFO("not mother channel vid:%d\n", tid->vid);
         return;
     }
 
@@ -2953,7 +2951,7 @@ static void drv_tx_sched_aggr(struct drv_private *drv_priv, struct drv_txlist *t
                 //compel to form ampdu when pending mpdu less than cfg_ampdu_subframes except hal pending too much data
                 hal_co_get_cnt = drv_priv->hal_priv->hal_ops.hal_get_priv_cnt(txlist->txlist_qnum);
                 if (HI_AGG_TXD_NUM_PER_QUEUE - hal_co_get_cnt >= drv_priv->drv_config.cfg_ampdu_subframes) {
-                    AML_PRINT(AML_DBG_MODULES_TX, "wait more mpdu to form ampdu due to hal_co_get_cnt:%d\n", hal_co_get_cnt);
+                    AML_PRINT(AML_LOG_ID_XMIT,AML_LOG_LEVEL_DEBUG, "wait more mpdu to form ampdu due to hal_co_get_cnt:%d\n", hal_co_get_cnt);
                     drv_priv->wait_mpdu_timeout = 0;//wait another tx_ok or pending enough mpdu
                     break;
                 }
@@ -3004,8 +3002,8 @@ static void drv_tx_sched_aggr(struct drv_private *drv_priv, struct drv_txlist *t
                 ptxdesc->txinfo->b_Ampdu = 0;
             }
 
-            DPRINTF(AML_DEBUG_INFO,"<running> %s %d tid->seq_start %x, ptxdesc->txinfo->seqnum %x \n",__func__,__LINE__,tid->seq_start, ptxdesc->txinfo->seqnum);
-            DPRINTF(AML_DEBUG_INFO,"<running> %s %d ptxdesc->txdesc_pktnum=1,tidq_qcnt %d, txlist_qcnt %d \n",__func__,__LINE__,txlist->txds_pending_cnt,txlist->txlist_qcnt);
+            AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG,"<running> tid->seq_start %x, ptxdesc->txinfo->seqnum %x \n",tid->seq_start, ptxdesc->txinfo->seqnum);
+            AML_PRINT(AML_LOG_ID_XMIT, AML_LOG_LEVEL_DEBUG,"<running> ptxdesc->txdesc_pktnum=1,tidq_qcnt %d, txlist_qcnt %d \n",txlist->txds_pending_cnt,txlist->txlist_qcnt);
             ret = drv_to_hal(drv_priv, txlist, &tx_queue);
             KASSERT(ret>=0, ("drv_to_hal"));
             break;
@@ -3110,7 +3108,7 @@ drv_tid_drain(struct drv_private *drv_priv,
 
     tid->seq_next = tid->seq_start;
     tid->baw_tail = tid->baw_head;
-    AML_OUTPUT("baw_head %x\n", tid->baw_head);
+    AML_PRINT_LOG_INFO("baw_head %x\n", tid->baw_head);
 }
 
 static void
@@ -3372,7 +3370,7 @@ int drv_tx_get_mgmt_frm_rate(struct drv_private *drv_priv,
             break;
 
         default:
-            AML_OUTPUT("<running> vm_mac_mode =%d ERROR\n", wnet_vif->vm_mac_mode);
+            AML_PRINT_LOG_INFO("<running> vm_mac_mode =%d ERROR\n", wnet_vif->vm_mac_mode);
             break;
     }
     return 0;
@@ -3384,14 +3382,14 @@ void drv_special_data_pkt_is_complete(struct drv_txdesc *ptxdesc, unsigned char 
 
     if (mac_pkt_info->b_arp) {
         if (mac_pkt_info->op_type == 1) {
-            AML_PRINT(AML_DBG_MODULES_FILTER, "[TX], arp req success:%d\n", is_tx_ok);
+            AML_PRINT(AML_LOG_ID_FILTER,AML_LOG_LEVEL_DEBUG, "[TX], arp req success:%d\n", is_tx_ok);
         } else if (mac_pkt_info->op_type == 2) {
-            AML_PRINT(AML_DBG_MODULES_FILTER, "[TX], arp rsp success:%d\n", is_tx_ok);
+            AML_PRINT(AML_LOG_ID_FILTER,AML_LOG_LEVEL_DEBUG, "[TX], arp rsp success:%d\n", is_tx_ok);
         }
     }
 
     if (mac_pkt_info->b_dhcp) {
-        printk("[TX], dhcp status:%d, success:%d\n", mac_pkt_info->op_type, is_tx_ok);
+        AML_PRINT(AML_LOG_ID_LOG, AML_LOG_LEVEL_INFO,"[TX], dhcp status:%d, success:%d\n", mac_pkt_info->op_type, is_tx_ok);
     }
 }
 

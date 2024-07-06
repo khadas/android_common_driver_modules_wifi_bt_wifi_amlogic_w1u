@@ -12,6 +12,7 @@
  ****************************************************************************************
  */
 
+#ifndef CONFIG_USB_CLOSE
 #ifdef HAL_SIM_VER
 #ifdef FW_NAME
 namespace FW_NAME
@@ -63,7 +64,7 @@ int aml_usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
 {
     int ret;
     if (!wifi_usb_access) {
-        ERROR_DEBUG_OUT("usb bulk disable\n");
+        AML_PRINT_LOG_ERR("usb bulk disable\n");
         return -ENOMEM;
     }
     ret = usb_bulk_msg(usb_dev, pipe, data, len, actual_length, timeout);
@@ -76,7 +77,7 @@ int aml_usb_control_msg(struct usb_device *dev, unsigned int pipe, unsigned char
 {
     int ret;
     if (!wifi_usb_access) {
-        ERROR_DEBUG_OUT("usb control disable\n");
+        AML_PRINT_LOG_ERR("usb control disable\n");
         return -ENOMEM;
     }
     ret = usb_control_msg(dev, pipe, request, requesttype, value, index, data, size, timeout);
@@ -108,7 +109,7 @@ void usb_stor_control_msg(unsigned long data)
     /*submit urb*/
     ret = usb_submit_urb(g_urb, GFP_ATOMIC);
     if (ret < 0) {
-        ERROR_DEBUG_OUT("usb_submit_urb failed %d\n", ret);
+        AML_PRINT_LOG_ERR("usb_submit_urb failed %d\n", ret);
     }
 }
 
@@ -122,8 +123,8 @@ unsigned int reg_read(unsigned int addr, unsigned int len)
     struct usb_device *udev = hif->udev;
 #if defined (HAL_FPGA_VER)
     data = (unsigned char *)ZMALLOC(len,"reg tmp",GFP_DMA | GFP_ATOMIC);
-    if(!data) {
-        ERROR_DEBUG_OUT("data malloc fail\n");
+    if (!data) {
+        AML_PRINT_LOG_ERR("data malloc fail\n");
         return -ENOMEM;
     }
 #ifdef REG_CTRL_EP0
@@ -137,7 +138,7 @@ unsigned int reg_read(unsigned int addr, unsigned int len)
                           addr_h, addr_l,data, len, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret < 0)
     {
-        ERROR_DEBUG_OUT("Failed to usb_control_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_control_msg, ret %d\n", ret);
         FREE(data,"reg tmp");
         return ret;
     }
@@ -149,7 +150,7 @@ unsigned int reg_read(unsigned int addr, unsigned int len)
     /* cmd stage */
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1),(void *)g_cbw_buf, sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         FREE(data,"reg tmp");
         USB_END_LOCK();
         return ret;
@@ -157,7 +158,7 @@ unsigned int reg_read(unsigned int addr, unsigned int len)
     /* data stage */
     ret = aml_usb_bulk_msg(udev, usb_rcvbulkpipe(udev, USB_EP1), (void *)data, len, &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         FREE(data,"reg tmp");
         USB_END_LOCK();
         return ret;
@@ -196,7 +197,7 @@ int reg_write(unsigned int addr, unsigned int value, unsigned int len)
                           0, 0, req_buf, sizeof(req_buf), AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret < 0)
     {
-        AML_OUTPUT("Failed to usb_control_msg, ret %d\n", ret);
+        AML_PRINT_LOG_INFO("Failed to usb_control_msg, ret %d\n", ret);
         return ret;
     }
 #else
@@ -206,7 +207,7 @@ int reg_write(unsigned int addr, unsigned int value, unsigned int len)
     /* cmd stage */
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1),(void *) g_cbw_buf, sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         USB_END_LOCK();
         return ret;
     }
@@ -230,6 +231,30 @@ int reg_write(unsigned int addr, unsigned int value, unsigned int len)
 #endif
 }
 
+unsigned int efuse_write(unsigned int addr, unsigned int efuse_data)
+{
+    int ret;
+    unsigned int efuse_data_len = 4;
+    struct hw_interface *hif = hif_get_hw_interface();
+    struct usb_device *udev = hif->udev;
+    unsigned int actual_length;
+
+    USB_BEGIN_LOCK();
+    aml_usb_build_cbw(g_cbw_buf, AML_XFER_TO_DEVICE, 0, CMD_WRITE_EFUSE, addr, efuse_data, efuse_data_len);
+    /* cmd stage */
+    ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1),(void *) g_cbw_buf, sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
+    if (ret) {
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, data: %d\n", ret, addr, efuse_data);
+        USB_END_LOCK();
+        return ret;
+    }
+    USB_END_LOCK();
+
+    AML_PRINT_LOG_INFO("[WRITE] efuse[%x]:%08x",addr,efuse_data);
+
+    return actual_length;
+}
+
 unsigned int efuse_read(unsigned int addr, unsigned int len)
 {
     unsigned int reg_data = 0;
@@ -239,8 +264,8 @@ unsigned int efuse_read(unsigned int addr, unsigned int len)
     struct hw_interface *hif = hif_get_hw_interface();
     struct usb_device *udev = hif->udev;
     data = (unsigned char *)ZMALLOC(len,"reg tmp",GFP_DMA | GFP_ATOMIC);
-    if(!data) {
-        ERROR_DEBUG_OUT("data malloc fail\n");
+    if (!data) {
+        AML_PRINT_LOG_ERR("data malloc fail\n");
         return -ENOMEM;
     }
 
@@ -250,7 +275,7 @@ unsigned int efuse_read(unsigned int addr, unsigned int len)
     /* cmd stage */
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1),(void *)g_cbw_buf, sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         FREE(data,"reg tmp");
         USB_END_LOCK();
         return ret;
@@ -259,7 +284,7 @@ unsigned int efuse_read(unsigned int addr, unsigned int len)
     /* data stage */
     ret = aml_usb_bulk_msg(udev, usb_rcvbulkpipe(udev, USB_EP1), (void *)data, len, &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         FREE(data,"reg tmp");
         USB_END_LOCK();
         return ret;
@@ -321,15 +346,15 @@ void usb_write_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
     /* cmd stage */
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1), (void*)g_cbw_buf, sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         USB_END_LOCK();
         return;
     }
 
     kmalloc_buf = (unsigned char *)ZMALLOC(len, "usb_write_sram", GFP_DMA | GFP_ATOMIC);//virt_to_phys(fwICCM);
-    if(kmalloc_buf == NULL)
+    if (kmalloc_buf == NULL)
     {
-        ERROR_DEBUG_OUT("kmalloc buf fail\n");
+        AML_PRINT_LOG_ERR("kmalloc buf fail\n");
         USB_END_LOCK();
         return;
     }
@@ -337,7 +362,7 @@ void usb_write_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
     /* data stage */
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1), (void *)kmalloc_buf, len, &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         FREE(kmalloc_buf, "usb_write_sram");
         USB_END_LOCK();
         return;
@@ -366,22 +391,22 @@ void usb_read_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
     /* cmd stage */
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1), (void *)g_cbw_buf, sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         USB_END_LOCK();
         return;
     }
 
     kmalloc_buf = (unsigned char *)ZMALLOC(len, "usb_read_sram", GFP_DMA|GFP_ATOMIC);
-    if(kmalloc_buf == NULL)
+    if (kmalloc_buf == NULL)
     {
-        ERROR_DEBUG_OUT("kmalloc buf fail\n");
+        AML_PRINT_LOG_ERR("kmalloc buf fail\n");
         USB_END_LOCK();
         return;
     }
     /* data stage */
     ret = aml_usb_bulk_msg(udev, usb_rcvbulkpipe(udev, USB_EP1),(void *)kmalloc_buf, len, &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         FREE(kmalloc_buf, "usb_read_sram");
         USB_END_LOCK();
         return;
@@ -390,7 +415,7 @@ void usb_read_sram(unsigned int addr, unsigned char *pdata, unsigned int len)
     memcpy(pdata, kmalloc_buf, len);
     FREE(kmalloc_buf, "usb_read_sram");
 #elif defined (HAL_SIM_VER)
-    AML_OUTPUT("[HOST]AML_USB_READ_SRAM:addr:0x%x,len:%d\n", addr, len);
+    AML_PRINT_LOG_INFO("[HOST]AML_USB_READ_SRAM:addr:0x%x,len:%d\n", addr, len);
     crg_msc_request(len, CRG_XFER_TO_HOST, CMD_READ_SRAM, addr, 0, len, (unsigned int *)pdata);
 #endif
 }
@@ -428,8 +453,7 @@ int wifi_iccm_download(unsigned char *src, unsigned int len)
     /* cmd stage */
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1), (void *)g_cbw_buf, sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, base_addr, len);
         USB_END_LOCK();
         return 1;
     }
@@ -444,13 +468,13 @@ int wifi_iccm_download(unsigned char *src, unsigned int len)
         /* data stage */
         ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1), (void*)src+offset, trans_len, &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
         if (ret) {
-            ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+            AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, base_addr, len);
             FREE(g_cbw_buf,"cmd stage");
             USB_END_LOCK();
             return 1;
         }
 
-        AML_OUTPUT("wifi_iccm_download actual_length = 0x%x\n", actual_length);
+        AML_PRINT_LOG_INFO("wifi_iccm_download actual_length = 0x%x\n", actual_length);
         offset += actual_length;
     }
 
@@ -476,13 +500,13 @@ int wifi_iccm_download(unsigned char *src, unsigned int len)
         len -= databyte;
     } while(len > 0);
 
-    if(memcmp(buf_iccm_rd, src, ICCM_CHECK_LEN)) {
-        AML_OUTPUT("Host HAL: write ICCM ERROR!!!! \n");
+    if (memcmp(buf_iccm_rd, src, ICCM_CHECK_LEN)) {
+        AML_PRINT_LOG_INFO("Host HAL: write ICCM ERROR!!!! \n");
     } else {
-        AML_OUTPUT("Host HAL: write ICCM SUCCESS!!!! \n");
+        AML_PRINT_LOG_INFO("Host HAL: write ICCM SUCCESS!!!! \n");
     }
 
-    AML_OUTPUT("stop iccm check \n");
+    AML_PRINT_LOG_INFO("stop iccm check \n");
 #endif
 
 #elif defined (HAL_SIM_VER)
@@ -513,13 +537,13 @@ int wifi_dccm_download(unsigned char *src, unsigned int len)
     struct hw_interface* hif = hif_get_hw_interface();
     struct usb_device *udev = hif->udev;
 
-    AML_OUTPUT("dccm_downld, addr 0x%x, len %d \n", src, len);
+    AML_PRINT_LOG_INFO("dccm_download, addr 0x%x, len %d \n", src, len);
     aml_usb_build_cbw(g_cbw_buf, AML_XFER_TO_DEVICE, len, CMD_DOWNLOAD_WIFI, base_addr, 0, len);
     USB_BEGIN_LOCK();
     /* cmd stage */
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1), (void*)g_cbw_buf,sizeof(*g_cbw_buf),&actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, base_addr, len);
         FREE(g_cbw_buf,"cmd stage");
         USB_END_LOCK();
         return 1;
@@ -535,23 +559,23 @@ int wifi_dccm_download(unsigned char *src, unsigned int len)
         /* data stage */
         ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1),(void *)src+offset, trans_len, &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
         if (ret) {
-            ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n",ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, base_addr, len);
             FREE(g_cbw_buf,"cmd stage");
             USB_END_LOCK();
             return 1;
         }
 
-        AML_OUTPUT("wifi_dccm_download actual_length = 0x%x\n", actual_length);
+        AML_PRINT_LOG_INFO("wifi_dccm_download actual_length = 0x%x\n", actual_length);
         offset += actual_length;
     }
 
     USB_END_LOCK();
 #elif defined (HAL_SIM_VER)
-    PRINT("dccm_downld, addr 0x%x, len %d \n", addr, len);
+    PRINT("dccm_download, addr 0x%x, len %d \n", addr, len);
     while (offset < len) {
         if (offset + trans_len > len)
             trans_len = len - offset;
-        PRINT("dccm_downld, addr+offset 0x%x, actual_len %d \n", base_addr + offset, trans_len);
+        PRINT("dccm_download, addr+offset 0x%x, actual_len %d \n", base_addr + offset, trans_len);
         crg_msc_request(trans_len, CRG_XFER_TO_DEVICE, CMD_DOWNLOAD_WIFI,
             base_addr + offset/*dest*/, (unsigned long)addr/*src*/, trans_len, NULL);
         offset += trans_len;
@@ -577,7 +601,7 @@ int wifi_fw_download(void)
 
     src = (unsigned char *)fw->data;
     if (fw->size < ICCM_RAM_LEN + DCCM_LEN) {
-        AML_OUTPUT("fw size:0x%x is too short!\n", fw->size);
+        AML_PRINT_LOG_INFO("fw size:0x%x is too short!\n", fw->size);
         release_firmware(fw);
         err = 2;
         return err;
@@ -588,17 +612,17 @@ int wifi_fw_download(void)
      * skip iccm rom code, 0 to ICCM_ROM_LEN-1 for iccm rom,
      * ICCM_ROM_LEN to ICCM_RAM_LEN-1 for iccm ram.
      */
-    AML_OUTPUT("start download iccm ram\n");
+    AML_PRINT_LOG_INFO("start download iccm ram\n");
 #else
-    AML_OUTPUT("start download iccm rom and ram\n");
+    AML_PRINT_LOG_INFO("start download iccm rom and ram\n");
 #endif
 
 #if defined (HAL_FPGA_VER)
     len = ICCM_RAM_LEN;
     PRINT("Sram size 0x%x\n",SRAM_LEN);
     kmalloc_buf = (unsigned char *)ZMALLOC(len, "usb_write", GFP_DMA | GFP_ATOMIC);//virt_to_phys(fwICCM);
-    if(kmalloc_buf == NULL) {
-        ERROR_DEBUG_OUT("kmalloc buf fail\n");
+    if (kmalloc_buf == NULL) {
+        AML_PRINT_LOG_ERR("kmalloc buf fail\n");
         release_firmware(fw);
         err = 1;
         return err;
@@ -615,7 +639,7 @@ int wifi_fw_download(void)
 
     FREE(kmalloc_buf, "usb_write");
 #elif defined (HAL_SIM_VER)
-    AML_OUTPUT("len %d, addr 0x%x\n", len, src);
+    AML_PRINT_LOG_INFO("len %d, addr 0x%x\n", len, src);
     len = ICCM_ALL_LEN;
 
     wifi_iccm_download(src, len);
@@ -649,7 +673,7 @@ int start_wifi(void)
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1),(void *) g_cbw_buf, sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     USB_END_LOCK();
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d\n", ret);
         return 1;
     }
 
@@ -674,7 +698,7 @@ int stop_wifi(void)
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1), (void *)g_cbw_buf, sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     USB_BEGIN_LOCK();
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n",ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d\n", ret);
         return 1;
     }
 
@@ -718,7 +742,7 @@ int aml_usb_enable_scatter(void)
     scat_req = ZMALLOC(sizeof(struct amlw_hif_scatter_req), "usb_alloc_prep_scat_req", GFP_ATOMIC|GFP_DMA);
     if (scat_req == NULL)
     {
-        ERROR_DEBUG_OUT("[usb sg alloc_scat_req]: no mem\n");
+        AML_PRINT_LOG_ERR("[usb sg alloc_scat_req]: no mem\n");
         return 1;
     }
 
@@ -790,7 +814,7 @@ void aml_usb_scat_complete (struct amlw_hif_scatter_req * scat_req)
     }
     else
     {
-        ERROR_DEBUG_OUT("error: no complete function\n");
+        AML_PRINT_LOG_ERR("error: no complete function\n");
     }
 
     scat_req->free = true;
@@ -815,7 +839,7 @@ void usb_recv_frame(unsigned int addr, unsigned char *pdata, unsigned int len)
     /* cmd stage */
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1), (void *)g_cbw_buf,sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("%s:%d, Failed to usb_bulk_msg, ret %d\n", __func__, __LINE__, ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         USB_END_LOCK();
         return;
     }
@@ -823,7 +847,7 @@ void usb_recv_frame(unsigned int addr, unsigned char *pdata, unsigned int len)
     /* data stage */
     ret = aml_usb_bulk_msg(udev, usb_rcvbulkpipe(udev, USB_EP1), pdata, len, &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n", ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, addr: 0x%x, len: %d\n", ret, addr, len);
         USB_END_LOCK();
         return;
     }
@@ -924,7 +948,7 @@ int aml_usb_send_frame(struct amlw_hif_scatter_req * pframe)
     ret = aml_usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_EP1),
         g_cbw_buf, sizeof(*g_cbw_buf), &actual_length, AML_USB_CONTROL_MSG_TIMEOUT);
     if (ret) {
-        ERROR_DEBUG_OUT("Failed to usb_bulk_msg, ret %d\n",ret);
+        AML_PRINT_LOG_ERR("Failed to usb_bulk_msg, ret %d, actual_len: %d\n", ret, actual_length);
         USB_END_LOCK();
         return 1;
     }
@@ -1111,7 +1135,7 @@ int aml_usb_send_packet(struct amlw_hif_scatter_req * scat_req)
 
             if (sg_count > (MAXSG_SIZE - page_num * 2))
             {
-                AML_OUTPUT("sg_count > MAXSG_SIZE, sg_count:%d, page_num:%d, scat_count:%d\n", sg_count, page_num, scat_req->scat_count);
+                AML_PRINT_LOG_INFO("sg_count > MAXSG_SIZE, sg_count:%d, page_num:%d, scat_count:%d\n", sg_count, page_num, scat_req->scat_count);
                 break;
             }
             ttl_page_num += page_num;
@@ -1190,14 +1214,14 @@ int aml_usb_send_packet(struct amlw_hif_scatter_req * scat_req)
 
         if (ret)
         {
-            AML_OUTPUT("usb_sg_init fail ret = %d\n", ret);
+            AML_PRINT_LOG_INFO("usb_sg_init fail ret = %d\n", ret);
             return ret;
         }
 
         usb_sg_wait(&sgr);
         if (sgr.status != 0)
         {
-            AML_OUTPUT("usb_sg_wait fail  %d\n", sgr.status);
+            AML_PRINT_LOG_INFO("usb_sg_wait fail  %d\n", sgr.status);
             return -1;
         }
     }
@@ -1275,6 +1299,7 @@ int aml_usb_init(void)
     int ret = 0;
     struct hw_interface * hif = hif_get_hw_interface();
     struct hal_private * hal_priv = hal_get_priv();
+    struct usb_hcd *p_usb_hcd;
 
     if (!auc_driver_insmoded) {
         aml_usb_insmod();
@@ -1292,19 +1317,19 @@ int aml_usb_init(void)
 
     g_buffer = ZMALLOC(2*sizeof(int), "fw_stat",GFP_DMA | GFP_ATOMIC);
     if (!g_buffer) {
-        ERROR_DEBUG_OUT("malloc fail!\n");
+        AML_PRINT_LOG_ERR("malloc fail!\n");
         return -ENOMEM;
     }
 
     g_cr =  ZMALLOC(sizeof(struct usb_ctrlrequest), "fw_stat",GFP_DMA | GFP_ATOMIC);
     if (!g_cr) {
-        ERROR_DEBUG_OUT("malloc fail!\n");
+        AML_PRINT_LOG_ERR("malloc fail!\n");
         return -ENOMEM;
     }
 
     g_urb = usb_alloc_urb(0, GFP_ATOMIC);
     if (!g_urb) {
-        ERROR_DEBUG_OUT("error,no urb!\n");
+        AML_PRINT_LOG_ERR("error,no urb!\n");
         return -ENOMEM;
     }
     tx_status_list_init(&(hif->tx_status_list), WIFI_MAX_TXFRAME*2);
@@ -1324,7 +1349,7 @@ int aml_usb_init(void)
     if ((hal_priv->hal_call_back != NULL)
         &&(hal_priv->hal_call_back->dev_probe != NULL))
     {
-        AML_OUTPUT("hal_priv->hal_call_back->dev_probe\n");
+        AML_PRINT_LOG_INFO("hal_priv->hal_call_back->dev_probe\n");
         /*call driver probe to create vmac0 and vmac1 eventually*/
         ret = hal_priv->hal_call_back->dev_probe();
         if (ret < 0)
@@ -1339,7 +1364,9 @@ int aml_usb_init(void)
 
     usb_stor_control_msg((unsigned long)hal_priv);
     hal_priv->hst_if_irq_en = 1;
-    PRINT("aml_usb_probe-- ret %d\n", ret);
+    p_usb_hcd = container_of(hif->udev->bus, struct usb_hcd, self);
+    irq_set_affinity_hint(p_usb_hcd->irq, cpumask_of(0));
+    PRINT("aml_usb_init, usb_irq_num:%d, ret:%d\n", p_usb_hcd->irq, ret);
 
     if (aml_wifi_is_enable_rf_test()) {
         mib_init();
@@ -1395,7 +1422,7 @@ extern unsigned char recovery_notify_bt;
 extern unsigned char recovery_done;
 void aml_usb_disable_wifi(void)
 {
-    AML_OUTPUT("enter\n");
+    AML_PRINT_LOG_INFO("enter\n");
     wifi_usb_access = 0;
 
     recovery_notify_bt = 1;
@@ -1416,7 +1443,7 @@ void aml_usb_disable_wifi(void)
     while (auc_driver_probed == 0) {
         msleep(100);
     }
-    AML_OUTPUT("usb power cycle ok\n");
+    AML_PRINT_LOG_INFO("usb power cycle ok\n");
 }
 
 void aml_usb_enable_wifi(void)
@@ -1439,7 +1466,7 @@ void aml_usb_exit(void)
 {
     struct hal_private * hal_priv = hal_get_priv();
     struct hw_interface * hif = hif_get_hw_interface();
-    AML_OUTPUT("--------aml_usb:disconnect-------\n");
+    AML_PRINT_LOG_INFO("--------aml_usb:disconnect-------\n");
     hal_priv->powersave_init_flag = 1;
 
     if (wifi_usb_access) {
@@ -1510,19 +1537,19 @@ static int aml_usb_probe(struct usb_interface *interface, const struct usb_devic
 
     g_buffer = ZMALLOC(2*sizeof(int), "fw_stat",GFP_DMA | GFP_ATOMIC);
     if (!g_buffer) {
-        ERROR_DEBUG_OUT("malloc fail!\n");
+        AML_PRINT_LOG_ERR("malloc fail!\n");
          return -ENOMEM;
     }
 
     g_cr =  ZMALLOC(sizeof(struct usb_ctrlrequest), "fw_stat",GFP_DMA | GFP_ATOMIC);
     if (!g_cr) {
-        ERROR_DEBUG_OUT("malloc fail!\n");
+        AML_PRINT_LOG_ERR("malloc fail!\n");
          return -ENOMEM;
     }
 
     g_urb = usb_alloc_urb(0, GFP_ATOMIC);
     if (!g_urb) {
-        ERROR_DEBUG_OUT("error,no urb!\n");
+        AML_PRINT_LOG_ERR("error,no urb!\n");
         return -ENOMEM;
     }
     ret = hal_init_priv();
@@ -1619,34 +1646,34 @@ int aml_usb_init(void)
     int err = 0;
 
     g_cbw_buf = ZMALLOC(sizeof(*g_cbw_buf),"cmd stage",GFP_DMA | GFP_ATOMIC);
-    if(!g_cbw_buf) {
-        ERROR_DEBUG_OUT("g_cbw_buf malloc fail\n");
+    if (!g_cbw_buf) {
+        AML_PRINT_LOG_ERR("g_cbw_buf malloc fail\n");
         return -ENOMEM;;
     }
     memset(g_cbw_buf,0,sizeof(struct crg_msc_cbw ));
 
     g_buffer = ZMALLOC(2*sizeof(int), "fw_stat",GFP_DMA | GFP_ATOMIC);
     if (!g_buffer) {
-        ERROR_DEBUG_OUT("malloc fail!\n");
+        AML_PRINT_LOG_ERR("malloc fail!\n");
          return -ENOMEM;
     }
 
     g_cr =  ZMALLOC(sizeof(struct usb_ctrlrequest), "fw_stat",GFP_DMA | GFP_ATOMIC);
     if (!g_cr) {
-        ERROR_DEBUG_OUT("malloc fail!\n");
+        AML_PRINT_LOG_ERR("malloc fail!\n");
          return -ENOMEM;
     }
 
     g_urb = usb_alloc_urb(0, GFP_ATOMIC);
     if (!g_urb) {
-        ERROR_DEBUG_OUT("error,no urb!\n");
+        AML_PRINT_LOG_ERR("error,no urb!\n");
         return -ENOMEM;
     }
 
     err = usb_register(&aml_usb_driver);
     PRINT("*****************aml usb driver init start...********************\n");
 
-    if(err) {
+    if (err) {
         PRINT("failed to register usb driver: %d \n", err);
     }
 
@@ -1678,6 +1705,7 @@ void aml_usb_exit(void)
 #ifdef HAL_SIM_VER
 #ifdef FW_NAME
 }
+#endif
 #endif
 #endif
 
