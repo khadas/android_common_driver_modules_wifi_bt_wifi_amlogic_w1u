@@ -210,7 +210,39 @@ vm_cfg80211_default_mgmt_stypes[NUM_NL80211_IFTYPES] =
     },
 };
 
+#if defined(IEEE80211_MLD_MAX_NUM_LINKS)
+#define CFG80211_SINGLE_NETDEV_MULTI_LINK_SUPPORT 1
+#endif
 
+static void aml_cfg80211_ch_switch_notify(struct net_device *dev,
+    struct cfg80211_chan_def *chandef, unsigned int link_id)
+{
+#if ((defined (CONFIG_AMLOGIC_KERNEL_VERSION) && defined (AML_KERNEL_VERSION)) && (\
+    (CONFIG_AMLOGIC_KERNEL_VERSION == 13515 && AML_KERNEL_VERSION >= 15)\
+    || (CONFIG_AMLOGIC_KERNEL_VERSION == 14515 && AML_KERNEL_VERSION >= 12) ) )\
+    || (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
+    return cfg80211_ch_switch_notify(dev, &chandef, link_id, 0);
+#elif defined (CFG80211_SINGLE_NETDEV_MULTI_LINK_SUPPORT)
+    return cfg80211_ch_switch_notify(dev, &chandef, link_id);
+#else
+    return cfg80211_ch_switch_notify(dev, &chandef);
+#endif
+}
+
+static void aml_cfg80211_ch_switch_started_notify(struct net_device *dev,
+    struct cfg80211_chan_def *chandef, unsigned int link_id, u8 count, bool quiet)
+{
+#if ((defined (CONFIG_AMLOGIC_KERNEL_VERSION) && defined (AML_KERNEL_VERSION)) && (\
+    (CONFIG_AMLOGIC_KERNEL_VERSION == 13515 && AML_KERNEL_VERSION >= 15)\
+    || (CONFIG_AMLOGIC_KERNEL_VERSION == 14515 && AML_KERNEL_VERSION >= 12) ) )\
+    || (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
+    return cfg80211_ch_switch_started_notify(dev, &chandef, link_id, count, quiet, 0);
+#elif defined (CFG80211_SINGLE_NETDEV_MULTI_LINK_SUPPORT)
+    return cfg80211_ch_switch_started_notify(dev, &chandef, link_id, count, quiet);
+#else
+    return cfg80211_ch_switch_started_notify(dev, &chandef, count);
+#endif
+}
 
 static void aml_2g_channels_init(struct ieee80211_channel *channels)
 {
@@ -5416,25 +5448,9 @@ void vm_cfg80211_chan_switch_notify_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TY
         vmac_chan->chan_bw, vmac_chan->chan_cfreq1, start);
 
     if (start) {
-    #if CFG80211_VERSION_CODE >= KERNEL_VERSION(5,15,0)
-    #if (defined (AML_KERNEL_VERSION) && AML_KERNEL_VERSION < 15) || LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
-        cfg80211_ch_switch_started_notify(ndev, &chandef, 0, wnet_vif->vm_wmac->wm_doth_tbtt, 0);/*#define CSA_BLOCK_TX            1*/
-    #else
-        cfg80211_ch_switch_started_notify(ndev, &chandef, 0, wnet_vif->vm_wmac->wm_doth_tbtt, 0, 0);/*#define CSA_BLOCK_TX            1*/
-    #endif
-    #else
-        cfg80211_ch_switch_started_notify(ndev, &chandef, wnet_vif->vm_wmac->wm_doth_tbtt);
-    #endif
+        aml_cfg80211_ch_switch_started_notify(ndev, &chandef, 0, wnet_vif->vm_wmac->wm_doth_tbtt, 0);/*#define CSA_BLOCK_TX            1*/
     } else {
-    #if CFG80211_VERSION_CODE >= KERNEL_VERSION(5,15,0)
-    #if (defined (AML_KERNEL_VERSION) && AML_KERNEL_VERSION < 15) || LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
-        cfg80211_ch_switch_notify(ndev, &chandef, 0);
-    #else
-        cfg80211_ch_switch_notify(ndev, &chandef, 0, 0);
-    #endif
-    #else
-        cfg80211_ch_switch_notify(ndev, &chandef);
-    #endif
+        aml_cfg80211_ch_switch_notify(ndev, &chandef, 0);
         wnet_vif->csa_target.switch_chan = NULL;
     }
 
